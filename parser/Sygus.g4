@@ -29,6 +29,10 @@ cmd : funDefCmd
     | sortDefCmd
     | setOptsCmd
     | varDeclCmd
+    //for inv
+    | synthInvCmd
+    | declarePrimedVar
+    | invConstraintCmd
     ;
 
 varDeclCmd : '(' 'declare-var' symbol sortExpr ')'
@@ -163,6 +167,7 @@ constraintCmd : '(' 'constraint' term ')'
 
 synthFunCmd : '(' 'synth-fun' symbol argList sortExpr
               '(' nTDefPlus ')' ')'
+            | '(' 'synth-fun' symbol argList sortExpr ')'
             ;
 
 gTerm : symbol
@@ -191,6 +196,17 @@ letBindingGTerm : '(' symbol sortExpr gTerm ')'
 gTermStar : gTerm gTermStar
           | //epsilon
           ;
+
+synthInvCmd : '(' 'synth-inv' symbol argList
+              '(' nTDefPlus ')' ')'
+            | '(' 'synth-inv' symbol argList ')'
+            ;
+
+declarePrimedVar : '(' 'declare-primed-var' symbol sortExpr ')'
+                 ;
+
+invConstraintCmd : '(' 'inv-constraint' symbol symbol symbol symbol ')'
+                 ;
 
 WS : ( ' ' | '\t' | '\f' | '\n' )+ -> skip
   ; 
