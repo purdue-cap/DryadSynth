@@ -14,9 +14,9 @@ public class Sygus {
 
 		try{
 			parser.start();
-			System.out.print("Accepted");
+			System.out.println("Accepted");
 		} catch(Exception ex) {
-			System.out.print("Not Accepted");
+			System.out.println("Not Accepted");
 		}
 
 	}
