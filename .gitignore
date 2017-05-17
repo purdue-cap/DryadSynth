@@ -1,3 +1,8 @@
+# direnv Environments
 .env/
 .direnv/
 .envrc
+
+# Parser builds
+parser/classes/
+parser/build/
