@@ -2,7 +2,7 @@ import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 
-public class Sygus {
+public class Validate {
 	public static void main(String[] args) throws Exception {
 		ANTLRFileStream input = new ANTLRFileStream(args[0]);
 		SygusLexer lexer = new SygusLexer(input);
@@ -26,5 +26,5 @@ class CustomErrorStrategy extends DefaultErrorStrategy{
 	@Override
 	public void reportError(Parser recognizer, RecognitionException e){
 		throw e;
-	}	
+	}
 }
