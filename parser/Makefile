@@ -1,5 +1,6 @@
 LIB_ANTLR := lib/antlr.jar
-LIB := $(LIB_ANTLR):classes:build:src:$(CLASSPATH)
+LIB_Z3 := lib/com.microsoft.z3.jar
+LIB := $(LIB_Z3):$(LIB_ANTLR):classes:build:src:$(CLASSPATH)
 NAME := Sygus
 GRAMMAR_SCRIPT := $(NAME).g4
 PARSER_CLASS_NAMES := BaseListener Lexer Listener Parser
