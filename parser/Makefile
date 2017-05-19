@@ -1,5 +1,5 @@
 LIB_ANTLR := lib/antlr.jar
-LIB := $(LIB_ANTLR):classes:build:src
+LIB := $(LIB_ANTLR):classes:build:src:$(CLASSPATH)
 NAME := Sygus
 GRAMMAR_SCRIPT := $(NAME).g4
 PARSER_CLASS_NAMES := BaseListener Lexer Listener Parser
