@@ -2,6 +2,7 @@ import java.util.*;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
+import com.microsoft.z3.*;
 
 public class Extract {
 	public static void main(String[] args) throws Exception {
@@ -9,6 +10,7 @@ public class Extract {
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		SygusParser parser = new SygusParser(tokens);
+		Context z3ctx = new Context();
 
 		ANTLRErrorStrategy es = new CustomErrorStrategy();
 		parser.setErrorHandler(es);
@@ -23,15 +25,15 @@ public class Extract {
 		}
 
 		ParseTreeWalker walker = new ParseTreeWalker();
-		SygusExtractor extractor = new SygusExtractor();
+		SygusExtractor extractor = new SygusExtractor(z3ctx);
 		walker.walk(extractor, tree);
 
-		for(SygusExtractor.SynthRequest request : extractor.requests) {
-			System.out.println("Name:" + request.name);
-			for(Map.Entry<String, String> entry : request.arguments.entrySet()) {
-				System.out.println("Argument:" + entry.getKey() + " Type:" + entry.getValue());
+		for(FuncDecl func : extractor.requests.values()) {
+			System.out.println("Name:" + func.getName());
+			for(Sort sort : func.getDomain()) {
+				System.out.println("Has argument with type " + sort.getName());
 			}
-			System.out.println("Return Type:" + request.returnType);
+			System.out.println("Return type is " + func.getRange().getName());
 		}
 	}
 }
