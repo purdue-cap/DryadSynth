@@ -1,8 +1,0 @@
-It seems work.
-
-Since bison creates LR parser but antlr creates LL parser, instead of simply copying and pasting
-, I slightly changed the grammer to avoid left resursive issues.
-
-Grammar updated.
-
-Benchmarks uploaded.
