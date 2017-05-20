@@ -36,13 +36,14 @@ public class Cegis {
 	public void cegis() {
 		
 		boolean flag = true;
-		//int k = 0;
+		int k = 0;
 
 		while(flag) {
 
-			//k = k + 1;
+			k = k + 1;
 
 			Verifier testVerifier = new Verifier(ctx, numVar, numFunc, var);
+			//testVerifier.s.push();
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
@@ -60,6 +61,7 @@ public class Cegis {
 					
 					System.out.println(testVerifier.s.getModel());
 					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), numVar, var);
+					//testVerifier.s.pop();
 					IntExpr[] cntrExmp = decoder.decode();
 					counterExamples.add(cntrExmp);
 					//print out for debug
@@ -103,6 +105,7 @@ public class Cegis {
 						flag = false;
 					} else if (synth == Status.SATISFIABLE) {
 						SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numVar, numFunc);
+						//testSynthesizer.s.pop();
 						//print out for debug
 						System.out.println("Start decoding synthesizer output............");
 						functions = synthDecoder.generateFunction(var);

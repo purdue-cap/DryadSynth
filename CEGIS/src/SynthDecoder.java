@@ -51,6 +51,53 @@ public class SynthDecoder {
 		return v;
 	}
 
+/*	public ArithExpr[][] getPoly() {
+		ArithExpr[][] poly = new ArithExpr[numFunc][bound];
+
+		IntExpr[][][] coeff = evaluteCoefficient();
+
+		for (int k = 0; k < numFunc; k++) {
+			for (int i = 0; i < bound; i++) {
+				poly[k][i] = coeff[k][i][0];
+
+				for (int j = 1; j < numCoeff; j++) {
+					poly[k][i] = ctx.mkAdd(poly[k][i], ctx.mkMul(coeff[k][i][j], var[j - 1]));
+				}
+			}
+		}
+
+		return poly;
+
+	}
+
+	public ArithExpr[] generateFunction() {
+		ArithExpr[][] p = getPoly();
+		String[][] v = evaluteValid();
+		ArithExpr[][] f = new ArithExpr[numFunc][bound];
+		ArithExpr[] functions = new ArithExpr[numFunc];
+
+		for (int j = 0; j < numFunc; j++) {
+			for (int i = bound - 1; i >= 0; i--) {
+				if (i < ((bound - 1)/2)) {
+					BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
+
+					if (v[j][i].equals("true")) {
+						f[j][i] = (ArithExpr) ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
+					} else {
+						f[j][i] = p[j][i];
+					}
+
+				} else {
+					f[j][i] = p[j][i];
+				}
+			}
+			functions[j] = f[j][0];
+		}
+
+		return functions;
+
+	}*/
+
 	public ArithExpr[] generateFunction(IntExpr[] var) {
 		ArithExpr[][] p = new ArithExpr[numFunc][bound];
 		IntExpr[][][] coeff = evaluteCoefficient();

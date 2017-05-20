@@ -48,7 +48,6 @@ public class Expand {
 	public void declareEval() {
 		Sort intSort = ctx.getIntSort();
 
-		//Sort[] domain = { intSort, intSort, intSort };
 		Sort[] domain = new Sort[numVar + 2];
 		for (int i = 0; i < numVar + 2; i++) {
 			domain[i] = intSort;
@@ -65,6 +64,25 @@ public class Expand {
 
 	public IntExpr[][][] getCoefficients() {
 		return c;
+	}
+
+	public BoolExpr expandCoefficient() {
+
+		BoolExpr coefficientProp = ctx.mkTrue();
+
+		for (int i = 0; i < numFunc; i++) {
+			for (int j = 0; j < bound; j++) {
+				BoolExpr cProp = ctx.mkTrue();
+
+				for (int k = 1; k < numVar + 1; k++) {
+					cProp = ctx.mkAnd(cProp, ctx.mkEq(c[i][j][k], ctx.mkInt(0)));
+				}
+
+				coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp));
+			}			
+		}
+
+		return coefficientProp;
 	}
 
 	public BoolExpr expandValid() {
