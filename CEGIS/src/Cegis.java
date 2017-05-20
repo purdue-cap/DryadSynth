@@ -37,13 +37,20 @@ public class Cegis {
 
 	public void addRandomInitialExamples(int numVar) {
 
-		int numExamples = (int)Math.pow(2, numVar);
+		int numExamples = (int)Math.pow(2, numVar) + 1;
 
 		for (int i = 0; i < numExamples; i++) {
 			IntExpr[] randomExample = new IntExpr[numVar];
 			for (int j = 0; j < numVar; j++) {
 				Random rand = new Random();
-				int  n = rand.nextInt(1000);
+				int n;
+				int randomFlag = rand.nextInt(1000);
+				if (randomFlag%2 == 0) {
+					n = rand.nextInt(1000);
+				} else {
+					n = -rand.nextInt(1000);
+
+				}
 				randomExample[j] = ctx.mkInt(n);
 			}
 			counterExamples.add(randomExample);
@@ -54,7 +61,9 @@ public class Cegis {
 	public void cegis() {
 		
 		boolean flag = true;
-		int k = 0;
+		int heightBound = 1;
+
+		int k = 0;	//number of iterations
 
 		//print out initial examples
 		for (IntExpr[] example : counterExamples) {
@@ -68,8 +77,9 @@ public class Cegis {
 
 			k = k + 1;
 
+			System.out.println("Start verifying............");
 			Verifier testVerifier = new Verifier(ctx, numVar, numFunc, var);
-			//testVerifier.s.push();
+
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
@@ -87,7 +97,7 @@ public class Cegis {
 					
 					System.out.println(testVerifier.s.getModel());
 					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), numVar, var);
-					//testVerifier.s.pop();
+
 					IntExpr[] cntrExmp = decoder.decode();
 					counterExamples.add(cntrExmp);
 					//print out for debug
@@ -99,55 +109,48 @@ public class Cegis {
 						System.out.println();
 					}
 
-					/*if (k == 6) {
-						counterExamples.clear();
-						IntExpr[] var1 = {ctx.mkInt(-2), ctx.mkInt(-2)};
-						IntExpr[] var2 = {ctx.mkInt(0), ctx.mkInt(-3)};
-						IntExpr[] var3 = {ctx.mkInt(0), ctx.mkInt(-1)};
-						IntExpr[] var4 = {ctx.mkInt(-1), ctx.mkInt(-1)};
-						IntExpr[] var5 = {ctx.mkInt(-3), ctx.mkInt(0)};
-						IntExpr[] var6 = {ctx.mkInt(-5), ctx.mkInt(2)};
-						counterExamples.add(var1);
-						counterExamples.add(var2);
-						counterExamples.add(var3);
-						counterExamples.add(var4);
-						counterExamples.add(var5);
-						counterExamples.add(var6);
-					}*/
+					boolean unsat = true;
 
-					Synthesizer testSynthesizer = new Synthesizer(ctx, numVar, numFunc, counterExamples);
-					//print out for debug
-					System.out.println("Start synthesizing............");
-					//testSynthesizer.s.push();
-					Status synth = testSynthesizer.synthesis();
-					//print out for debug
-					System.out.println("Synthesizing Done!");
+					while(unsat) {
 
-					if (synth == Status.UNSATISFIABLE) {
-						System.out.println("Synthesizer Error : Unsatisfiable!");
-						flag = false;
-					} else if (synth == Status.UNKNOWN) {
-						System.out.println("Synthesizer Error : Unknown!");
-						flag = false;
-					} else if (synth == Status.SATISFIABLE) {
-						SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numVar, numFunc);
-						//testSynthesizer.s.pop();
+						Synthesizer testSynthesizer = new Synthesizer(ctx, numVar, numFunc, counterExamples, heightBound);
 						//print out for debug
-						System.out.println("Start decoding synthesizer output............");
-						functions = synthDecoder.generateFunction(var);
+						System.out.println("Start synthesizing............");
+
+						Status synth = testSynthesizer.synthesis();
 						//print out for debug
-						System.out.println("Synthesizer output decode done!");
-						//print out for debug
-						for (int i = 0; i < numFunc; i++) {
-							System.out.println("f" + i + " : " + functions[i]);
+						System.out.println("Synthesis Done!");
+
+						if (synth == Status.UNSATISFIABLE) {
+							System.out.println("Synthesizer Error : Unsatisfiable!");
+							heightBound = heightBound + 1;
+							//flag = false;
+						} else if (synth == Status.UNKNOWN) {
+							System.out.println("Synthesizer Error : Unknown!");
+							flag = false;
+							unsat = false;
+						} else if (synth == Status.SATISFIABLE) {
+
+							unsat = false;
+
+							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numVar, numFunc);
+							//print out for debug
+							System.out.println("Start decoding synthesizer output............");
+							functions = synthDecoder.generateFunction(var);
+							//print out for debug
+							System.out.println("Synthesizer output decode done!");
+							//print out for debug
+							for (int i = 0; i < numFunc; i++) {
+								System.out.println("f" + i + " : " + functions[i]);
+							}
+							System.out.println();
 						}
-						System.out.println();
 					}
+
 				}
 
-				/*if (k == 6) {
-					flag = false;
-				}*/
+			System.out.println("Iteration : " + k);
+			System.out.println();
 
 		}
 		
