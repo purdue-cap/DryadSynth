@@ -1,6 +1,5 @@
 import java.util.*;
 import java.io.*;
-import java.lang.Math;
 import com.microsoft.z3.*;
 
 public class Synthesizer {
@@ -97,6 +96,7 @@ public class Synthesizer {
 		s.push();
 
 		BoolExpr q = ctx.mkAnd(e.expandValid(), e.expandCoefficient());
+		//BoolExpr q = e.expandValid();
 		for (IntExpr[] params : counterExamples) {
 			q = ctx.mkAnd(q, e.expandEval(params));
 			q = ctx.mkAnd(q, max(e.eval, params));

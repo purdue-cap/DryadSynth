@@ -1,4 +1,5 @@
 import java.util.*;
+//import java.util.Random;
 import com.microsoft.z3.*;
 
 public class Cegis {
@@ -21,6 +22,7 @@ public class Cegis {
 		counterExamples = new HashSet<IntExpr[]>();
 
 		init();
+		addRandomInitialExamples(numVar);
 	}
 
 	public void init() {
@@ -33,10 +35,34 @@ public class Cegis {
 		}
 	}
 
+	public void addRandomInitialExamples(int numVar) {
+
+		int numExamples = (int)Math.pow(2, numVar);
+
+		for (int i = 0; i < numExamples; i++) {
+			IntExpr[] randomExample = new IntExpr[numVar];
+			for (int j = 0; j < numVar; j++) {
+				Random rand = new Random();
+				int  n = rand.nextInt(1000);
+				randomExample[j] = ctx.mkInt(n);
+			}
+			counterExamples.add(randomExample);
+		}
+		
+	}
+
 	public void cegis() {
 		
 		boolean flag = true;
 		int k = 0;
+
+		//print out initial examples
+		for (IntExpr[] example : counterExamples) {
+			for (int i = 0; i < numVar; i++) {
+				System.out.println("initial example: var" + i + " : " + example[i]);
+			}
+			System.out.println();
+		}
 
 		while(flag) {
 

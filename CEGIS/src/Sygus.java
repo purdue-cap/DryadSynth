@@ -80,7 +80,7 @@ class Sygus {
     	});
 
 		try {
-			future.get(60, TimeUnit.SECONDS);
+			future.get(120, TimeUnit.SECONDS);
 		} catch (TimeoutException e) {
 			System.out.println("Terminated!");
         	future.cancel(true);
