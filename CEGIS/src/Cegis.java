@@ -40,7 +40,7 @@ public class Cegis {
 		int numExamples = (int)Math.pow(4, numVar) + 1;
 		//int numExamples = (int)Math.pow(3, numVar) + 1;
 		//int numExamples = (int)Math.pow(2, numVar) + 1;
-		//int numExamples = 3;
+		//int numExamples = 100;
 
 		for (int i = 0; i < numExamples; i++) {
 			IntExpr[] randomExample = new IntExpr[numVar];

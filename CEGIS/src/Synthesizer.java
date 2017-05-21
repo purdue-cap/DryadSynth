@@ -71,8 +71,8 @@ public class Synthesizer {
 		//BoolExpr q = e.expandValid();
 		for (IntExpr[] params : counterExamples) {
 			q = ctx.mkAnd(q, e.expandEval(params));
-			q = ctx.mkAnd(q, max2(e.eval, params));
-			//q = ctx.mkAnd(q, max3(e.eval, params));
+			//q = ctx.mkAnd(q, max2(e.eval, params));
+			q = ctx.mkAnd(q, max3(e.eval, params));
 		}
 
 		s.add(q);

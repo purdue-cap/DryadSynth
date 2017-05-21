@@ -25,8 +25,8 @@ class Sygus {
 				cfg.put("model", "true");
 				Context ctx = new Context(cfg);
 
-				int numVar = 2;	//for max2
-				//int numVar = 3;	//for max3
+				//int numVar = 2;	//for max2
+				int numVar = 3;	//for max3
 				int numFunc = 1;
 				
 				Cegis test = new Cegis(ctx, numVar, numFunc);

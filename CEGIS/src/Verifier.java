@@ -39,8 +39,8 @@ public class Verifier {
 
 	public Status verify(ArithExpr[] functions) {
 
-		BoolExpr spec = max2Prop(functions);
-		//BoolExpr spec = max3Prop(functions);
+		//BoolExpr spec = max2Prop(functions);
+		BoolExpr spec = max3Prop(functions);
 
 		s.push();
 		s.add(ctx.mkNot(spec));

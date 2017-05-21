@@ -73,12 +73,14 @@ public class Expand {
 		for (int i = 0; i < numFunc; i++) {
 			for (int j = 0; j < bound; j++) {
 				BoolExpr cProp = ctx.mkTrue();
+				BoolExpr coefficientConstraint = ctx.mkAnd(ctx.mkLe(c[i][j][0], ctx.mkInt(5)), ctx.mkGe(c[i][j][0], ctx.mkInt(-5)));
 
 				for (int k = 1; k < numVar + 1; k++) {
 					cProp = ctx.mkAnd(cProp, ctx.mkEq(c[i][j][k], ctx.mkInt(0)));
+					coefficientConstraint = ctx.mkAnd(coefficientConstraint, ctx.mkLe(c[i][j][k], ctx.mkInt(5)), ctx.mkGe(c[i][j][k], ctx.mkInt(-5)));
 				}
 
-				coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp));
+				coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp), coefficientConstraint);
 			}			
 		}
 
