@@ -37,18 +37,21 @@ public class Cegis {
 
 	public void addRandomInitialExamples(int numVar) {
 
-		int numExamples = (int)Math.pow(2, numVar) + 1;
+		int numExamples = (int)Math.pow(4, numVar) + 1;
+		//int numExamples = (int)Math.pow(3, numVar) + 1;
+		//int numExamples = (int)Math.pow(2, numVar) + 1;
+		//int numExamples = 3;
 
 		for (int i = 0; i < numExamples; i++) {
 			IntExpr[] randomExample = new IntExpr[numVar];
 			for (int j = 0; j < numVar; j++) {
 				Random rand = new Random();
 				int n;
-				int randomFlag = rand.nextInt(1000);
+				int randomFlag = rand.nextInt(10);
 				if (randomFlag%2 == 0) {
-					n = rand.nextInt(1000);
+					n = rand.nextInt(10);
 				} else {
-					n = -rand.nextInt(1000);
+					n = -rand.nextInt(10);
 
 				}
 				randomExample[j] = ctx.mkInt(n);

@@ -32,18 +32,6 @@ public class Synthesizer {
 		this.e = new Expand(bound, ctx, numVar, numFunc);
 	}
 
-	public void checkAndGetModel() {
-		System.out.println(s);
-		if (s.check() == Status.UNSATISFIABLE) {
-			System.out.println("Unsatisfiable!");
-		} else if (s.check() == Status.UNKNOWN) {
-			System.out.println("Unknown!");
-		}else if (s.check() == Status.SATISFIABLE) {
-			System.out.println("Satisfiable! Here is the model:");
-            System.out.println(s.getModel());
-		}
-	}
-
 	/*public BoolExpr maxProp(FuncDecl eval, IntExpr a, IntExpr b) {
 		BoolExpr maxProp = ctx.mkOr(ctx.mkAnd(ctx.mkGe(a, b), ctx.mkEq(ctx.mkApp(eval, a, b, ctx.mkInt(0), ctx.mkInt(0)), a))
 			, ctx.mkAnd(ctx.mkLt(a, b), ctx.mkEq(ctx.mkApp(eval, a, b, ctx.mkInt(0), ctx.mkInt(0)), b)));
@@ -51,16 +39,28 @@ public class Synthesizer {
 		return maxProp;
 	}*/
 
-	public BoolExpr max(FuncDecl eval, IntExpr[] cntrExmp) {
+	public BoolExpr max2(FuncDecl eval, IntExpr[] cntrExmp) {
 		//BoolExpr maxProp = ctx.mkOr(ctx.mkAnd(ctx.mkGe(cntrExmp[0], cntrExmp[1]), ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0]))
 		//	, ctx.mkAnd(ctx.mkLt(cntrExmp[0], cntrExmp[1]), ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])));
 
-		BoolExpr maxProp = ctx.mkAnd(ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
+		BoolExpr max2Prop = ctx.mkAnd(ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
 			, ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])
 			, ctx.mkOr(ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
 				, ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])));
 
-		return maxProp;
+		return max2Prop;
+	}
+
+	public BoolExpr max3(FuncDecl eval, IntExpr[] cntrExmp) {
+
+		BoolExpr max3Prop = ctx.mkAnd(ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
+			, ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])
+			, ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[2])
+			, ctx.mkOr(ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
+				, ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])
+				, ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[2])));
+
+		return max3Prop;
 	}
 
 	public Status synthesis() {
@@ -71,7 +71,8 @@ public class Synthesizer {
 		//BoolExpr q = e.expandValid();
 		for (IntExpr[] params : counterExamples) {
 			q = ctx.mkAnd(q, e.expandEval(params));
-			q = ctx.mkAnd(q, max(e.eval, params));
+			q = ctx.mkAnd(q, max2(e.eval, params));
+			//q = ctx.mkAnd(q, max3(e.eval, params));
 		}
 
 		s.add(q);

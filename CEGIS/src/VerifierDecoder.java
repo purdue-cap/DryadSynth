@@ -19,7 +19,7 @@ public class VerifierDecoder {
 		IntExpr[] counterExample = new IntExpr[numVar];
 
 		for (int i = 0; i < numVar; i++) {
-			counterExample[i] = (IntExpr) model.evaluate(var[i], false);
+			counterExample[i] = (IntExpr) model.evaluate(var[i], true);
 		}
 
 		return counterExample;

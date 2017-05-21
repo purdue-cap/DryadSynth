@@ -17,19 +17,30 @@ public class Verifier {
 		this.var = var;
 	}
 
-	public BoolExpr maxProp(ArithExpr[] functions) {
-		//BoolExpr maxProp = ctx.mkOr(ctx.mkAnd(ctx.mkGe(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[0]))
+	public BoolExpr max2Prop(ArithExpr[] functions) {
+		//BoolExpr max2Prop = ctx.mkOr(ctx.mkAnd(ctx.mkGe(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[0]))
 		//	, ctx.mkAnd(ctx.mkLt(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[1])));
 
-		BoolExpr maxProp = ctx.mkAnd(ctx.mkGe(functions[0], var[0]), ctx.mkGe(functions[0], var[1])
+		BoolExpr max2Prop = ctx.mkAnd(ctx.mkGe(functions[0], var[0]), ctx.mkGe(functions[0], var[1])
 			, ctx.mkOr(ctx.mkEq(functions[0], var[0]), ctx.mkEq(functions[0], var[1])));
 
-		return maxProp;
+		return max2Prop;
+	}
+
+	public BoolExpr max3Prop(ArithExpr[] functions) {
+		//BoolExpr max2Prop = ctx.mkOr(ctx.mkAnd(ctx.mkGe(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[0]))
+		//	, ctx.mkAnd(ctx.mkLt(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[1])));
+
+		BoolExpr max3Prop = ctx.mkAnd(ctx.mkGe(functions[0], var[0]), ctx.mkGe(functions[0], var[1]), ctx.mkGe(functions[0], var[2])
+			, ctx.mkOr(ctx.mkEq(functions[0], var[0]), ctx.mkEq(functions[0], var[1]), ctx.mkEq(functions[0], var[2])));
+
+		return max3Prop;
 	}
 
 	public Status verify(ArithExpr[] functions) {
 
-		BoolExpr spec = maxProp(functions);
+		BoolExpr spec = max2Prop(functions);
+		//BoolExpr spec = max3Prop(functions);
 
 		s.push();
 		s.add(ctx.mkNot(spec));
