@@ -77,13 +77,17 @@ public class Synthesizer {
 
 		s.add(q);
 
-		/*try {
-		PrintWriter writer2 = new PrintWriter("s4.txt", "UTF-8");
+		try {
+		PrintWriter writer2 = new PrintWriter("s.smt2", "UTF-8");
+		writer2.println("(set-logic QF_UFLIA)");
+		writer2.println("(set-option :produce-models true)");
 		writer2.println(s);
+		writer2.println("(check-sat)");
+		writer2.println("(get-model)");
 		writer2.close();
 		} catch (IOException e) {
    			System.out.println("Print out error");
-		}*/
+		}
 
 		//System.out.println("Synthesizing... Formula: ");
 		//System.out.println(s);

@@ -37,10 +37,10 @@ public class Cegis {
 
 	public void addRandomInitialExamples(int numVar) {
 
-		int numExamples = (int)Math.pow(4, numVar) + 1;
-		//int numExamples = (int)Math.pow(3, numVar) + 1;
+		//int numExamples = (int)Math.pow(4, numVar) + 1;
+		int numExamples = (int)Math.pow(3, numVar) + 1;
 		//int numExamples = (int)Math.pow(2, numVar) + 1;
-		//int numExamples = 100;
+		//int numExamples = 90;
 
 		for (int i = 0; i < numExamples; i++) {
 			IntExpr[] randomExample = new IntExpr[numVar];
@@ -135,6 +135,7 @@ public class Cegis {
 						} else if (synth == Status.SATISFIABLE) {
 
 							unsat = false;
+							//flag = false;	//for test only
 
 							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numVar, numFunc);
 							//print out for debug
