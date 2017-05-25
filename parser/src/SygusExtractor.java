@@ -12,7 +12,7 @@ public class SygusExtractor extends SygusBaseListener {
     enum CmdType {
         SYNTHFUNC, FUNCDEF, CONSTRAINT, DECLVAR, NONE
     }
-    CmdType currentCmd;
+    CmdType currentCmd = CmdType.NONE;
     boolean currentOnArgList = false;
 
     public SortedMap<String, FuncDecl> requests = new TreeMap<String, FuncDecl>();
@@ -87,6 +87,14 @@ public class SygusExtractor extends SygusBaseListener {
 
     public void exitConstraintCmd(SygusParser.ConstraintCmdContext ctx) {
         constraints.add((Expr)termStack.pop());
+        currentCmd = CmdType.NONE;
+    }
+
+    public void enterFunDefCmd(SygusParser.FunDefCmdContext ctx){
+        currentCmd = CmdType.FUNCDEF;
+    }
+
+    public void exitFunDefCmd(SygusParser.FunDefCmdContext ctx){
         currentCmd = CmdType.NONE;
     }
 
