@@ -15,10 +15,10 @@ public class SygusExtractor extends SygusBaseListener {
     CmdType currentCmd = CmdType.NONE;
     boolean currentOnArgList = false;
 
-    public SortedMap<String, FuncDecl> requests = new TreeMap<String, FuncDecl>();
+    public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>();
     List<Sort> currentArgList;
 
-    public SortedMap<String, Expr> vars = new TreeMap<String, Expr>();
+    public Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
     public List<Expr> constraints = new ArrayList<Expr>();
     Stack<Object> termStack = new Stack<Object>();
 
@@ -45,8 +45,8 @@ public class SygusExtractor extends SygusBaseListener {
             return argstr.toString() + " -> " + definition.toString();
         }
     }
-    public SortedMap<String, DefinedFunc> funcs = new TreeMap<String, DefinedFunc>();
-    SortedMap<String, Expr> defFuncVars;
+    public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
+    Map<String, Expr> defFuncVars;
 
     Sort strToSort(String name) {
         Sort sort;
@@ -123,7 +123,7 @@ public class SygusExtractor extends SygusBaseListener {
 
     public void enterFunDefCmd(SygusParser.FunDefCmdContext ctx){
         currentCmd = CmdType.FUNCDEF;
-        defFuncVars = new TreeMap<String, Expr>();
+        defFuncVars = new LinkedHashMap<String, Expr>();
     }
 
     public void exitFunDefCmd(SygusParser.FunDefCmdContext ctx){
