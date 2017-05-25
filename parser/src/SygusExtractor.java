@@ -22,6 +22,32 @@ public class SygusExtractor extends SygusBaseListener {
     public List<Expr> constraints = new ArrayList<Expr>();
     Stack<Object> termStack = new Stack<Object>();
 
+    public class DefinedFunc {
+        DefinedFunc(String n, Expr[] argList, Expr def) {
+            name = n;
+            args = argList;
+            definition = def;
+        }
+        String name;
+        Expr [] args;
+        Expr definition;
+        public Expr apply(Expr... argList){
+            return definition.substitute(args, argList);
+        }
+        public String getName() {
+            return name;
+        }
+        public String toString() {
+            List<String> argstr = new ArrayList<String>();
+            for (Expr expr : args) {
+                argstr.add(expr.toString());
+            }
+            return argstr.toString() + " -> " + definition.toString();
+        }
+    }
+    public SortedMap<String, DefinedFunc> funcs = new TreeMap<String, DefinedFunc>();
+    SortedMap<String, Expr> defFuncVars;
+
     Sort strToSort(String name) {
         Sort sort;
         switch(name) {
@@ -67,6 +93,11 @@ public class SygusExtractor extends SygusBaseListener {
             Sort type = strToSort(ctx.sortExpr().getText());
             currentArgList.add(type);
         }
+        if (currentCmd == CmdType.FUNCDEF && currentOnArgList) {
+            Sort type = strToSort(ctx.sortExpr().getText());
+            String name = ctx.symbol().getText();
+            defFuncVars.put(name, z3ctx.mkConst(name, type));
+        }
     }
 
     public void enterVarDeclCmd(SygusParser.VarDeclCmdContext ctx) {
@@ -92,18 +123,34 @@ public class SygusExtractor extends SygusBaseListener {
 
     public void enterFunDefCmd(SygusParser.FunDefCmdContext ctx){
         currentCmd = CmdType.FUNCDEF;
+        defFuncVars = new TreeMap<String, Expr>();
     }
 
     public void exitFunDefCmd(SygusParser.FunDefCmdContext ctx){
+        String name = ctx.symbol().getText();
+        Expr[] argList = defFuncVars.values().toArray(new Expr[defFuncVars.size()]);
+        Expr def = (Expr)termStack.pop();
+        DefinedFunc func = new DefinedFunc(name, argList, def);
+        funcs.put(name, func);
         currentCmd = CmdType.NONE;
     }
 
     public void enterTerm(SygusParser.TermContext ctx) {
-        if (currentCmd == CmdType.CONSTRAINT) {
+        if (currentCmd == CmdType.CONSTRAINT ||
+            currentCmd == CmdType.FUNCDEF) {
             int numChildren = ctx.getChildCount();
             if (numChildren == 1) {
                 if (ctx.symbol() != null) {
-                    termStack.push(vars.get(ctx.symbol().getText()));
+                    String name = ctx.symbol().getText();
+                    if (currentCmd == CmdType.CONSTRAINT) {
+                        termStack.push(vars.get(name));
+                    }
+                    if (currentCmd == CmdType.FUNCDEF) {
+                        Object localVar = defFuncVars.get(name);
+                        termStack.push(localVar == null ?
+                                        vars.get(name) :
+                                        localVar);
+                    }
                 } else if (ctx.literal() != null) {
                     termStack.push(literalToExpr(ctx.literal()));
                 }
@@ -127,7 +174,8 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void exitTerm(SygusParser.TermContext ctx){
-        if (currentCmd == CmdType.CONSTRAINT) {
+        if (currentCmd == CmdType.CONSTRAINT ||
+            currentCmd == CmdType.FUNCDEF) {
             if (ctx.getChildCount()!= 1) {
                 List<Expr> args = new ArrayList<Expr>();
                 Object top = termStack.pop();
@@ -185,6 +233,10 @@ public class SygusExtractor extends SygusBaseListener {
         }
         if (name.equals("=>")) {
             return z3ctx.mkImplies((BoolExpr)args[0], (BoolExpr)args[1]);
+        }
+        DefinedFunc df = funcs.get(name);
+        if (df != null) {
+            return df.apply(args);
         }
         FuncDecl f = requests.get(name);
         if (f != null) {
