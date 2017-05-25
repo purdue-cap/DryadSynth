@@ -47,7 +47,7 @@ public class SygusExtractor extends SygusBaseListener {
 
     public void exitSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
         String name = ctx.symbol().getText();
-        Sort[] argList = currentArgList.toArray(new Sort[0]);
+        Sort[] argList = currentArgList.toArray(new Sort[currentArgList.size()]);
         Sort returnType = strToSort(ctx.sortExpr().getText());
         FuncDecl func = z3ctx.mkFuncDecl(name, argList, returnType);
         requests.put(name, func);
