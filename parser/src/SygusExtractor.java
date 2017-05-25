@@ -27,10 +27,12 @@ public class SygusExtractor extends SygusBaseListener {
             name = n;
             args = argList;
             definition = def;
+            numArgs = argList.length;
         }
         String name;
         Expr [] args;
         Expr definition;
+        int numArgs;
         public Expr apply(Expr... argList){
             return definition.substitute(args, argList);
         }
@@ -43,6 +45,9 @@ public class SygusExtractor extends SygusBaseListener {
                 argstr.add(expr.toString());
             }
             return argstr.toString() + " -> " + definition.toString();
+        }
+        public int getNumArgs() {
+            return numArgs;
         }
     }
     public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
@@ -135,6 +140,36 @@ public class SygusExtractor extends SygusBaseListener {
         currentCmd = CmdType.NONE;
     }
 
+    void symbolDispatcher(String name, boolean checkLocal) {
+        Expr var;
+        if (checkLocal) {
+            var = defFuncVars.get(name);
+            if (var != null) {
+                termStack.push(var);
+                return;
+            }
+        }
+        var = vars.get(name);
+        if (var != null) {
+            termStack.push(var);
+            return;
+        }
+        if (checkLocal) {
+            DefinedFunc df = funcs.get(name);
+            if (df != null && df.getNumArgs() == 0) {
+                termStack.push(df.apply());
+                return;
+            }
+        }
+        FuncDecl f = requests.get(name);
+        if (f != null && f.getDomainSize() == 0) {
+            termStack.push(f.apply());
+            return;
+        }
+        termStack.push(null);
+        return;
+    }
+
     public void enterTerm(SygusParser.TermContext ctx) {
         if (currentCmd == CmdType.CONSTRAINT ||
             currentCmd == CmdType.FUNCDEF) {
@@ -142,15 +177,7 @@ public class SygusExtractor extends SygusBaseListener {
             if (numChildren == 1) {
                 if (ctx.symbol() != null) {
                     String name = ctx.symbol().getText();
-                    if (currentCmd == CmdType.CONSTRAINT) {
-                        termStack.push(vars.get(name));
-                    }
-                    if (currentCmd == CmdType.FUNCDEF) {
-                        Object localVar = defFuncVars.get(name);
-                        termStack.push(localVar == null ?
-                                        vars.get(name) :
-                                        localVar);
-                    }
+                    symbolDispatcher(name, currentCmd == CmdType.FUNCDEF);
                 } else if (ctx.literal() != null) {
                     termStack.push(literalToExpr(ctx.literal()));
                 }
