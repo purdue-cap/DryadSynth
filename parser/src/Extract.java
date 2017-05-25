@@ -28,12 +28,23 @@ public class Extract {
 		SygusExtractor extractor = new SygusExtractor(z3ctx);
 		walker.walk(extractor, tree);
 
+		System.out.println("Synth requests:");
 		for(FuncDecl func : extractor.requests.values()) {
 			System.out.println("Name:" + func.getName());
 			for(Sort sort : func.getDomain()) {
 				System.out.println("Has argument with type " + sort.getName());
 			}
 			System.out.println("Return type is " + func.getRange().getName());
+		}
+
+		System.out.println("Defined variables:");
+		for(Expr expr: extractor.vars.values()) {
+			System.out.println("Name:" + expr.toString() + " Type:" + expr.getSort().toString());
+		}
+
+		System.out.println("Constraints:");
+		for (Expr expr: extractor.constraints) {
+			System.out.println(expr);
 		}
 	}
 }
