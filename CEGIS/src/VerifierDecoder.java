@@ -5,32 +5,28 @@ public class VerifierDecoder {
 	
 	private Context ctx;
 	private Model model;
-	private IntExpr[] var;
+	private IntExpr[][] var;
 	private int numVar;
+	private int numFunc;
 
-	public VerifierDecoder(Context ctx, Model model, int numVar, IntExpr[] var) {
+	public VerifierDecoder(Context ctx, Model model, int numVar, int numFunc, IntExpr[][] var) {
 		this.ctx = ctx;
 		this.model = model;
 		this.numVar = numVar;
+		this.numFunc = numFunc;
 		this.var = var;
 	}
 
-	public IntExpr[] decode() {
-		IntExpr[] counterExample = new IntExpr[numVar];
+	public IntExpr[][] decode() {
+		IntExpr[][] counterExample = new IntExpr[numFunc][numVar];
 
-		for (int i = 0; i < numVar; i++) {
-			counterExample[i] = (IntExpr) model.evaluate(var[i], true);
+		for (int j = 0; j < numFunc; j++) {
+			for (int i = 0; i < numVar; i++) {
+				counterExample[j][i] = (IntExpr) model.evaluate(var[j][i], true);
+			}
 		}
 
 		return counterExample;
-	}
-
-	public void printOutput() {
-		IntExpr[] ex = decode();
-		for (int i = 0; i < numVar; i++) {
-			System.out.println("var" + i + " : " + ex[i]);
-		}
-		
 	}
 
 }

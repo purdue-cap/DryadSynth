@@ -74,6 +74,7 @@ public class Expand {
 			for (int j = 0; j < bound; j++) {
 				BoolExpr cProp = ctx.mkTrue();
 				//BoolExpr coefficientConstraint = ctx.mkAnd(ctx.mkLe(c[i][j][0], ctx.mkInt(9)), ctx.mkGe(c[i][j][0], ctx.mkInt(-9)));
+				//BoolExpr coefficientConstraint = ctx.mkEq(c[i][j][0], ctx.mkInt(0));
 
 				for (int k = 1; k < numVar + 1; k++) {
 					cProp = ctx.mkAnd(cProp, ctx.mkEq(c[i][j][k], ctx.mkInt(0)));
@@ -105,11 +106,11 @@ public class Expand {
 		return v;
 	}
 
-	public BoolExpr expandEval(IntExpr[] var) {
+	public BoolExpr expandEval(int k, IntExpr[] var) {
 
 		BoolExpr evalProperty = ctx.mkTrue();
 
-		for (int k = 0; k < numFunc; k++) {
+		//for (int k = 0; k < numFunc; k++) {
 			for (int i = 0; i < bound; i++) {
 				ArithExpr poly = c[k][i][0];
 
@@ -144,7 +145,7 @@ public class Expand {
 				evalProperty = ctx.mkAnd(evalProperty, ctx.mkImplies(valid[k][i], validEval));
 
 			}
-		}
+		//}
 
 		return evalProperty;
 	}
