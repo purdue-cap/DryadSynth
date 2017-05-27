@@ -22,34 +22,6 @@ public class SygusExtractor extends SygusBaseListener {
     public List<Expr> constraints = new ArrayList<Expr>();
     Stack<Object> termStack = new Stack<Object>();
 
-    public class DefinedFunc {
-        DefinedFunc(String n, Expr[] argList, Expr def) {
-            name = n;
-            args = argList;
-            definition = def;
-            numArgs = argList.length;
-        }
-        String name;
-        Expr [] args;
-        Expr definition;
-        int numArgs;
-        public Expr apply(Expr... argList){
-            return definition.substitute(args, argList);
-        }
-        public String getName() {
-            return name;
-        }
-        public String toString() {
-            List<String> argstr = new ArrayList<String>();
-            for (Expr expr : args) {
-                argstr.add(expr.toString());
-            }
-            return argstr.toString() + " -> " + definition.toString();
-        }
-        public int getNumArgs() {
-            return numArgs;
-        }
-    }
     public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
     Map<String, Expr> defFuncVars;
 

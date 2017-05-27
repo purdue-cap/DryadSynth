@@ -43,8 +43,8 @@ public class Extract {
 		}
 
 		System.out.println("Defined functions:");
-		for(SygusExtractor.DefinedFunc func: extractor.funcs.values()) {
-			System.out.println("Name:" + func.getName() + " Definition:" + func.toString()); 
+		for(DefinedFunc func: extractor.funcs.values()) {
+			System.out.println("Name:" + func.getName() + " Definition:" + func.toString());
 		}
 
 		System.out.println("Constraints:");
