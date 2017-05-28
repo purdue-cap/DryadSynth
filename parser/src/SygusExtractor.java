@@ -107,7 +107,7 @@ public class SygusExtractor extends SygusBaseListener {
         String name = ctx.symbol().getText();
         Expr[] argList = defFuncVars.values().toArray(new Expr[defFuncVars.size()]);
         Expr def = (Expr)termStack.pop();
-        DefinedFunc func = new DefinedFunc(name, argList, def);
+        DefinedFunc func = new DefinedFunc(z3ctx, name, argList, def);
         funcs.put(name, func);
         currentCmd = CmdType.NONE;
     }

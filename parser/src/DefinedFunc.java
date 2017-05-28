@@ -3,20 +3,23 @@ import com.microsoft.z3.*;
 
 public class DefinedFunc {
 
-    DefinedFunc(String name, Expr[] args, Expr definition) {
+    DefinedFunc(Context ctx, String name, Expr[] args, Expr definition) {
+        this.ctx = ctx;
         this.name = name;
         this.args = args;
         this.definition = definition;
         this.numArgs = args.length;
     }
 
-    DefinedFunc(Expr[] args, Expr definition) {
+    DefinedFunc(Context ctx, Expr[] args, Expr definition) {
+        this.ctx = ctx;
         this.name = null;
         this.args = args;
         this.definition = definition;
         this.numArgs = args.length;
     }
 
+    Context ctx;
     String name;
     Expr [] args;
     Expr definition;
