@@ -36,7 +36,7 @@ public class DefinedFunc {
 
         boolean visited;
         Expr expr, newExpr, body;
-        Expr [] args, newArgsArray, bodyArray;
+        Expr [] args, newArgsArray;
         List<Expr> newArgs = new ArrayList<Expr>();
         FuncDecl exprFunc;
         while (!todo.empty()) {
@@ -72,8 +72,7 @@ public class DefinedFunc {
                 body = ((Quantifier)expr).getBody();
                 if (cache.containsKey(body)) {
                     todo.pop();
-                    bodyArray = new Expr[]{ cache.get(body) };
-                    newExpr = expr.update(bodyArray);
+                    newExpr = expr.update(new Expr[]{ cache.get(body) });
                     cache.put(expr, newExpr);
                 } else {
                     todo.push(body);
