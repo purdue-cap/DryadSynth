@@ -67,8 +67,7 @@ public class DefinedFunc {
                     }
                     cache.put(expr, newExpr);
                 }
-            } else {
-                assert expr.isQuantifier();
+            } else if(expr.isQuantifier()) {
                 body = ((Quantifier)expr).getBody();
                 if (cache.containsKey(body)) {
                     todo.pop();
@@ -77,6 +76,9 @@ public class DefinedFunc {
                 } else {
                     todo.push(body);
                 }
+            } else {
+                todo.pop();
+                cache.put(expr, expr);
             }
         }
         return cache.get(orig);
