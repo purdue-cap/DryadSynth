@@ -19,7 +19,8 @@ public class SygusExtractor extends SygusBaseListener {
     List<Sort> currentArgList;
 
     public Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
-    public List<Expr> constraints = new ArrayList<Expr>();
+    public List<BoolExpr> constraints = new ArrayList<BoolExpr>();
+    public BoolExpr finalConstraint = null;
     Stack<Object> termStack = new Stack<Object>();
 
     public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
@@ -94,7 +95,13 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void exitConstraintCmd(SygusParser.ConstraintCmdContext ctx) {
-        constraints.add((Expr)termStack.pop());
+        BoolExpr cstrt = (BoolExpr)termStack.pop();
+        constraints.add(cstrt);
+        if (finalConstraint == null) {
+            finalConstraint = cstrt;
+        } else {
+            finalConstraint = z3ctx.mkAnd(finalConstraint, cstrt);
+        }
         currentCmd = CmdType.NONE;
     }
 
