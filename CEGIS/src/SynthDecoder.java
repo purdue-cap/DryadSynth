@@ -49,7 +49,7 @@ public class SynthDecoder {
 		return v;
 	}
 
-	public ArithExpr[] generateFunction(IntExpr[][] var) {
+	public ArithExpr[] generateFunction(IntExpr[] var) {
 		ArithExpr[][] p = new ArithExpr[numFunc][bound];
 		IntExpr[][][] coeff = evaluteCoefficient();
 		String[][] v = evaluteValid();
@@ -61,7 +61,7 @@ public class SynthDecoder {
 				p[k][i] = coeff[k][i][0];
 
 				for (int j = 1; j < numCoeff; j++) {
-					p[k][i] = ctx.mkAdd(p[k][i], ctx.mkMul(coeff[k][i][j], var[k][j - 1]));
+					p[k][i] = ctx.mkAdd(p[k][i], ctx.mkMul(coeff[k][i][j], var[j - 1]));
 				}
 			}
 		}

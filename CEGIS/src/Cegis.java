@@ -1,35 +1,41 @@
 import java.util.*;
-//import java.util.Random;
 import com.microsoft.z3.*;
 
 public class Cegis {
 	
 	private Context ctx;
+	private SygusExtractor extractor;
 	private int numVar;
 	private int numFunc;
 
-	public IntExpr[][] var;
+	public IntExpr[] var;
 	public ArithExpr[] functions;
-	public HashSet<IntExpr[][]> counterExamples;
+	public HashSet<IntExpr[]> counterExamples;
 
-	public Cegis(Context ctx, int numVar, int numFunc) {
+	public Cegis(Context ctx, SygusExtractor extractor) {
 		this.ctx = ctx;
-		this.numVar = numVar;
-		this.numFunc = numFunc;
+		this.extractor = extractor;
 
-		var = new IntExpr[numFunc][numVar];
+		ArrayList<Integer> argsNumList = new ArrayList<Integer>();
+		for(FuncDecl func : extractor.requests.values()) {
+			Integer argsNum = func.getDomain().length;
+			argsNumList.add(argsNum);
+		}
+
+		this.numVar = Collections.max(argsNumList);
+		this.numFunc = extractor.requests.size();
+
+		var = new IntExpr[numVar];
 		functions = new ArithExpr[numFunc];
-		counterExamples = new HashSet<IntExpr[][]>();
+		counterExamples = new HashSet<IntExpr[]>();
 
 		init();
-		//addRandomInitialExamples(numVar);
+		addRandomInitialExamples(numVar);
 	}
 
 	public void init() {
-		for (int j = 0; j < numFunc; j++) {
-			for (int i = 0; i < numVar; i++) {
-				var[j][i] = ctx.mkIntConst("f" + j + "_" + "var" + i);
-			}
+		for (int i = 0; i < numVar; i++) {
+			var[i] = ctx.mkIntConst("var" + i);
 		}
 
 		for (int i = 0; i < numFunc; i++) {
@@ -40,12 +46,12 @@ public class Cegis {
 	public void addRandomInitialExamples(int numVar) {
 
 		//int numExamples = (int)Math.pow(4, numVar) + 1;
-		//int numExamples = (int)Math.pow(3, numVar) + 1;
+		int numExamples = (int)Math.pow(3, numVar) + 1;
 		//int numExamples = (int)Math.pow(2, numVar) + 1;
-		int numExamples = 10;
+		//int numExamples = 90;
 
 		for (int i = 0; i < numExamples; i++) {
-			IntExpr[][] randomExample = new IntExpr[1][numVar];
+			IntExpr[] randomExample = new IntExpr[numVar];
 			for (int j = 0; j < numVar; j++) {
 				Random rand = new Random();
 				int n;
@@ -56,7 +62,7 @@ public class Cegis {
 					n = -rand.nextInt(10);
 
 				}
-				randomExample[0][j] = ctx.mkInt(n);
+				randomExample[j] = ctx.mkInt(n);
 			}
 			counterExamples.add(randomExample);
 		}
@@ -71,9 +77,9 @@ public class Cegis {
 		int k = 0;	//number of iterations
 
 		//print out initial examples
-		for (IntExpr[][] example : counterExamples) {
+		for (IntExpr[] example : counterExamples) {
 			for (int i = 0; i < numVar; i++) {
-				System.out.println("initial example: var" + i + " : " + example[0][i]);
+				System.out.println("initial example: var" + i + " : " + example[i]);
 			}
 			System.out.println();
 		}
@@ -101,23 +107,18 @@ public class Cegis {
 				} else if (v == Status.SATISFIABLE) {
 					
 					System.out.println(testVerifier.s.getModel());
-					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), numVar, numFunc, var);
+					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), numVar, var);
 
-					IntExpr[][] cntrExmp = decoder.decode();
+					IntExpr[] cntrExmp = decoder.decode();
 					counterExamples.add(cntrExmp);
 					//print out for debug
 					System.out.println("Verifier satisfiable! Here is all the counter example: ");
-					for (IntExpr[][] params : counterExamples) {
+					for (IntExpr[] params : counterExamples) {
 						for (int i = 0; i < numVar; i++) {
-							System.out.println("var" + i + " : " + params[0][i]);
+							System.out.println("var" + i + " : " + params[i]);
 						}
 						System.out.println();
 					}
-
-					//for test only
-					//if (k >= 2) {
-					//	break;
-					//}
 
 					boolean unsat = true;
 
@@ -144,7 +145,6 @@ public class Cegis {
 							unsat = false;
 							//flag = false;	//for test only
 
-							//System.out.println(testSynthesizer.s.getModel());
 							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numVar, numFunc);
 							//print out for debug
 							System.out.println("Start decoding synthesizer output............");

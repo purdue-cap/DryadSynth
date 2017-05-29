@@ -8,13 +8,13 @@ public class Synthesizer {
 	private Context ctx;
 	private int numVar;
 	private int numFunc;
-	private HashSet<IntExpr[][]> counterExamples;
+	private HashSet<IntExpr[]> counterExamples;
 
 	public int heightBound;
 	public int bound;
 	public Expand e;
 
-	public Synthesizer(Context ctx, int numVar, int numFunc, HashSet<IntExpr[][]> counterExamples, int heightBound) {
+	public Synthesizer(Context ctx, int numVar, int numFunc, HashSet<IntExpr[]> counterExamples, int heightBound) {
 		this.numVar = numVar;
 		this.numFunc = numFunc;
 		this.ctx = ctx;
@@ -63,29 +63,16 @@ public class Synthesizer {
 		return max3Prop;
 	}
 
-	public BoolExpr polynomial3(FuncDecl eval, IntExpr[] cntrExmp) {
-
-		ArithExpr fun1 = (ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0));
-		ArithExpr fun2 = (ArithExpr)ctx.mkApp(eval, cntrExmp[1], cntrExmp[0], ctx.mkInt(0), ctx.mkInt(1));
-
-		BoolExpr polynomial3Prop = ctx.mkEq(ctx.mkAdd(fun1, fun2), ctx.mkSub(ctx.mkAdd(cntrExmp[0], cntrExmp[1]), cntrExmp[0]));
-
-		return polynomial3Prop;
-	}
-
 	public Status synthesis() {
 
 		s.push();
 
 		BoolExpr q = ctx.mkAnd(e.expandValid(), e.expandCoefficient());
 		//BoolExpr q = e.expandValid();
-		for (IntExpr[][] params : counterExamples) {
-			for (int k = 0; k < numFunc; k++) {
-				q = ctx.mkAnd(q, e.expandEval(k, params[k]));
-			}			
-			//q = ctx.mkAnd(q, max2(e.eval, params));
+		for (IntExpr[] params : counterExamples) {
+			q = ctx.mkAnd(q, e.expandEval(params));
+			q = ctx.mkAnd(q, max2(e.eval, params));
 			//q = ctx.mkAnd(q, max3(e.eval, params));
-			q = ctx.mkAnd(q, polynomial3(e.eval, params[0]));
 		}
 
 		s.add(q);
