@@ -18,10 +18,14 @@ public class RewriteTest {
         Expr expr = ctx.mkAnd(ctx.mkGt((ArithExpr)f.apply(x1, x2), ctx.mkInt(1)),
                                 ctx.mkGe((ArithExpr)f.apply(x3, ctx.mkSub((ArithExpr)x1, ctx.mkInt(2))), ctx.mkInt(3)),
                                 ctx.mkLt((ArithExpr)f.apply(x4, ctx.mkAdd((ArithExpr)x1, ctx.mkInt(3))), ctx.mkInt(-1)));
+        BoolExpr rewritten1 = (BoolExpr)func1.rewrite(expr, f);
+        BoolExpr rewritten2 = (BoolExpr)func2.rewrite(expr, f);
         System.out.println("Original :" + expr);
         System.out.println("Func Def :" + func1);
-        System.out.println("Rewritten:" + func1.rewrite(expr, f));
+        System.out.println("Rewritten:" + rewritten1);
+        System.out.println("Sort     :" + rewritten1.getSort());
         System.out.println("Func Def :" + func2);
-        System.out.println("Rewritten:" + func2.rewrite(expr, f));
+        System.out.println("Rewritten:" + rewritten2);
+        System.out.println("Sort     :" + rewritten2.getSort());
     }
 }
