@@ -51,6 +51,9 @@ public class Extract {
 		for (Expr expr: extractor.constraints) {
 			System.out.println(expr);
 		}
+
+		System.out.println("Combined Constraints:");
+		System.out.println(extractor.finalConstraint);
 	}
 }
 
