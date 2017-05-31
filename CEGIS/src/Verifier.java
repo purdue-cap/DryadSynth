@@ -6,13 +6,15 @@ public class Verifier {
 	public Solver s;
 	private Context ctx;
 	private int numVar;
+	private int numV;
 	private int numFunc;
 	private IntExpr[] var;
 	private BoolExpr finalConstraint;
 	private SygusExtractor extractor;
 
-	public Verifier(Context ctx, int numVar, int numFunc, IntExpr[] var, SygusExtractor extractor) {
+	public Verifier(Context ctx, int numVar, int numV, int numFunc, IntExpr[] var, SygusExtractor extractor) {
 		this.numVar = numVar;
+		this.numV = numV;
 		this.numFunc = numFunc;
 		this.ctx = ctx;
 		this.s = ctx.mkSolver();
@@ -45,9 +47,12 @@ public class Verifier {
 
 		Expr spec = finalConstraint;
 
+		IntExpr[] vars = new IntExpr[numV];
+		System.arraycopy(var, 0, vars, 0, numV);
+
 		int i = 0;
 		for (FuncDecl f : extractor.requests.values()) {
-			DefinedFunc df = new DefinedFunc(ctx, var, functions[i]);
+			DefinedFunc df = new DefinedFunc(ctx, vars, functions[i]);
 			spec = df.rewrite(spec, f);
 			i = i + 1;
 		}

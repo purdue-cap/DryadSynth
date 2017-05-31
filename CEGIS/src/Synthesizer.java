@@ -7,6 +7,7 @@ public class Synthesizer {
 	public Solver s;
 	private Context ctx;
 	private int numVar;
+	private int numV;
 	private int numFunc;
 	private HashSet<IntExpr[]> counterExamples;
 	private SygusExtractor extractor;
@@ -15,8 +16,9 @@ public class Synthesizer {
 	public int bound;
 	public Expand e;
 
-	public Synthesizer(Context ctx, int numVar, int numFunc, HashSet<IntExpr[]> counterExamples, int heightBound, SygusExtractor extractor) {
+	public Synthesizer(Context ctx, int numVar, int numV, int numFunc, HashSet<IntExpr[]> counterExamples, int heightBound, SygusExtractor extractor) {
 		this.numVar = numVar;
+		this.numV = numV;
 		this.numFunc = numFunc;
 		this.ctx = ctx;
 		this.s = ctx.mkSolver();
@@ -24,7 +26,7 @@ public class Synthesizer {
 		this.extractor = extractor;
 		this.heightBound = heightBound;
 		this.bound = (int)Math.pow(2, heightBound) - 1;
-		this.e = new Expand(bound, ctx, numVar, numFunc);
+		this.e = new Expand(bound, ctx, numV, numFunc);
 	}
 
 	/*public BoolExpr max2(FuncDecl eval, IntExpr[] cntrExmp) {
@@ -64,10 +66,13 @@ public class Synthesizer {
 			variables[i] = ctx.mkIntConst("variables" + i);
 		}
 
+		IntExpr[] var = new IntExpr[numV];
+		System.arraycopy(variables, 0, var, 0, numV);
+
 		int k = 0;
 		for (FuncDecl f : extractor.requests.values()) {
-			Expr eval = e.generateEval(k, variables, 0);
-			DefinedFunc definedfunc = new DefinedFunc(ctx, variables, eval);
+			Expr eval = e.generateEval(k, var, 0);
+			DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
 			spec = definedfunc.rewrite(spec, f);
 			k = k + 1;
 		}

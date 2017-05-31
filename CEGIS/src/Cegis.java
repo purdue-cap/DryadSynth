@@ -6,6 +6,7 @@ public class Cegis {
 	private Context ctx;
 	private SygusExtractor extractor;
 	private int numVar;
+	private int numV;
 	private int numFunc;
 	private BoolExpr finalConstraint;
 
@@ -23,7 +24,8 @@ public class Cegis {
 			argsNumList.add(argsNum);
 		}
 
-		this.numVar = Collections.max(argsNumList);
+		this.numV = Collections.max(argsNumList);
+		this.numVar = extractor.vars.size();
 		this.numFunc = extractor.requests.size();
 		this.finalConstraint = extractor.finalConstraint;
 
@@ -32,7 +34,7 @@ public class Cegis {
 		counterExamples = new HashSet<IntExpr[]>();
 
 		init();
-		//addRandomInitialExamples();
+		addRandomInitialExamples();
 	}
 
 	public void init() {
@@ -48,7 +50,7 @@ public class Cegis {
 	public void addRandomInitialExamples() {
 
 		//int numExamples = (int)Math.pow(4, numVar) + 1;
-		int numExamples = (int)Math.pow(3, numVar) + 1;
+		int numExamples = (int)Math.pow(3, numV) + 1;
 		//int numExamples = (int)Math.pow(2, numVar) + 1;
 		//int numExamples = 90;
 
@@ -91,12 +93,12 @@ public class Cegis {
 			k = k + 1;
 
 			System.out.println("Start verifying............");
-			Verifier testVerifier = new Verifier(ctx, numVar, numFunc, var, extractor);
+			Verifier testVerifier = new Verifier(ctx, numVar, numV, numFunc, var, extractor);
 
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
-					System.out.println("Done! Here is the function: ");
+					System.out.println("Done! Synthesized function(s): ");
 					for (int i = 0; i < numFunc; i++) {
 						System.out.println("f" + i + " : " + functions[i]);
 					}
@@ -114,7 +116,7 @@ public class Cegis {
 					IntExpr[] cntrExmp = decoder.decode();
 					counterExamples.add(cntrExmp);
 					//print out for debug
-					System.out.println("Verifier satisfiable! Here is all the counter example: ");
+					System.out.println("Verifier satisfiable! Counter example(s): ");
 					for (IntExpr[] params : counterExamples) {
 						for (int i = 0; i < numVar; i++) {
 							System.out.println("var" + i + " : " + params[i]);
@@ -123,7 +125,7 @@ public class Cegis {
 					}
 
 					//for test only
-					//if (k >= 7) {
+					//if (k >= 10) {
 					//	break;
 					//}
 
@@ -131,7 +133,7 @@ public class Cegis {
 
 					while(unsat) {
 
-						Synthesizer testSynthesizer = new Synthesizer(ctx, numVar, numFunc, counterExamples, heightBound, extractor);
+						Synthesizer testSynthesizer = new Synthesizer(ctx, numVar, numV, numFunc, counterExamples, heightBound, extractor);
 						//print out for debug
 						System.out.println("Start synthesizing............");
 
@@ -152,9 +154,8 @@ public class Cegis {
 							unsat = false;
 							//flag = false;	//for test only
 
-							System.out.println(testSynthesizer.s.getModel());	//for test only
-
-							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numVar, numFunc);
+							//System.out.println(testSynthesizer.s.getModel());	//for test only
+							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numV, numFunc);
 							//print out for debug
 							System.out.println("Start decoding synthesizer output............");
 							functions = synthDecoder.generateFunction(var);
