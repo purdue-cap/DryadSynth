@@ -149,4 +149,20 @@ public class Expand {
 		return evalProperty;
 	}
 
+	public Expr generateEval(int k, IntExpr[] var, int i) {
+
+		ArithExpr poly = c[k][i][0];
+
+		for (int j = 1; j < numVar + 1; j++) {
+			poly = ctx.mkAdd(poly, ctx.mkMul(c[k][i][j], var[j - 1]));
+		}
+
+		if (i < ((bound - 1)/2)) {
+			return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), generateEval(k, var, 2*i + 1), generateEval(k, var, 2*i + 2));
+		} else {
+			return poly;
+		}
+
+	}
+
 }

@@ -6,6 +6,9 @@ import com.microsoft.z3.*;
 
 public class Extract {
 	public static void main(String[] args) throws Exception {
+
+		long startTime = System.currentTimeMillis();
+
 		ANTLRFileStream input = new ANTLRFileStream(args[0]);
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -35,6 +38,9 @@ public class Extract {
 		Cegis test = new Cegis(ctx, extractor);
 		test.cegis();
 
+		long estimatedTime = System.currentTimeMillis() - startTime;
+		System.out.println("Runtime: " + estimatedTime);
+
 		/*System.out.println("Synth requests:");
 		for(FuncDecl func : extractor.requests.values()) {
 			System.out.println("Name:" + func.getName());
@@ -57,7 +63,11 @@ public class Extract {
 		System.out.println("Constraints:");
 		for (Expr expr: extractor.constraints) {
 			System.out.println(expr);
-		}*/
+		}
+
+		System.out.println("Final Constraints:");
+		System.out.println(extractor.finalConstraint);*/
+
 	}
 }
 

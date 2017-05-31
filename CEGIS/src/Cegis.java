@@ -7,6 +7,7 @@ public class Cegis {
 	private SygusExtractor extractor;
 	private int numVar;
 	private int numFunc;
+	private BoolExpr finalConstraint;
 
 	public IntExpr[] var;
 	public ArithExpr[] functions;
@@ -24,13 +25,14 @@ public class Cegis {
 
 		this.numVar = Collections.max(argsNumList);
 		this.numFunc = extractor.requests.size();
+		this.finalConstraint = extractor.finalConstraint;
 
 		var = new IntExpr[numVar];
 		functions = new ArithExpr[numFunc];
 		counterExamples = new HashSet<IntExpr[]>();
 
 		init();
-		addRandomInitialExamples(numVar);
+		//addRandomInitialExamples();
 	}
 
 	public void init() {
@@ -43,7 +45,7 @@ public class Cegis {
 		}
 	}
 
-	public void addRandomInitialExamples(int numVar) {
+	public void addRandomInitialExamples() {
 
 		//int numExamples = (int)Math.pow(4, numVar) + 1;
 		int numExamples = (int)Math.pow(3, numVar) + 1;
@@ -89,7 +91,7 @@ public class Cegis {
 			k = k + 1;
 
 			System.out.println("Start verifying............");
-			Verifier testVerifier = new Verifier(ctx, numVar, numFunc, var);
+			Verifier testVerifier = new Verifier(ctx, numVar, numFunc, var, extractor);
 
 			Status v = testVerifier.verify(functions);
 
@@ -106,7 +108,7 @@ public class Cegis {
 
 				} else if (v == Status.SATISFIABLE) {
 					
-					System.out.println(testVerifier.s.getModel());
+					System.out.println(testVerifier.s.getModel());	//for test only
 					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), numVar, var);
 
 					IntExpr[] cntrExmp = decoder.decode();
@@ -120,11 +122,16 @@ public class Cegis {
 						System.out.println();
 					}
 
+					//for test only
+					//if (k >= 7) {
+					//	break;
+					//}
+
 					boolean unsat = true;
 
 					while(unsat) {
 
-						Synthesizer testSynthesizer = new Synthesizer(ctx, numVar, numFunc, counterExamples, heightBound);
+						Synthesizer testSynthesizer = new Synthesizer(ctx, numVar, numFunc, counterExamples, heightBound, extractor);
 						//print out for debug
 						System.out.println("Start synthesizing............");
 
@@ -144,6 +151,8 @@ public class Cegis {
 
 							unsat = false;
 							//flag = false;	//for test only
+
+							System.out.println(testSynthesizer.s.getModel());	//for test only
 
 							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numVar, numFunc);
 							//print out for debug

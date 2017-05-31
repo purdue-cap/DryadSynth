@@ -29,7 +29,7 @@ public class SynthDecoder {
 		for (int i = 0; i < numFunc; i++) {
 			for (int j = 0; j < bound; j++) {
 				for (int k = 0; k < numCoeff; k++) {
-					coeff[i][j][k] = (IntExpr) model.evaluate(c[i][j][k], false);
+					coeff[i][j][k] = (IntExpr) model.evaluate(c[i][j][k], true);
 				}
 			}	
 		}
@@ -42,7 +42,7 @@ public class SynthDecoder {
 
 		for (int i = 0; i < numFunc; i++) {
 			for (int j = 0; j < bound; j++) {
-				v[i][j] = model.evaluate(valid[i][j], false).toString();
+				v[i][j] = model.evaluate(valid[i][j], true).toString();
 			}
 		}
 
@@ -71,11 +71,13 @@ public class SynthDecoder {
 				if (i < ((bound - 1)/2)) {
 					BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
 
-					if (v[j][i].equals("true")) {
+					/*if (v[j][i].equals("true")) {
 						f[j][i] = (ArithExpr) ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
 					} else {
 						f[j][i] = p[j][i];
-					}
+					}*/
+
+					f[j][i] = (ArithExpr) ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
 
 				} else {
 					f[j][i] = p[j][i];
