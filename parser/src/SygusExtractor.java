@@ -10,7 +10,7 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     enum CmdType {
-        SYNTHFUNC, FUNCDEF, CONSTRAINT, DECLVAR, NONE
+        SYNTHFUNC, SYNTHINV, FUNCDEF, CONSTRAINT, INVCONSTRAINT, DECLVAR, DECLPVAR, NONE
     }
     CmdType currentCmd = CmdType.NONE;
     boolean currentOnArgList = false;
@@ -58,6 +58,20 @@ public class SygusExtractor extends SygusBaseListener {
         currentCmd = CmdType.NONE;
     }
 
+    public void enterSynthInvCmd(SygusParser.SynthInvCmdContext ctx) {
+        currentCmd = CmdType.SYNTHINV;
+        currentArgList = new ArrayList<Sort>();
+    }
+
+    public void exitSynthInvCmd(SygusParser.SynthInvCmdContext ctx) {
+        String name = ctx.symbol().getText();
+        Sort[] argList = currentArgList.toArray(new Sort[currentArgList.size()]);
+        Sort returnType = z3ctx.mkBoolSort();
+        FuncDecl func = z3ctx.mkFuncDecl(name, argList, returnType);
+        requests.put(name, func);
+        currentCmd = CmdType.NONE;
+    }
+
     public void enterArgList(SygusParser.ArgListContext ctx) {
         currentOnArgList = true;
     }
@@ -67,14 +81,22 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void enterSymbolSortPair(SygusParser.SymbolSortPairContext ctx) {
-        if (currentCmd == CmdType.SYNTHFUNC && currentOnArgList) {
+        if ((currentCmd == CmdType.SYNTHFUNC ||
+            currentCmd == CmdType.SYNTHINV) && currentOnArgList) {
             Sort type = strToSort(ctx.sortExpr().getText());
             currentArgList.add(type);
         }
         if (currentCmd == CmdType.FUNCDEF && currentOnArgList) {
             Sort type = strToSort(ctx.sortExpr().getText());
             String name = ctx.symbol().getText();
-            defFuncVars.put(name, z3ctx.mkConst(name, type));
+            Expr var;
+            if (vars.get(name) != null &&
+                vars.get(name).getSort().equals(type)) {
+                var = vars.get(name);
+            } else {
+                var = z3ctx.mkConst(name, type);
+            }
+            defFuncVars.put(name, var);
         }
     }
 
@@ -90,6 +112,21 @@ public class SygusExtractor extends SygusBaseListener {
         currentCmd = CmdType.NONE;
     }
 
+    public void enterDeclarePrimedVar(SygusParser.DeclarePrimedVarContext ctx) {
+        currentCmd = CmdType.DECLPVAR;
+    }
+
+    public void exitDeclarePrimedVar(SygusParser.DeclarePrimedVarContext ctx) {
+        String name = ctx.symbol().getText();
+        String namep = name + "!";
+        Sort type = strToSort(ctx.sortExpr().getText());
+        Expr var = z3ctx.mkConst(name, type);
+        Expr varp = z3ctx.mkConst(namep, type);
+        vars.put(name, var);
+        vars.put(namep, varp);
+        currentCmd = CmdType.NONE;
+    }
+
     public void enterConstraintCmd(SygusParser.ConstraintCmdContext ctx) {
         currentCmd = CmdType.CONSTRAINT;
     }
@@ -97,6 +134,37 @@ public class SygusExtractor extends SygusBaseListener {
     public void exitConstraintCmd(SygusParser.ConstraintCmdContext ctx) {
         BoolExpr cstrt = (BoolExpr)termStack.pop();
         constraints.add(cstrt);
+        if (finalConstraint == null) {
+            finalConstraint = cstrt;
+        } else {
+            finalConstraint = z3ctx.mkAnd(finalConstraint, cstrt);
+        }
+        currentCmd = CmdType.NONE;
+    }
+
+    public void enterInvConstraintCmd(SygusParser.InvConstraintCmdContext ctx) {
+        currentCmd = CmdType.INVCONSTRAINT;
+    }
+
+    public void exitInvConstraintCmd(SygusParser.InvConstraintCmdContext ctx) {
+        FuncDecl inv = requests.get(ctx.symbol(0).getText());
+        DefinedFunc pre = funcs.get(ctx.symbol(1).getText());
+        DefinedFunc trans = funcs.get(ctx.symbol(2).getText());
+        DefinedFunc post = funcs.get(ctx.symbol(3).getText());
+        Expr[] transArgs = trans.getArgs();
+        Expr[] transArgsOrig = Arrays.copyOfRange(transArgs, 0, transArgs.length/2);
+        Expr[] transArgsPrime = Arrays.copyOfRange(transArgs, transArgs.length/2, transArgs.length);
+        BoolExpr startCstrt = z3ctx.mkImplies((BoolExpr)pre.getDef(),
+                                (BoolExpr)inv.apply(pre.getArgs()));
+        BoolExpr loopCstrt = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)trans.getDef(),
+                                                (BoolExpr)inv.apply(transArgsOrig)),
+                                (BoolExpr)inv.apply(transArgsPrime));
+        BoolExpr endCstrt = z3ctx.mkImplies((BoolExpr)inv.apply(post.getArgs()),
+                                (BoolExpr)post.getDef());
+        constraints.add(startCstrt);
+        constraints.add(loopCstrt);
+        constraints.add(endCstrt);
+        BoolExpr cstrt = z3ctx.mkAnd(startCstrt, loopCstrt, endCstrt);
         if (finalConstraint == null) {
             finalConstraint = cstrt;
         } else {

@@ -84,8 +84,16 @@ public class DefinedFunc {
         return cache.get(orig);
     }
 
-    public String getName() {
+    public final String getName() {
         return name;
+    }
+
+    public final Expr[] getArgs () {
+        return args;
+    }
+
+    public final Expr getDef () {
+        return definition;
     }
 
     public String toString() {
