@@ -13,7 +13,7 @@
 
 (define-fun trans-f ((c Int) (n Int) (v1 Int) (v2 Int) (v3 Int) (c! Int) (n! Int) (v1! Int) (v2! Int) (v3! Int)) Bool
 (or
-(and (> c n) (= c! (+ c 1)))
+(and (not (= c n)) (= c! (+ c 1)))
 (and (= c n) (= c! 1))))
 
 (define-fun post-f ((c Int) (n Int) (v1 Int) (v2 Int) (v3 Int)) Bool

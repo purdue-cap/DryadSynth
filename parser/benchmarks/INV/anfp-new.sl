@@ -10,10 +10,10 @@
 (= y 0)))
 
 (define-fun trans-f ((x Int) (y Int) (x! Int) (y! Int) ) Bool
-(and (and (< y 1000) (= x! (+ x y))) (= y! (+ y 1))))
+(and (and (< y 100000) (= x! (+ x y))) (= y! (+ y 1))))
 
 (define-fun post-f ((x Int) (y Int)) Bool
-(not (and (>= y 1000) (< x y))))
+(not (and (>= y 100000) (< x y))))
 
 (inv-constraint inv-f pre-f trans-f post-f)
 

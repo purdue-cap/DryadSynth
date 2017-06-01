@@ -6,14 +6,17 @@
 (declare-primed-var y Int)
 
 (define-fun pre-f ((x Int) (y Int)) Bool
-(and (= x 1)  
-(= y 0)))
+(= x 1))  
 
-(define-fun trans-f ((x Int) (y Int) (x! Int) (y! Int) ) Bool
-(and (and (< y 1000) (= x! (+ x y))) (= y! (+ y 1))))
+
+(define-fun trans-f ((x Int) (y Int) (x! Int) (y! Int)) Bool
+(and (and (<= x 10) (= y! (- 10 x)))
+(= x! (+ x 1))))
 
 (define-fun post-f ((x Int) (y Int)) Bool
-(not (and (>= y 1000) (< x y))))
+(not (and (and (<= x 10) (= y (- 10 x))) 
+(or (>= y 10) (> 0 y)))))
+
 
 (inv-constraint inv-f pre-f trans-f post-f)
 
