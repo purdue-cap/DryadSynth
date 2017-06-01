@@ -54,11 +54,11 @@ public class Expand {
 				}
 
 				if (j < ((bound - 1)/2)) {
-					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne);
+					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp));
 
 				}
 
-				coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp));
+				//coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp));
 				//coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp), coefficientConstraint);
 			}			
 		}
