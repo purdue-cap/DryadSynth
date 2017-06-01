@@ -155,7 +155,7 @@ public class Cegis {
 							//flag = false;	//for test only
 
 							//System.out.println(testSynthesizer.s.getModel());	//for test only
-							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getValid(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numV, numFunc);
+							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numV, numFunc);
 							//print out for debug
 							System.out.println("Start decoding synthesizer output............");
 							functions = synthDecoder.generateFunction(var);

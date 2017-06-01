@@ -59,7 +59,7 @@ public class Synthesizer {
 
 		Expr spec = extractor.finalConstraint;
 
-		BoolExpr q = ctx.mkAnd(e.expandValid(), e.expandCoefficient());
+		BoolExpr q = ctx.mkAnd(e.expandCoefficient());
 
 		IntExpr[] variables = new IntExpr[numVar];
 		for (int i = 0; i < numVar; i++) {

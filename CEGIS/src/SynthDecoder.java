@@ -5,17 +5,15 @@ public class SynthDecoder {
 	
 	private Context ctx;
 	private Model model;
-	private BoolExpr[][] valid;
 	private IntExpr[][][] c;
 	private int bound;
 	private int numVar;
 	private int numCoeff;
 	private int numFunc;
 
-	public SynthDecoder(Context ctx, Model model, BoolExpr[][] valid, IntExpr[][][] c, int bound, int numVar, int numFunc) {
+	public SynthDecoder(Context ctx, Model model, IntExpr[][][] c, int bound, int numVar, int numFunc) {
 		this.ctx = ctx;
 		this.model = model;
-		this.valid = valid;
 		this.c = c;
 		this.bound = bound;
 		this.numVar = numVar;
@@ -37,22 +35,9 @@ public class SynthDecoder {
 		return coeff;
 	}
 
-	public String[][] evaluteValid() {
-		String[][] v = new String[numFunc][bound];
-
-		for (int i = 0; i < numFunc; i++) {
-			for (int j = 0; j < bound; j++) {
-				v[i][j] = model.evaluate(valid[i][j], true).toString();
-			}
-		}
-
-		return v;
-	}
-
 	public ArithExpr[] generateFunction(IntExpr[] var) {
 		ArithExpr[][] p = new ArithExpr[numFunc][bound];
 		IntExpr[][][] coeff = evaluteCoefficient();
-		String[][] v = evaluteValid();
 		ArithExpr[][] f = new ArithExpr[numFunc][bound];
 		ArithExpr[] functions = new ArithExpr[numFunc];
 
@@ -70,12 +55,6 @@ public class SynthDecoder {
 			for (int i = bound - 1; i >= 0; i--) {
 				if (i < ((bound - 1)/2)) {
 					BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
-
-					/*if (v[j][i].equals("true")) {
-						f[j][i] = (ArithExpr) ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
-					} else {
-						f[j][i] = p[j][i];
-					}*/
 
 					f[j][i] = (ArithExpr) ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
 
