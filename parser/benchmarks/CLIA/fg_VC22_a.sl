@@ -52,3 +52,4 @@
 (constraint (or (Bad x1 x2) (not (Zero (f x1 x2)))))
 
 (check-synth)
+
