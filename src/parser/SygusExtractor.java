@@ -19,6 +19,7 @@ public class SygusExtractor extends SygusBaseListener {
     List<Sort> currentArgList;
 
     public Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
+    public Map<String, Expr> regularVars = new LinkedHashMap<String, Expr>();
     public List<BoolExpr> constraints = new ArrayList<BoolExpr>();
     public BoolExpr finalConstraint = null;
     Stack<Object> termStack = new Stack<Object>();
@@ -109,6 +110,7 @@ public class SygusExtractor extends SygusBaseListener {
         Sort type = strToSort(ctx.sortExpr().getText());
         Expr var = z3ctx.mkConst(name, type);
         vars.put(name, var);
+        regularVars.put(name, var);
         currentCmd = CmdType.NONE;
     }
 
@@ -123,6 +125,7 @@ public class SygusExtractor extends SygusBaseListener {
         Expr var = z3ctx.mkConst(name, type);
         Expr varp = z3ctx.mkConst(namep, type);
         vars.put(name, var);
+        regularVars.put(name, var);
         vars.put(namep, varp);
         currentCmd = CmdType.NONE;
     }
