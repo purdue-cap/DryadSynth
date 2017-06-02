@@ -308,6 +308,9 @@ public class SygusExtractor extends SygusBaseListener {
         if (name.equals("=>")) {
             return z3ctx.mkImplies((BoolExpr)args[0], (BoolExpr)args[1]);
         }
+        if (name.equals("ite")) {
+            return z3ctx.mkITE((BoolExpr)args[0], args[1], args[2]);
+        }
         DefinedFunc df = funcs.get(name);
         if (df != null) {
             return df.apply(args);
