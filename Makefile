@@ -9,7 +9,8 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 LIB_ANTLR := lib/antlr.jar
 LIB_Z3 := lib/com.microsoft.z3.jar
-export LIB := $(LIB_Z3):$(LIB_ANTLR):classes:build:$(subst $(SPACE),:,$(SUBDIRS)):$(CLASSPATH)
+export CP := $(LIB_Z3):$(LIB_ANTLR):classes:$(CLASSPATH)
+export SP := build:$(subst $(SPACE),:,$(SUBDIRS))
 
 all: classes subdir
 
@@ -17,7 +18,7 @@ classes: $(PARSER_CLASSES)
 
 $(PARSER_CLASSES): classes/%.class : build/%.java
 	mkdir -p classes
-	javac -source 1.7 -target 1.7 -cp $(LIB) -d classes $<
+	javac -source 1.7 -target 1.7 -classpath $(CP) -sourcepath $(SP) -d classes $<
 
 $(PARSER_SOURCE): $(GRAMMAR_SCRIPT)
 	mkdir -p build
