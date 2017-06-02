@@ -4,7 +4,7 @@ import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import com.microsoft.z3.*;
 
-public class Extract {
+public class Synth {
 	public static void main(String[] args) throws Exception {
 
 		long startTime = System.currentTimeMillis();
