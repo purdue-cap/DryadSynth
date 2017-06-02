@@ -5,9 +5,11 @@ PARSER_SOURCE := $(foreach class,$(PARSER_CLASS_NAMES),build/$(NAME)$(class).jav
 PARSER_CLASSES := $(PARSER_SOURCE:build/%.java=classes/%.class)
 SUBDIRS := $(wildcard src/*/.)
 
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
 LIB_ANTLR := lib/antlr.jar
 LIB_Z3 := lib/com.microsoft.z3.jar
-export LIB := $(LIB_Z3):$(LIB_ANTLR):classes:build:$(SUBDIRS):$(CLASSPATH)
+export LIB := $(LIB_Z3):$(LIB_ANTLR):classes:build:$(subst $(SPACE),:,$(SUBDIRS)):$(CLASSPATH)
 
 all: classes subdir
 
