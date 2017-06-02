@@ -4,5 +4,5 @@
 .envrc
 
 # Parser builds
-parser/classes/
-parser/build/
+classes/
+build/

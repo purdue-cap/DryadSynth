@@ -1,20 +1,17 @@
-LIB_ANTLR := lib/antlr.jar
-LIB_Z3 := lib/com.microsoft.z3.jar
-LIB := $(LIB_Z3):$(LIB_ANTLR):classes:build:src:$(CLASSPATH)
 NAME := Sygus
 GRAMMAR_SCRIPT := $(NAME).g4
 PARSER_CLASS_NAMES := BaseListener Lexer Listener Parser
 PARSER_SOURCE := $(foreach class,$(PARSER_CLASS_NAMES),build/$(NAME)$(class).java)
-SRC_SOURCE := $(wildcard src/*.java)
 PARSER_CLASSES := $(PARSER_SOURCE:build/%.java=classes/%.class)
-SRC_CLASSES := $(SRC_SOURCE:src/%.java=classes/%.class)
+SUBDIRS := $(wildcard src/*/.)
 
-all: group classes
+LIB_ANTLR := lib/antlr.jar
+LIB_Z3 := lib/com.microsoft.z3.jar
+export LIB := $(LIB_Z3):$(LIB_ANTLR):classes:build:$(SUBDIRS):$(CLASSPATH)
 
-group:
-	@echo "Yanjun Wang"
+all: classes subdir
 
-classes: $(PARSER_CLASSES) $(SRC_CLASSES)
+classes: $(PARSER_CLASSES)
 
 $(PARSER_CLASSES): classes/%.class : build/%.java
 	mkdir -p classes
@@ -24,9 +21,10 @@ $(PARSER_SOURCE): $(GRAMMAR_SCRIPT)
 	mkdir -p build
 	java -cp $(LIB_ANTLR) org.antlr.v4.Tool -o build $(GRAMMAR_SCRIPT)
 
-$(SRC_CLASSES): classes/%.class : src/%.java
-	mkdir -p classes
-	javac -source 1.7 -target 1.7 -cp $(LIB) -d classes $<
+subdir: $(SUBDIRS)
+
+$(SUBDIRS):
+	$(MAKE) -C $@
 
 clean_classes:
 	rm -rf classes
@@ -36,4 +34,4 @@ clean_parser:
 
 clean: clean_classes clean_parser
 
-.PHONY: all group classes clean_classes clean_parser clean
+.PHONY: all classes subdir $(SUBDIRS) clean_classes clean_parser clean
