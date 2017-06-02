@@ -35,14 +35,14 @@ public class Expand {
 		return c;
 	}
 
-	public BoolExpr expandCoefficient() {
+	public BoolExpr expandCoefficient(int condBound) {
 
 		BoolExpr coefficientProp = ctx.mkTrue();
 
 		for (int i = 0; i < numFunc; i++) {
 			for (int j = 0; j < bound; j++) {
-				int condBound = 2;
-				int leafBound = 20;
+				//int condBound = 1;
+				int leafBound = condBound;
 
 				BoolExpr cProp = ctx.mkTrue();
 				BoolExpr coefficientBound = ctx.mkAnd(ctx.mkLe(c[i][j][0], ctx.mkInt(condBound)), ctx.mkGe(c[i][j][0], ctx.mkInt(-condBound)));
@@ -58,10 +58,19 @@ public class Expand {
 				}
 
 				if (j < ((bound - 1)/2)) {
-					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
+
+					if (condBound <= 16) {
+						coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
+					} else {
+						coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp));
+					}
+					
 
 				} else {
-					coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf);
+
+					if (condBound <= 16) {
+						coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf);
+					}
 				}
 
 				//coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp));

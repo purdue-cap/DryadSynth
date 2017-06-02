@@ -51,7 +51,7 @@ public class Cegis {
 	public void addRandomInitialExamples() {
 
 		//int numExamples = (int)Math.pow(4, numVar) + 1;
-		int numExamples = (int)Math.pow(3, numVar) + 1;
+		int numExamples = (int)Math.pow(numVar, 3) + 1;
 		//int numExamples = (int)Math.pow(2, numVar) + 1;
 		//int numExamples = 90;
 
@@ -109,6 +109,8 @@ public class Cegis {
 		
 		boolean flag = true;
 		int heightBound = 1;
+		int condBound = 1;
+		int condBoundInc = 1;
 
 		int k = 0;	//number of iterations
 
@@ -169,13 +171,21 @@ public class Cegis {
 						//print out for debug
 						System.out.println("Start synthesizing............");
 
-						Status synth = testSynthesizer.synthesis();
+						Status synth = testSynthesizer.synthesis(condBound);
 						//print out for debug
 						System.out.println("Synthesis Done!");
 
 						if (synth == Status.UNSATISFIABLE) {
-							System.out.println("Synthesizer Error : Unsatisfiable!");
-							heightBound = heightBound + 1;
+							System.out.println("Synthesizer : Unsatisfiable!");
+							condBound = (int)Math.pow(2, condBoundInc);
+							System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
+							condBoundInc = condBoundInc + 1;
+							if (condBoundInc > 6) {
+								heightBound = heightBound + 1;
+								System.out.println("Synthesizer : Increase height bound to " + heightBound);
+								condBound = 1;
+								condBoundInc = 1;
+							}
 							//flag = false;
 						} else if (synth == Status.UNKNOWN) {
 							System.out.println("Synthesizer Error : Unknown!");

@@ -53,13 +53,13 @@ public class Synthesizer {
 		return max3Prop;
 	}*/
 
-	public Status synthesis() {
+	public Status synthesis(int condBound) {
 
 		s.push();
 
 		Expr spec = extractor.finalConstraint;
 
-		BoolExpr q = ctx.mkAnd(e.expandCoefficient());
+		BoolExpr q = ctx.mkAnd(e.expandCoefficient(condBound));
 
 		IntExpr[] variables = new IntExpr[numVar];
 		for (int i = 0; i < numVar; i++) {
