@@ -82,14 +82,15 @@ public class Cegis {
 
 		else {
 			IntExpr[][] smaller_examples = addSimpleExamplesRecursive(nv-1);
+			int temp = (int)Math.pow(3, nv-1);
 
-			for (int j = 0; j < (int)Math.pow(3, nv-1); j++) {
-				examples[j] = smaller_examples[j];
+			for (int j = 0; j < temp; j++) {
+				System.arraycopy(smaller_examples[j], 0, examples[j], 0, nv-1);
 				examples[j][nv-1] = ctx.mkInt(-1);
-				examples[(int)Math.pow(3, nv-1) + j] = smaller_examples[j];
-				examples[(int)Math.pow(3, nv-1) + j][nv-1] = ctx.mkInt(0);
-				examples[(int)Math.pow(3, nv-1) * 2 + j] = smaller_examples[j];
-				examples[(int)Math.pow(3, nv-1) * 2 + j][nv-1] = ctx.mkInt(1);
+				System.arraycopy(smaller_examples[j], 0, examples[temp + j], 0, nv-1);
+				examples[temp + j][nv-1] = ctx.mkInt(0);
+				System.arraycopy(smaller_examples[j], 0, examples[temp * 2 + j], 0, nv-1);
+				examples[temp * 2 + j][nv-1] = ctx.mkInt(1);
 			}
 
 			return examples;
