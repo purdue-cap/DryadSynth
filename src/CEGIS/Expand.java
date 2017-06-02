@@ -41,21 +41,27 @@ public class Expand {
 
 		for (int i = 0; i < numFunc; i++) {
 			for (int j = 0; j < bound; j++) {
+				int condBound = 2;
+				int leafBound = 20;
+
 				BoolExpr cProp = ctx.mkTrue();
-				//BoolExpr coefficientConstraint = ctx.mkAnd(ctx.mkLe(c[i][j][0], ctx.mkInt(5)), ctx.mkGe(c[i][j][0], ctx.mkInt(-5)));
-				BoolExpr coefficientConstraint = ctx.mkTrue();
+				BoolExpr coefficientBound = ctx.mkAnd(ctx.mkLe(c[i][j][0], ctx.mkInt(condBound)), ctx.mkGe(c[i][j][0], ctx.mkInt(-condBound)));
+				BoolExpr coefficientBoundLeaf = ctx.mkAnd(ctx.mkLe(c[i][j][0], ctx.mkInt(leafBound)), ctx.mkGe(c[i][j][0], ctx.mkInt(-leafBound)));
 				BoolExpr coeffEqualOneOrMinusOne = ctx.mkFalse();
 
 				for (int k = 1; k < numVar + 1; k++) {
 					cProp = ctx.mkAnd(cProp, ctx.mkEq(c[i][j][k], ctx.mkInt(0)));
 					coeffEqualOneOrMinusOne = ctx.mkOr(coeffEqualOneOrMinusOne, ctx.mkEq(c[i][j][k], ctx.mkInt(1)), ctx.mkEq(c[i][j][k], ctx.mkInt(-1)));
-					//coefficientConstraint = ctx.mkAnd(coefficientConstraint, ctx.mkLe(c[i][j][k], ctx.mkInt(5)), ctx.mkGe(c[i][j][k], ctx.mkInt(-5)));
+					coefficientBound = ctx.mkAnd(coefficientBound, ctx.mkLe(c[i][j][k], ctx.mkInt(condBound)), ctx.mkGe(c[i][j][k], ctx.mkInt(-condBound)));
+					coefficientBoundLeaf = ctx.mkAnd(coefficientBoundLeaf, ctx.mkLe(c[i][j][k], ctx.mkInt(leafBound)), ctx.mkGe(c[i][j][k], ctx.mkInt(-leafBound)));
 					
 				}
 
 				if (j < ((bound - 1)/2)) {
-					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp));
+					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
 
+				} else {
+					coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf);
 				}
 
 				//coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp));

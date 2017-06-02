@@ -34,7 +34,8 @@ public class Cegis {
 		counterExamples = new HashSet<IntExpr[]>();
 
 		init();
-		addRandomInitialExamples();
+		//addRandomInitialExamples();
+		addSimpleExamples();
 	}
 
 	public void init() {
@@ -50,11 +51,12 @@ public class Cegis {
 	public void addRandomInitialExamples() {
 
 		//int numExamples = (int)Math.pow(4, numVar) + 1;
-		int numExamples = (int)Math.pow(3, numV) + 1;
+		int numExamples = (int)Math.pow(3, numVar) + 1;
 		//int numExamples = (int)Math.pow(2, numVar) + 1;
 		//int numExamples = 90;
 
 		for (int i = 0; i < numExamples; i++) {
+			//IntExpr[] randomExample = new IntExpr[numVar];
 			IntExpr[] randomExample = new IntExpr[numVar];
 			for (int j = 0; j < numVar; j++) {
 				Random rand = new Random();
@@ -71,6 +73,36 @@ public class Cegis {
 			counterExamples.add(randomExample);
 		}
 		
+	}
+
+	public IntExpr[][] addSimpleExamplesRecursive(int nv) {
+		IntExpr[][] examples = new IntExpr[(int)Math.pow(3, nv)][numVar];
+
+		if (nv == 0) return examples;
+
+		else {
+			IntExpr[][] smaller_examples = addSimpleExamplesRecursive(nv-1);
+
+			for (int j = 0; j < (int)Math.pow(3, nv-1); j++) {
+				examples[j] = smaller_examples[j];
+				examples[j][nv-1] = ctx.mkInt(-1);
+				examples[(int)Math.pow(3, nv-1) + j] = smaller_examples[j];
+				examples[(int)Math.pow(3, nv-1) + j][nv-1] = ctx.mkInt(0);
+				examples[(int)Math.pow(3, nv-1) * 2 + j] = smaller_examples[j];
+				examples[(int)Math.pow(3, nv-1) * 2 + j][nv-1] = ctx.mkInt(1);
+			}
+
+			return examples;
+		
+		}
+
+	}
+
+	public void addSimpleExamples() {
+		IntExpr[][] examples = addSimpleExamplesRecursive(numVar);
+		for (int j = 0; j < examples.length; j++) {
+			counterExamples.add(examples[j]);
+		}
 	}
 
 	public void cegis() {
