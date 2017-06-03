@@ -4,20 +4,22 @@ import com.microsoft.z3.*;
 public class SynthDecoder {
 	
 	private Context ctx;
+	private String returnType;
 	private Model model;
 	private IntExpr[][][] c;
 	private int bound;
-	private int numVar;
+	private int numV;
 	private int numCoeff;
 	private int numFunc;
 
-	public SynthDecoder(Context ctx, Model model, IntExpr[][][] c, int bound, int numVar, int numFunc) {
+	public SynthDecoder(Context ctx, String returnType, Model model, IntExpr[][][] c, int bound, int numV, int numFunc) {
 		this.ctx = ctx;
+		this.returnType = returnType;
 		this.model = model;
 		this.c = c;
 		this.bound = bound;
-		this.numVar = numVar;
-		this.numCoeff = numVar + 1;
+		this.numV = numV;
+		this.numCoeff = numV + 1;
 		this.numFunc = numFunc;
 	}
 
@@ -35,31 +37,46 @@ public class SynthDecoder {
 		return coeff;
 	}
 
-	public ArithExpr[] generateFunction(IntExpr[] var) {
+	public Expr[] generateFunction(IntExpr[] var) {
 		ArithExpr[][] p = new ArithExpr[numFunc][bound];
 		IntExpr[][][] coeff = evaluteCoefficient();
-		ArithExpr[][] f = new ArithExpr[numFunc][bound];
-		ArithExpr[] functions = new ArithExpr[numFunc];
+		Expr[][] f = new Expr[numFunc][bound];
+		Expr[] functions = new Expr[numFunc];
+		IntExpr[] args = new IntExpr[numV];
+
+		if (returnType.equals("INV")) {
+			for (int i = 0; i < numV; i++) {
+				args[i] = var[2*i];
+			}
+		} else {
+			System.arraycopy(var, 0, args, 0, numV);
+		}
 
 		for (int k = 0; k < numFunc; k++) {
 			for (int i = 0; i < bound; i++) {
 				p[k][i] = coeff[k][i][0];
 
 				for (int j = 1; j < numCoeff; j++) {
-					p[k][i] = ctx.mkAdd(p[k][i], ctx.mkMul(coeff[k][i][j], var[j - 1]));
+					p[k][i] = ctx.mkAdd(p[k][i], ctx.mkMul(coeff[k][i][j], args[j - 1]));
 				}
 			}
 		}
 
 		for (int j = 0; j < numFunc; j++) {
 			for (int i = bound - 1; i >= 0; i--) {
+				BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
+				
 				if (i < ((bound - 1)/2)) {
-					BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
 
-					f[j][i] = (ArithExpr) ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
+					f[j][i] = ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
 
 				} else {
-					f[j][i] = p[j][i];
+					if (returnType.equals("INV")) {
+						f[j][i] = ctx.mkITE(cond, ctx.mkTrue(), ctx.mkFalse());
+					} else {
+						f[j][i] = p[j][i];
+					}
+					
 				}
 			}
 			functions[j] = f[j][0];

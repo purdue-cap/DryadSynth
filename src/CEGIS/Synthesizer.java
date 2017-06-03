@@ -6,6 +6,7 @@ public class Synthesizer {
 
 	public Solver s;
 	private Context ctx;
+	private String returnType;
 	private int numVar;
 	private int numV;
 	private int numFunc;
@@ -16,11 +17,12 @@ public class Synthesizer {
 	public int bound;
 	public Expand e;
 
-	public Synthesizer(Context ctx, int numVar, int numV, int numFunc, HashSet<IntExpr[]> counterExamples, int heightBound, SygusExtractor extractor) {
+	public Synthesizer(Context ctx, String returnType, int numVar, int numV, int numFunc, HashSet<IntExpr[]> counterExamples, int heightBound, SygusExtractor extractor) {
+		this.ctx = ctx;
+		this.returnType = returnType;
 		this.numVar = numVar;
 		this.numV = numV;
 		this.numFunc = numFunc;
-		this.ctx = ctx;
 		this.s = ctx.mkSolver();
 		this.counterExamples = counterExamples;
 		this.extractor = extractor;
@@ -28,30 +30,6 @@ public class Synthesizer {
 		this.bound = (int)Math.pow(2, heightBound) - 1;
 		this.e = new Expand(bound, ctx, numV, numFunc);
 	}
-
-	/*public BoolExpr max2(FuncDecl eval, IntExpr[] cntrExmp) {
-		//BoolExpr maxProp = ctx.mkOr(ctx.mkAnd(ctx.mkGe(cntrExmp[0], cntrExmp[1]), ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0]))
-		//	, ctx.mkAnd(ctx.mkLt(cntrExmp[0], cntrExmp[1]), ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])));
-
-		BoolExpr max2Prop = ctx.mkAnd(ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
-			, ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])
-			, ctx.mkOr(ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
-				, ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])));
-
-		return max2Prop;
-	}
-
-	public BoolExpr max3(FuncDecl eval, IntExpr[] cntrExmp) {
-
-		BoolExpr max3Prop = ctx.mkAnd(ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
-			, ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])
-			, ctx.mkGe((ArithExpr)ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[2])
-			, ctx.mkOr(ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[0])
-				, ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[1])
-				, ctx.mkEq(ctx.mkApp(eval, cntrExmp[0], cntrExmp[1], cntrExmp[2], ctx.mkInt(0), ctx.mkInt(0)), cntrExmp[2])));
-
-		return max3Prop;
-	}*/
 
 	public Status synthesis(int condBound) {
 
@@ -67,11 +45,17 @@ public class Synthesizer {
 		}
 
 		IntExpr[] var = new IntExpr[numV];
-		System.arraycopy(variables, 0, var, 0, numV);
+		if (returnType.equals("INV")) {
+			for (int i = 0; i < numV; i++) {
+				var[i] = variables[2*i];
+			}
+		} else {
+			System.arraycopy(variables, 0, var, 0, numV);
+		}
 
 		int k = 0;
 		for (FuncDecl f : extractor.requests.values()) {
-			Expr eval = e.generateEval(k, var, 0);
+			Expr eval = e.generateEval(k, var, 0, returnType);
 			DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
 			spec = definedfunc.rewrite(spec, f);
 			k = k + 1;

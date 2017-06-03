@@ -5,6 +5,7 @@ public class Verifier {
 
 	public Solver s;
 	private Context ctx;
+	private String returnType;
 	private int numVar;
 	private int numV;
 	private int numFunc;
@@ -12,43 +13,30 @@ public class Verifier {
 	private BoolExpr finalConstraint;
 	private SygusExtractor extractor;
 
-	public Verifier(Context ctx, int numVar, int numV, int numFunc, IntExpr[] var, SygusExtractor extractor) {
+	public Verifier(Context ctx, String returnType, int numVar, int numV, int numFunc, IntExpr[] var, SygusExtractor extractor) {
 		this.numVar = numVar;
 		this.numV = numV;
 		this.numFunc = numFunc;
 		this.ctx = ctx;
+		this.returnType = returnType;
 		this.s = ctx.mkSolver();
 		this.var = var;
 		this.finalConstraint = extractor.finalConstraint;;
 		this.extractor = extractor;
 	}
 
-	/*public BoolExpr max2Prop(ArithExpr[] functions) {
-		//BoolExpr max2Prop = ctx.mkOr(ctx.mkAnd(ctx.mkGe(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[0]))
-		//	, ctx.mkAnd(ctx.mkLt(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[1])));
-
-		BoolExpr max2Prop = ctx.mkAnd(ctx.mkGe(functions[0], var[0]), ctx.mkGe(functions[0], var[1])
-			, ctx.mkOr(ctx.mkEq(functions[0], var[0]), ctx.mkEq(functions[0], var[1])));
-
-		return max2Prop;
-	}
-
-	public BoolExpr max3Prop(ArithExpr[] functions) {
-		//BoolExpr max2Prop = ctx.mkOr(ctx.mkAnd(ctx.mkGe(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[0]))
-		//	, ctx.mkAnd(ctx.mkLt(var[0], var[1]), ctx.mkEq(ctx.mkApp(eval, var[0], var[1], ctx.mkInt(0), ctx.mkInt(0)), var[1])));
-
-		BoolExpr max3Prop = ctx.mkAnd(ctx.mkGe(functions[0], var[0]), ctx.mkGe(functions[0], var[1]), ctx.mkGe(functions[0], var[2])
-			, ctx.mkOr(ctx.mkEq(functions[0], var[0]), ctx.mkEq(functions[0], var[1]), ctx.mkEq(functions[0], var[2])));
-
-		return max3Prop;
-	}*/
-
-	public Status verify(ArithExpr[] functions) {
+	public Status verify(Expr[] functions) {
 
 		Expr spec = finalConstraint;
 
 		IntExpr[] vars = new IntExpr[numV];
-		System.arraycopy(var, 0, vars, 0, numV);
+		if (returnType.equals("INV")) {
+			for (int i = 0; i < numV; i++) {
+				vars[i] = var[2*i];
+			}
+		} else {
+			System.arraycopy(var, 0, vars, 0, numV);
+		}
 
 		int i = 0;
 		for (FuncDecl f : extractor.requests.values()) {

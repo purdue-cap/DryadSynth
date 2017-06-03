@@ -35,8 +35,8 @@ public class Synth {
 		SygusExtractor extractor = new SygusExtractor(ctx);
 		walker.walk(extractor, tree);
 
-		//System.out.println("Final Constraints:");
-		//System.out.println(extractor.finalConstraint);
+		System.out.println("Final Constraints:");
+		System.out.println(extractor.finalConstraint);
 
 		Cegis test = new Cegis(ctx, extractor);
 		test.cegis();

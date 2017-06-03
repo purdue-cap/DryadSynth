@@ -16,6 +16,7 @@ public class VerifierDecoder {
 	}
 
 	public IntExpr[] decode() {
+
 		IntExpr[] counterExample = new IntExpr[numVar];
 
 		for (int i = 0; i < numVar; i++) {
@@ -23,6 +24,7 @@ public class VerifierDecoder {
 		}
 
 		return counterExample;
+		
 	}
 
 	public void printOutput() {

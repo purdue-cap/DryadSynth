@@ -73,15 +73,13 @@ public class Expand {
 					}
 				}
 
-				//coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp));
-				//coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(cProp), coefficientConstraint);
 			}			
 		}
 
 		return coefficientProp;
 	}
 
-	public Expr generateEval(int k, IntExpr[] var, int i) {
+	public Expr generateEval(int k, IntExpr[] var, int i, String returnType) {
 
 		ArithExpr poly = c[k][i][0];
 
@@ -90,9 +88,14 @@ public class Expand {
 		}
 
 		if (i < ((bound - 1)/2)) {
-			return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), generateEval(k, var, 2*i + 1), generateEval(k, var, 2*i + 2));
+			return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), generateEval(k, var, 2*i + 1, returnType), generateEval(k, var, 2*i + 2, returnType));
 		} else {
-			return poly;
+			if (returnType.equals("INV")) {
+				return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), ctx.mkTrue(), ctx.mkFalse());
+			} else {
+				return poly;
+			}
+			
 		}
 
 	}
