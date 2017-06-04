@@ -42,7 +42,7 @@ public class Cegis {
 
 		init();
 		//addRandomInitialExamples();
-		//addSimpleExamples();
+		addSimpleExamples();
 	}
 
 	public void init() {
@@ -190,10 +190,10 @@ public class Cegis {
 
 						if (synth == Status.UNSATISFIABLE) {
 							System.out.println("Synthesizer : Unsatisfiable!");
-							condBound = (int)Math.pow(2, condBoundInc);
+							condBound = (int)Math.pow(4, condBoundInc);
 							System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
 							condBoundInc = condBoundInc + 1;
-							if (condBoundInc > 6) {
+							if (condBoundInc > 4) {		//for 2, >6		//for 4, >4
 								heightBound = heightBound + 1;
 								System.out.println("Synthesizer : Increase height bound to " + heightBound);
 								condBound = 1;
