@@ -1,0 +1,7 @@
+#!/bin/bash
+
+cd src/z3
+./configure --prefix=`realpath ../..` --java
+cd build
+make
+make install
