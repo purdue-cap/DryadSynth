@@ -1,1 +1,1 @@
-A test solver
+Dryad Synthesizer for SyGus competition
