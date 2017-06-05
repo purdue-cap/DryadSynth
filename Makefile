@@ -14,6 +14,10 @@ export SP := build:$(subst $(SPACE),:,$(SUBDIRS))
 
 all: classes subdir
 
+StarExec.zip: all
+	cp -rf classes StarExec/bin
+	cd StarExec && zip ../$@ -r *
+
 classes: $(PARSER_CLASSES)
 
 $(PARSER_CLASSES): classes/%.class : build/%.java
@@ -35,6 +39,11 @@ clean_classes:
 clean_parser:
 	rm -rf build
 
-clean: clean_classes clean_parser
+clean_package:
+	rm -f StarExec.zip
+	rm -rf StarExec/bin/classes
 
-.PHONY: all classes subdir $(SUBDIRS) clean_classes clean_parser clean
+clean: clean_classes clean_parser clean_package
+
+.PHONY: all classes subdir $(SUBDIRS)\
+	clean_classes clean_parser clean_package clean

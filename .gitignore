@@ -6,3 +6,7 @@
 # Parser builds
 classes/
 build/
+
+# Built packages
+StarExec.zip
+
