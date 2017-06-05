@@ -24,9 +24,9 @@ public class Synth {
 		ParseTree tree;
 		try{
 			tree = parser.start();
-			System.out.println("Accepted");
+			System.out.println("Parser Accepted");
 		} catch(Exception ex) {
-			System.out.println("Not Accepted");
+			System.out.println("Parser Did Not Accept");
 			return;
 		}
 
