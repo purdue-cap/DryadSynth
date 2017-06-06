@@ -159,9 +159,10 @@ public class Cegis {
 						System.out.println("Done! Synthesized function(s): ");
 					}
 					String[] names = extractor.requests.keySet().toArray(new String[extractor.requests.size()]);
+					Expr[] readableVars = extractor.vars.values().toArray(new Expr[extractor.vars.size()]);
 					for (int i = 0; i < numFunc; i++) {
-						System.out.println(new DefinedFunc(ctx, names[i],
-						 									var, functions[i]));
+						System.out.println(new DefinedFunc(ctx, names[i], readableVars,
+						 								functions[i].substitute(var, readableVars)));
 					}
 					flag = false;
 
