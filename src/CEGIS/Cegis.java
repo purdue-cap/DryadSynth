@@ -42,7 +42,7 @@ public class Cegis {
 
 		init();
 		//addRandomInitialExamples();
-		addSimpleExamples();
+		//addSimpleExamples();
 	}
 
 	public void init() {
@@ -124,6 +124,7 @@ public class Cegis {
 		int heightBound = 1;
 		int condBound = 1;
 		int condBoundInc = 1;
+		int iterationCntr = 0;
 
 		int k = 0;	//number of iterations
 
@@ -190,10 +191,11 @@ public class Cegis {
 
 						if (synth == Status.UNSATISFIABLE) {
 							System.out.println("Synthesizer : Unsatisfiable!");
-							condBound = (int)Math.pow(4, condBoundInc);
+							condBound = (int)Math.pow(64, condBoundInc);
 							System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
 							condBoundInc = condBoundInc + 1;
-							if (condBoundInc > 4) {		//for 2, >6		//for 4, >4
+							iterationCntr = 0;
+							if (condBoundInc > 3) {		//for 2, >6		//for 4, >4	64 	//infinite 5
 								heightBound = heightBound + 1;
 								System.out.println("Synthesizer : Increase height bound to " + heightBound);
 								condBound = 1;
@@ -221,6 +223,43 @@ public class Cegis {
 								System.out.println("f" + i + " : " + functions[i]);
 							}
 							System.out.println();
+
+							if (condBound == 64) {
+								iterationCntr = iterationCntr + 1;
+								if (iterationCntr >= 64) {
+									iterationCntr = 0;
+									condBound = (int)Math.pow(64, condBoundInc);
+									condBoundInc = condBoundInc + 1;
+									System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
+									
+								}
+							}
+
+							if (condBound == 4096) {	//256
+								iterationCntr = iterationCntr + 1;
+								if (iterationCntr >= 15) {
+									iterationCntr = 0;
+									heightBound = heightBound + 1;
+									System.out.println("Synthesizer : Increase height bound to " + heightBound);
+									condBound = 1;
+									condBoundInc = 1;
+								}
+							}
+
+							/*iterationCntr = iterationCntr + 1;
+							if (iterationCntr >= 15) {
+								iterationCntr = 0;
+								condBound = (int)Math.pow(4, condBoundInc);
+								System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
+								condBoundInc = condBoundInc + 1;
+								if (condBoundInc > 5) {		//for 2, >6		//for 4, >4	64
+									heightBound = heightBound + 1;
+									System.out.println("Synthesizer : Increase height bound to " + heightBound);
+									condBound = 1;
+									condBoundInc = 1;
+								}
+
+							}*/
 						}
 					}
 

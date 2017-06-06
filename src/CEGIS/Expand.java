@@ -61,25 +61,29 @@ public class Expand {
 
 				if (j < ((bound - 1)/2)) {
 
-					if (returnType.equals("INV")) {
-						coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
-					} else {
-						if (condBound <= 16) {
+					//if (returnType.equals("INV")) {
+					//	coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
+					//} else {
+						if (condBound <= 64) {	//64
 							coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
 						} else {
 							coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp));
 						}
-					}
+					//}
 
 				} else {
 
 					if (returnType.equals("INV")) {
-						coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf);
-					} else {
-						if (condBound <= 16) {
+						coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkOr(coeffEqualOneOrMinusOne, cProp));
+					}
+
+					//if (returnType.equals("INV")) {
+					//	coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf, ctx.mkOr(coeffEqualOneOrMinusOne, cProp));
+					//} else {
+						if (condBound <= 64) {	//64
 							coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf);
 						}
-					}
+					//}
 
 				}
 
