@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export LD_LIBRARY_PATH=../lib
+export CLASSPATH=classes:../lib/antlr.jar:../lib/com.microsoft.z3.jar
+java -Djava.library.path=../lib $1
