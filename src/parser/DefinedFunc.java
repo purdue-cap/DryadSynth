@@ -97,7 +97,7 @@ public class DefinedFunc {
     }
 
     public String toString() {
-        String str = "(define-func %s (%s) %s %s)";
+        String str = "(define-fun %s (%s) %s %s)";
         String argStr = "";
         for (Expr expr : args) {
             argStr = argStr + String.format("(%s %s) ", expr.toString(), expr.getSort().toString());
