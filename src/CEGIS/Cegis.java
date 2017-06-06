@@ -246,20 +246,6 @@ public class Cegis {
 								}
 							}
 
-							/*iterationCntr = iterationCntr + 1;
-							if (iterationCntr >= 15) {
-								iterationCntr = 0;
-								condBound = (int)Math.pow(4, condBoundInc);
-								System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
-								condBoundInc = condBoundInc + 1;
-								if (condBoundInc > 5) {		//for 2, >6		//for 4, >4	64
-									heightBound = heightBound + 1;
-									System.out.println("Synthesizer : Increase height bound to " + heightBound);
-									condBound = 1;
-									condBoundInc = 1;
-								}
-
-							}*/
 						}
 					}
 
