@@ -158,8 +158,10 @@ public class Cegis {
 					if (debug) {
 						System.out.println("Done! Synthesized function(s): ");
 					}
+					String[] names = extractor.requests.keySet().toArray(new String[extractor.requests.size()]);
 					for (int i = 0; i < numFunc; i++) {
-						System.out.println("f" + i + " : " + functions[i]);
+						System.out.println(new DefinedFunc(ctx, names[i],
+						 									var, functions[i]));
 					}
 					flag = false;
 
