@@ -88,7 +88,7 @@ public class Synthesizer {
 
 		//System.out.println("Synthesizing... Formula: ");
 		//System.out.println(s);
-		
+
 		Status sts = s.check();
 		s.pop();
 		return sts;

@@ -79,7 +79,7 @@ public class SynthDecoder {
 					
 				}
 			}
-			functions[j] = f[j][0];
+			functions[j] = f[j][0].simplify();
 		}
 
 		return functions;

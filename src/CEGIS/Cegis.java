@@ -131,6 +131,7 @@ public class Cegis {
 		int condBound = 1;
 		int condBoundInc = 1;
 		int iterationCntr = 0;
+		long startTime = System.currentTimeMillis();
 
 		int k = 0;	//number of iterations
 
@@ -212,13 +213,15 @@ public class Cegis {
 						}
 
 						if (synth == Status.UNSATISFIABLE) {
+							startTime = System.currentTimeMillis();
 							if (debug) {
 								System.out.println("Synthesizer : Unsatisfiable!");
 							}
-							condBound = (int)Math.pow(64, condBoundInc);
+							condBound = (int)Math.pow(64, condBoundInc);	//64
 							if (debug) {
 								System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
 							}
+
 							condBoundInc = condBoundInc + 1;
 							iterationCntr = 0;
 							if (condBoundInc > 3) {		//for 2, >6		//for 4, >4	64 	//infinite 5
@@ -259,32 +262,32 @@ public class Cegis {
 							}
 
 							if (condBound == 64) {
-								iterationCntr = iterationCntr + 1;
-								if (iterationCntr >= 64) {
-									iterationCntr = 0;
+								if (System.currentTimeMillis() - startTime > 240000) {
 									condBound = (int)Math.pow(64, condBoundInc);
 									condBoundInc = condBoundInc + 1;
 									if (debug) {
 										System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
 									}
-
+									startTime = System.currentTimeMillis();
 								}
 							}
 
-							if (condBound == 4096) {	//256
-								iterationCntr = iterationCntr + 1;
-								if (iterationCntr >= 15) {
-									iterationCntr = 0;
+							if (condBound == 4096) {
+								if (System.currentTimeMillis() - startTime > 60000) {
+									condBound = (int)Math.pow(64, condBoundInc);
 									heightBound = heightBound + 1;
 									if (debug) {
 										System.out.println("Synthesizer : Increase height bound to " + heightBound);
 									}
 									condBound = 1;
 									condBoundInc = 1;
+									startTime = System.currentTimeMillis();
+
 								}
 							}
 
 						}
+
 					}
 				}
 			if (debug) {
