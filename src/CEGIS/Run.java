@@ -4,11 +4,8 @@ import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import com.microsoft.z3.*;
 
-public class Synth {
+public class Run {
 	public static void main(String[] args) throws Exception {
-
-		long startTime = System.currentTimeMillis();
-
 		ANTLRFileStream input = new ANTLRFileStream(args[0]);
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -24,25 +21,15 @@ public class Synth {
 		ParseTree tree;
 		try{
 			tree = parser.start();
-			System.out.println("Parser Accepted");
 		} catch(Exception ex) {
-			System.out.println("Parser Did Not Accept");
 			return;
 		}
 
 		ParseTreeWalker walker = new ParseTreeWalker();
 		SygusExtractor extractor = new SygusExtractor(ctx);
 		walker.walk(extractor, tree);
-
-		System.out.println("Final Constraints:");
-		System.out.println(extractor.finalConstraint);
-
-		Cegis test = new Cegis(ctx, extractor, true);
+		Cegis test = new Cegis(ctx, extractor, false);
 		test.cegis();
-
-		long estimatedTime = System.currentTimeMillis() - startTime;
-		System.out.println("Runtime: " + estimatedTime);
-
 	}
 }
 
