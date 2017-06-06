@@ -2,7 +2,7 @@ import java.util.*;
 import com.microsoft.z3.*;
 
 public class Cegis {
-	
+
 	private Context ctx;
 	private SygusExtractor extractor;
 	private int numVar;
@@ -56,7 +56,7 @@ public class Cegis {
 			} else {
 				functions[i] = ctx.mkInt(0);
 			}
-			
+
 		}
 	}
 
@@ -84,7 +84,7 @@ public class Cegis {
 			}
 			counterExamples.add(randomExample);
 		}
-		
+
 	}
 
 	public IntExpr[][] addSimpleExamplesRecursive(int nv) {
@@ -106,7 +106,7 @@ public class Cegis {
 			}
 
 			return examples;
-		
+
 		}
 
 	}
@@ -119,7 +119,7 @@ public class Cegis {
 	}
 
 	public void cegis() {
-		
+
 		boolean flag = true;
 		int heightBound = 1;
 		int condBound = 1;
@@ -129,12 +129,11 @@ public class Cegis {
 		int k = 0;	//number of iterations
 
 		//print out initial examples
+		System.out.println("Initial examples:");
 		for (IntExpr[] example : counterExamples) {
-			for (int i = 0; i < numVar; i++) {
-				System.out.println("initial example: var" + i + " : " + example[i]);
-			}
-			System.out.println();
+			System.out.print(Arrays.toString(example) + " ");
 		}
+		System.out.println();
 
 		while(flag) {
 
@@ -151,13 +150,13 @@ public class Cegis {
 						System.out.println("f" + i + " : " + functions[i]);
 					}
 					flag = false;
-					
+
 				} else if (v == Status.UNKNOWN) {
 					System.out.println("Verifier Error : Unknown!");
 					flag = false;
 
 				} else if (v == Status.SATISFIABLE) {
-					
+
 					System.out.println(testVerifier.s.getModel());	//for test only
 					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), numVar, var);
 
@@ -166,11 +165,9 @@ public class Cegis {
 					//print out for debug
 					System.out.println("Verifier satisfiable! Counter example(s): ");
 					for (IntExpr[] params : counterExamples) {
-						for (int i = 0; i < numVar; i++) {
-							System.out.println("var" + i + " : " + params[i]);
-						}
-						System.out.println();
+						System.out.print(Arrays.toString(params) + " ");
 					}
+					System.out.println();
 
 					//for test only
 					//if (k >= 100) {
@@ -255,7 +252,7 @@ public class Cegis {
 			System.out.println();
 
 		}
-		
+
 
 	}
 
