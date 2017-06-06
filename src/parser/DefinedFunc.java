@@ -103,7 +103,8 @@ public class DefinedFunc {
             argStr = argStr + String.format("(%s %s) ", expr.toString(), expr.getSort().toString());
         }
         String typeStr = definition.getSort().toString();
-        return String.format(str, name, argStr, typeStr, definition.toString());
+        Expr def = definition.simplify();
+        return String.format(str, name, argStr, typeStr, def.toString());
     }
 
     public int getNumArgs() {

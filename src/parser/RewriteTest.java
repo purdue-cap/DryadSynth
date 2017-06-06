@@ -27,5 +27,6 @@ public class RewriteTest {
         System.out.println("Func Def :" + func2);
         System.out.println("Rewritten:" + rewritten2);
         System.out.println("Sort     :" + rewritten2.getSort());
+        System.out.println("Expr -x  :" + ctx.mkMul((ArithExpr)x, ctx.mkInt(-1)).simplify());
     }
 }
