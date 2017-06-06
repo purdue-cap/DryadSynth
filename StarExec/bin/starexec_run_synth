@@ -2,4 +2,4 @@
 
 export LD_LIBRARY_PATH=../lib
 export CLASSPATH=classes:../lib/antlr.jar:../lib/com.microsoft.z3.jar
-java -Djava.library.path=../lib $1
+java -Djava.library.path=../lib Run $1
