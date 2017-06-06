@@ -97,13 +97,13 @@ public class DefinedFunc {
     }
 
     public String toString() {
-        String str = "(define-func (%s) %s %s)";
+        String str = "(define-func %s (%s) %s %s)";
         String argStr = "";
         for (Expr expr : args) {
             argStr = argStr + String.format("(%s %s) ", expr.toString(), expr.getSort().toString());
         }
         String typeStr = definition.getSort().toString();
-        return String.format(str, argStr, typeStr, definition.toString());
+        return String.format(str, name, argStr, typeStr, definition.toString());
     }
 
     public int getNumArgs() {
