@@ -46,6 +46,9 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public SygusExtractor translate(Context ctx) {
+        if (this.z3ctx == ctx) {
+            return this;
+        }
         SygusExtractor newExtractor = new SygusExtractor(ctx);
         for(String key : this.requests.keySet()) {
             newExtractor.requests.put(key, (FuncDecl)this.requests.get(key).translate(ctx));

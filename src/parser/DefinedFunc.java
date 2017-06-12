@@ -30,6 +30,9 @@ public class DefinedFunc {
     }
 
     pubic DefinedFunc translate(Context ctx) {
+        if (this.ctx == ctx) {
+            return this;
+        }
         Expr[] newArgs = new Expr[this.args.length];
         for(int i = 0; i < this.args.length; i++) {
             newArgs[i] = this.args[i].translate(ctx);
