@@ -29,6 +29,15 @@ public class DefinedFunc {
         return definition.substitute(args, argList);
     }
 
+    pubic DefinedFunc translate(Context ctx) {
+        Expr[] newArgs = new Expr[this.args.length];
+        for(int i = 0; i < this.args.length; i++) {
+            newArgs[i] = this.args[i].translate(ctx);
+        }
+        DefinedFunc df = new DefinedFunc(ctx, this.name, newArgs, this.definition.translate(ctx));
+        return df;
+    }
+
     public Expr rewrite(Expr orig, FuncDecl func) {
         Stack<Expr> todo = new Stack<Expr>();
         todo.push(orig);

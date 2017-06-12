@@ -45,6 +45,29 @@ public class SygusExtractor extends SygusBaseListener {
         return sort;
     }
 
+    public SygusExtractor translate(Context ctx) {
+        SygusExtractor newExtractor = new SygusExtractor(ctx);
+        for(String key : this.requests.keySet()) {
+            newExtractor.requests.put(key, (FuncDecl)this.requests.get(key).translate(ctx));
+        }
+        for(String key : this.vars.keySet()) {
+            newExtractor.vars.put(key, this.vars.get(key).translate(ctx));
+        }
+        for(String key : this.regularVars.keySet()) {
+            newExtractor.regularVars.put(key, this.regularVars.get(key).translate(ctx));
+        }
+        for(BoolExpr expr : this.constraints) {
+            newExtractor.constraints.add((BoolExpr)expr.translate(ctx));
+        }
+        if (newExtractor.finalConstraint != null) {
+            newExtractor.finalConstraint = (BoolExpr)this.finalConstraint.translate(ctx);
+        }
+        for(String key : this.funcs.keySet()) {
+            newExtractor.funcs.put(key, this.funcs.get(key).translate(ctx));
+        }
+        return newExtractor;
+    }
+
     public void enterSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
         currentCmd = CmdType.SYNTHFUNC;
         currentArgList = new ArrayList<Sort>();
