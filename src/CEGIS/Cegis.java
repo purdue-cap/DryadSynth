@@ -209,8 +209,10 @@ public class Cegis extends Thread{
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
 					}
 					flag = false;
-					synchronized(condition) {
-						condition.notify();
+					if (fixedCond > 0 || fixedHeight > 0) {
+						synchronized(condition) {
+							condition.notify();
+						}
 					}
 
 				} else if (v == Status.UNKNOWN) {
