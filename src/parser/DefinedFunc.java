@@ -29,7 +29,7 @@ public class DefinedFunc {
         return definition.substitute(args, argList);
     }
 
-    pubic DefinedFunc translate(Context ctx) {
+    public DefinedFunc translate(Context ctx) {
         if (this.ctx == ctx) {
             return this;
         }
