@@ -4,6 +4,8 @@ import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
+import java.util.logging.FileHandler;
+import java.util.logging.SimpleFormatter;
 
 public class Run {
 	public static void main(String[] args) throws Exception {
@@ -17,6 +19,9 @@ public class Run {
 
 		Logger logger = Logger.getLogger("main");
 		logger.setUseParentHandlers(false);
+		FileHandler handler = new FileHandler("log.main.txt", false);
+		handler.setFormatter(new SimpleFormatter());
+		logger.addHandler(handler);
 		Thread mainThread = Thread.currentThread();
 		int numCore = Runtime.getRuntime().availableProcessors();
 
@@ -41,13 +46,16 @@ public class Run {
 		SygusExtractor extractor = new SygusExtractor(ctx);
 		walker.walk(extractor, tree);
 
-		logger.info("Final Constraints:");
-		logger.info(extractor.finalConstraint.toString());
+		logger.info("Final Constraints:" + extractor.finalConstraint.toString());
 
 		Producer1D pdc1d = new Producer1D();
 		Cegis[] threads = new Cegis[numCore];
 		for (int i = 0; i < numCore; i++) {
 			Logger threadLogger = Logger.getLogger("main.thread" + i);
+			threadLogger.setUseParentHandlers(false);
+			FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
+			threadHandler.setFormatter(new SimpleFormatter());
+			threadLogger.addHandler(threadHandler);
 			threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger);
 			threads[i].start();
 		}
@@ -55,7 +63,9 @@ public class Run {
 		DefinedFunc[] results = new DefinedFunc[0];
 		boolean flag = true;
 		while (flag) {
-			mainThread.wait();
+			synchronized(mainThread) {
+				mainThread.wait();
+			}
 			for (Cegis thread : threads) {
 				if (thread.results != null) {
 					results = thread.results;
@@ -70,15 +80,9 @@ public class Run {
 		}
 
 		long estimatedTime = System.currentTimeMillis() - startTime;
-		logger.info("Algorithm Runtime: " + estimatedTime);
+		logger.info("Runtime: " + estimatedTime);
 
-		for (Cegis thread : threads) {
-			thread.running = false;
-			thread.join();
-		}
-
-		estimatedTime = System.currentTimeMillis() - startTime;
-		logger.info("Total Runtime: " + estimatedTime);
+		System.exit(0);
 
 	}
 }

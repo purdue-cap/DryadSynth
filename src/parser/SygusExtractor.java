@@ -62,7 +62,7 @@ public class SygusExtractor extends SygusBaseListener {
         for(BoolExpr expr : this.constraints) {
             newExtractor.constraints.add((BoolExpr)expr.translate(ctx));
         }
-        if (newExtractor.finalConstraint != null) {
+        if (this.finalConstraint != null) {
             newExtractor.finalConstraint = (BoolExpr)this.finalConstraint.translate(ctx);
         }
         for(String key : this.funcs.keySet()) {

@@ -1,6 +1,7 @@
 import java.util.*;
 import java.io.*;
 import com.microsoft.z3.*;
+import java.util.logging.Logger;
 
 public class Synthesizer {
 
@@ -12,12 +13,13 @@ public class Synthesizer {
 	private int numFunc;
 	private HashSet<IntExpr[]> counterExamples;
 	private SygusExtractor extractor;
+	private Logger logger;
 
 	public int heightBound;
 	public int bound;
 	public Expand e;
 
-	public Synthesizer(Context ctx, String returnType, int numVar, int numV, int numFunc, HashSet<IntExpr[]> counterExamples, int heightBound, SygusExtractor extractor) {
+	public Synthesizer(Context ctx, String returnType, int numVar, int numV, int numFunc, HashSet<IntExpr[]> counterExamples, int heightBound, SygusExtractor extractor, Logger logger) {
 		this.ctx = ctx;
 		this.returnType = returnType;
 		this.numVar = numVar;
@@ -26,6 +28,7 @@ public class Synthesizer {
 		this.s = ctx.mkSolver();
 		this.counterExamples = counterExamples;
 		this.extractor = extractor;
+		this.logger = logger;
 		this.heightBound = heightBound;
 		this.bound = (int)Math.pow(2, heightBound) - 1;
 		this.e = new Expand(bound, ctx, numV, numFunc);

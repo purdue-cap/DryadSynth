@@ -1,5 +1,6 @@
 import java.util.*;
 import com.microsoft.z3.*;
+import java.util.logging.Logger;
 
 public class Verifier {
 
@@ -12,8 +13,9 @@ public class Verifier {
 	private IntExpr[] var;
 	private BoolExpr finalConstraint;
 	private SygusExtractor extractor;
+	private Logger logger;
 
-	public Verifier(Context ctx, String returnType, int numVar, int numV, int numFunc, IntExpr[] var, SygusExtractor extractor) {
+	public Verifier(Context ctx, String returnType, int numVar, int numV, int numFunc, IntExpr[] var, SygusExtractor extractor, Logger logger) {
 		this.numVar = numVar;
 		this.numV = numV;
 		this.numFunc = numFunc;
@@ -23,6 +25,7 @@ public class Verifier {
 		this.var = var;
 		this.finalConstraint = extractor.finalConstraint;;
 		this.extractor = extractor;
+		this.logger = logger;
 	}
 
 	public Status verify(Expr[] functions) {

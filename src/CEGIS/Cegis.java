@@ -147,13 +147,14 @@ public class Cegis extends Thread{
 	}
 
 	public void run() {
+		logger.info(Thread.currentThread().getName() + " Started");
 		if (pdc1D != null) {
-			while (results == null) {
+			while (results == null && running) {
 				fixedHeight = pdc1D.get();
 				cegis();
 			}
 		} else if (pdc2D != null) {
-			while (results == null) {
+			while (results == null && running) {
 				int[] args = pdc2D.get();
 				fixedHeight = args[0];
 				fixedCond = args[1];
@@ -189,7 +190,7 @@ public class Cegis extends Thread{
 			k = k + 1;
 
 			logger.info("Start verifying");
-			Verifier testVerifier = new Verifier(ctx, returnType, numVar, numV, numFunc, var, extractor);
+			Verifier testVerifier = new Verifier(ctx, returnType, numVar, numV, numFunc, var, extractor, logger);
 
 			Status v = testVerifier.verify(functions);
 
@@ -206,7 +207,9 @@ public class Cegis extends Thread{
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
 					}
 					flag = false;
-					condition.notify();
+					synchronized(condition) {
+						condition.notify();
+					}
 
 				} else if (v == Status.UNKNOWN) {
 					logger.severe("Verifier Error : Unknown");
@@ -231,7 +234,7 @@ public class Cegis extends Thread{
 
 					while(unsat && flag && running) {
 
-						Synthesizer testSynthesizer = new Synthesizer(ctx, returnType, numVar, numV, numFunc, counterExamples, heightBound, extractor);
+						Synthesizer testSynthesizer = new Synthesizer(ctx, returnType, numVar, numV, numFunc, counterExamples, heightBound, extractor, logger);
 						//print out for debug
 						logger.info("Start synthesizing");
 
