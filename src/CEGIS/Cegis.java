@@ -52,7 +52,7 @@ public class Cegis extends Thread{
 			Integer argsNum = func.getDomain().length;
 			argsNumList.add(argsNum);
 
-			if (func.getRange().equals(ctx.mkBoolSort())) {
+			if (func.getRange().toString().equals("Bool")) {
 				this.returnType = "INV";
 			} else {
 				this.returnType = "CLIA";
