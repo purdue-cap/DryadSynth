@@ -51,7 +51,7 @@ public class SygusExtractor extends SygusBaseListener {
         }
         SygusExtractor newExtractor = new SygusExtractor(ctx);
         for(String key : this.requests.keySet()) {
-            newExtractor.requests.put(key, (FuncDecl)this.requests.get(key).translate(ctx));
+            newExtractor.requests.put(key, this.requests.get(key).translate(ctx));
         }
         for(String key : this.vars.keySet()) {
             newExtractor.vars.put(key, this.vars.get(key).translate(ctx));

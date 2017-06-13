@@ -14,16 +14,32 @@ public class Cegis extends Thread{
 	private Logger logger;
 	private int fixedHeight = -1;
 	private int fixedCond = -1;
+	private Producer1D pdc1D = null;
+	private Producer2D pdc2D = null;
+	private Object condition = null;
 
 	public IntExpr[] var;
 	public Expr[] functions;
 	public HashSet<IntExpr[]> counterExamples;
-	public DefinedFunc[] results = null;
+	public volatile DefinedFunc[] results = null;
+	public volatile boolean running = true;
 
 	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond, Logger logger) {
 		this(new Context(), extractor, logger);
 		this.fixedHeight = fixedHeight;
 		this.fixedCond = fixedCond;
+	}
+
+	public Cegis(SygusExtractor extractor, Producer1D pdc1D, Object condition, Logger logger) {
+		this(new Context(), extractor, logger);
+		this.pdc1D = pdc1D;
+		this.condition = condition;
+	}
+
+	public Cegis(SygusExtractor extractor, Producer2D pdc2D, Object condition, Logger logger) {
+		this(new Context(), extractor, logger);
+		this.pdc2D = pdc2D;
+		this.condition = condition;
 	}
 
 	public Cegis(Context ctx, SygusExtractor extractor, Logger logger) {
@@ -131,6 +147,24 @@ public class Cegis extends Thread{
 	}
 
 	public void run() {
+		if (pdc1D != null) {
+			while (results == null) {
+				fixedHeight = pdc1D.get();
+				cegis();
+			}
+		} else if (pdc2D != null) {
+			while (results == null) {
+				int[] args = pdc2D.get();
+				fixedHeight = args[0];
+				fixedCond = args[1];
+				cegis();
+			}
+		} else {
+			cegis();
+		}
+	}
+
+	public void cegis() {
 
 		boolean flag = true;
 		int heightBound = 1;
@@ -150,7 +184,7 @@ public class Cegis extends Thread{
 		//print out initial examples
 		logger.info("Initial examples:" + Arrays.deepToString(counterExamples.toArray()));
 
-		while(flag) {
+		while(flag && running) {
 
 			k = k + 1;
 
@@ -172,6 +206,7 @@ public class Cegis extends Thread{
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
 					}
 					flag = false;
+					condition.notify();
 
 				} else if (v == Status.UNKNOWN) {
 					logger.severe("Verifier Error : Unknown");
@@ -194,7 +229,7 @@ public class Cegis extends Thread{
 
 					boolean unsat = true;
 
-					while(unsat) {
+					while(unsat && flag && running) {
 
 						Synthesizer testSynthesizer = new Synthesizer(ctx, returnType, numVar, numV, numFunc, counterExamples, heightBound, extractor);
 						//print out for debug
