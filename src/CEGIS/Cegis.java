@@ -1,7 +1,7 @@
 import java.util.*;
 import com.microsoft.z3.*;
 
-public class Cegis {
+public class Cegis extends Thread{
 
 	private Context ctx;
 	private SygusExtractor extractor;
@@ -11,18 +11,23 @@ public class Cegis {
 	private BoolExpr finalConstraint;
 	private String returnType = null;
 	private boolean debug;
+	private int fixedHeight = -1;
+	private int fixedCond = -1;
 
 	public IntExpr[] var;
 	public Expr[] functions;
 	public HashSet<IntExpr[]> counterExamples;
+	public DefinedFunc[] results = null;
 
-	public Cegis(Context ctx, SygusExtractor extractor) {
-		this(ctx, extractor, false);
+	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond) {
+		this(new Context(), extractor, false);
+		this.fixedHeight = fixedHeight;
+		this.fixedCond = fixedCond;
 	}
 
 	public Cegis(Context ctx, SygusExtractor extractor, boolean debug) {
 		this.ctx = ctx;
-		this.extractor = extractor;
+		this.extractor = extractor.translate(ctx);
 		this.debug = debug;
 
 		ArrayList<Integer> argsNumList = new ArrayList<Integer>();
@@ -124,11 +129,17 @@ public class Cegis {
 		}
 	}
 
-	public void cegis() {
+	public void run() {
 
 		boolean flag = true;
 		int heightBound = 1;
+		if (fixedHeight > 0) {
+			heightBound = fixedHeight;
+		}
 		int condBound = 1;
+		if (fixedCond > 0) {
+			condBound = fixedCond;
+		}
 		int condBoundInc = 1;
 		int iterationCntr = 0;
 		long startTime = System.currentTimeMillis();
@@ -159,11 +170,15 @@ public class Cegis {
 					if (debug) {
 						System.out.println("Done! Synthesized function(s): ");
 					}
-					String[] names = extractor.requests.keySet().toArray(new String[extractor.requests.size()]);
-					Expr[] readableVars = extractor.vars.values().toArray(new Expr[extractor.vars.size()]);
+					String[] names = extractor.requests.keySet().toArray(new String[numFunc]);
+					Expr[] readableVars = extractor.vars.values().toArray(new Expr[numVar]);
+					results = new DefinedFunc[numFunc];
 					for (int i = 0; i < numFunc; i++) {
-						System.out.println(new DefinedFunc(ctx, names[i], readableVars,
-						 								functions[i].substitute(var, readableVars)));
+						results[i] = new DefinedFunc(ctx, names[i], readableVars,
+						 								functions[i].substitute(var, readableVars));
+						if (fixedCond <= 0 && fixedHeight <= 0) {
+							System.out.println(results[i]);
+						}
 					}
 					flag = false;
 
@@ -217,6 +232,9 @@ public class Cegis {
 							if (debug) {
 								System.out.println("Synthesizer : Unsatisfiable!");
 							}
+							if (fixedCond > 0) {
+								return;
+							}
 							condBound = (int)Math.pow(64, condBoundInc);	//64
 							if (debug) {
 								System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
@@ -225,11 +243,17 @@ public class Cegis {
 							condBoundInc = condBoundInc + 1;
 							iterationCntr = 0;
 							if (condBoundInc > 3) {		//for 2, >6		//for 4, >4	64 	//infinite 5
+								if (fixedHeight > 0) {
+									return;
+								}
 								heightBound = heightBound + 1;
 								if (debug) {
 									System.out.println("Synthesizer : Increase height bound to " + heightBound);
 								}
 								condBound = 1;
+								if (fixedCond > 0) {
+									condBound = fixedCond;
+								}
 								condBoundInc = 1;
 							}
 							//flag = false;
@@ -263,6 +287,9 @@ public class Cegis {
 
 							if (condBound == 64) {
 								if (System.currentTimeMillis() - startTime > 240000) {
+									if (fixedCond > 0) {
+										return;
+									}
 									condBound = (int)Math.pow(64, condBoundInc);
 									condBoundInc = condBoundInc + 1;
 									if (debug) {
@@ -274,12 +301,17 @@ public class Cegis {
 
 							if (condBound == 4096) {
 								if (System.currentTimeMillis() - startTime > 60000) {
-									condBound = (int)Math.pow(64, condBoundInc);
+									if (fixedHeight > 0) {
+										return;
+									}
 									heightBound = heightBound + 1;
 									if (debug) {
 										System.out.println("Synthesizer : Increase height bound to " + heightBound);
 									}
 									condBound = 1;
+									if (fixedCond > 0) {
+										condBound = fixedCond;
+									}
 									condBoundInc = 1;
 									startTime = System.currentTimeMillis();
 

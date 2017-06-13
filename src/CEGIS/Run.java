@@ -29,7 +29,7 @@ public class Run {
 		SygusExtractor extractor = new SygusExtractor(ctx);
 		walker.walk(extractor, tree);
 		Cegis test = new Cegis(ctx, extractor, false);
-		test.cegis();
+		test.run();
 	}
 }
 

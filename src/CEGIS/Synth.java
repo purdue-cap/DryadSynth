@@ -39,7 +39,7 @@ public class Synth {
 		System.out.println(extractor.finalConstraint);
 
 		Cegis test = new Cegis(ctx, extractor, true);
-		test.cegis();
+		test.run();
 
 		long estimatedTime = System.currentTimeMillis() - startTime;
 		System.out.println("Runtime: " + estimatedTime);
