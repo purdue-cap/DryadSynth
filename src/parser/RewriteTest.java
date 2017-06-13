@@ -28,5 +28,6 @@ public class RewriteTest {
         System.out.println("Rewritten:" + rewritten2);
         System.out.println("Sort     :" + rewritten2.getSort());
         System.out.println("Expr -x  :" + ctx.mkMul((ArithExpr)x, ctx.mkInt(-1)).simplify());
+        System.out.println("NumCore  :" + Runtime.getRuntime().availableProcessors());
     }
 }
