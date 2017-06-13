@@ -199,9 +199,10 @@ public class Cegis extends Thread{
 			if (v == Status.UNSATISFIABLE) {
 					String[] names = extractor.requests.keySet().toArray(new String[numFunc]);
 					Expr[] readableVars = extractor.vars.values().toArray(new Expr[numVar]);
+					Expr[] readableArgs = extractor.regularVars.values().toArray(new Expr[numV]);
 					results = new DefinedFunc[numFunc];
 					for (int i = 0; i < numFunc; i++) {
-						results[i] = new DefinedFunc(ctx, names[i], readableVars,
+						results[i] = new DefinedFunc(ctx, names[i], readableArgs,
 						 								functions[i].substitute(var, readableVars));
 						if (fixedCond <= 0 && fixedHeight <= 0) {
 							System.out.println(results[i]);
