@@ -10,3 +10,5 @@ build/
 # Built packages
 StarExec.zip
 
+# Log files
+log.*.txt
