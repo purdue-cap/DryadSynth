@@ -151,6 +151,7 @@ public class Cegis extends Thread{
 		if (pdc1D != null) {
 			while (results == null && running) {
 				fixedHeight = pdc1D.get();
+				logger.info("Started loop with fixedHeight = " + fixedHeight);
 				cegis();
 			}
 		} else if (pdc2D != null) {
@@ -158,6 +159,7 @@ public class Cegis extends Thread{
 				int[] args = pdc2D.get();
 				fixedHeight = args[0];
 				fixedCond = args[1];
+				logger.info("Started loop with fixedHeight = " + fixedHeight + ", fixedCond = " + fixedCond);
 				cegis();
 			}
 		} else {
