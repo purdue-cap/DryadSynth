@@ -1,5 +1,6 @@
 import java.util.*;
 import com.microsoft.z3.*;
+import java.util.logging.Logger;
 
 public class Cegis extends Thread{
 
@@ -10,7 +11,7 @@ public class Cegis extends Thread{
 	private int numFunc;
 	private BoolExpr finalConstraint;
 	private String returnType = null;
-	private boolean debug;
+	private Logger logger;
 	private int fixedHeight = -1;
 	private int fixedCond = -1;
 
@@ -19,16 +20,16 @@ public class Cegis extends Thread{
 	public HashSet<IntExpr[]> counterExamples;
 	public DefinedFunc[] results = null;
 
-	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond) {
-		this(new Context(), extractor, false);
+	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond, Logger logger) {
+		this(new Context(), extractor, logger);
 		this.fixedHeight = fixedHeight;
 		this.fixedCond = fixedCond;
 	}
 
-	public Cegis(Context ctx, SygusExtractor extractor, boolean debug) {
+	public Cegis(Context ctx, SygusExtractor extractor, Logger logger) {
 		this.ctx = ctx;
 		this.extractor = extractor.translate(ctx);
-		this.debug = debug;
+		this.logger = logger;
 
 		ArrayList<Integer> argsNumList = new ArrayList<Integer>();
 		for(FuncDecl func : extractor.requests.values()) {
@@ -147,29 +148,18 @@ public class Cegis extends Thread{
 		int k = 0;	//number of iterations
 
 		//print out initial examples
-		if (debug) {
-			System.out.println("Initial examples:");
-			for (IntExpr[] example : counterExamples) {
-				System.out.print(Arrays.toString(example) + " ");
-			}
-			System.out.println();
-		}
+		logger.info("Initial examples:" + Arrays.deepToString(counterExamples.toArray()));
 
 		while(flag) {
 
 			k = k + 1;
 
-			if (debug) {
-				System.out.println("Start verifying............");
-			}
+			logger.info("Start verifying");
 			Verifier testVerifier = new Verifier(ctx, returnType, numVar, numV, numFunc, var, extractor);
 
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
-					if (debug) {
-						System.out.println("Done! Synthesized function(s): ");
-					}
 					String[] names = extractor.requests.keySet().toArray(new String[numFunc]);
 					Expr[] readableVars = extractor.vars.values().toArray(new Expr[numVar]);
 					results = new DefinedFunc[numFunc];
@@ -179,32 +169,23 @@ public class Cegis extends Thread{
 						if (fixedCond <= 0 && fixedHeight <= 0) {
 							System.out.println(results[i]);
 						}
+						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
 					}
 					flag = false;
 
 				} else if (v == Status.UNKNOWN) {
-					if (debug) {
-						System.out.println("Verifier Error : Unknown!");
-					}
+					logger.severe("Verifier Error : Unknown");
 					flag = false;
 
 				} else if (v == Status.SATISFIABLE) {
 
-					if (debug) {
-						System.out.println(testVerifier.s.getModel());	//for test only
-					}
+					logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
 					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), numVar, var);
 
 					IntExpr[] cntrExmp = decoder.decode();
 					counterExamples.add(cntrExmp);
-					if (debug) {
-						//print out for debug
-						System.out.println("Verifier satisfiable! Counter example(s): ");
-						for (IntExpr[] params : counterExamples) {
-							System.out.print(Arrays.toString(params) + " ");
-						}
-						System.out.println();
-					}
+					//print out for debug
+					logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(counterExamples.toArray()));
 
 					//for test only
 					//if (k >= 100) {
@@ -216,29 +197,21 @@ public class Cegis extends Thread{
 					while(unsat) {
 
 						Synthesizer testSynthesizer = new Synthesizer(ctx, returnType, numVar, numV, numFunc, counterExamples, heightBound, extractor);
-						if (debug) {
-							//print out for debug
-							System.out.println("Start synthesizing............");
-						}
+						//print out for debug
+						logger.info("Start synthesizing");
 
 						Status synth = testSynthesizer.synthesis(condBound);
-						if (debug) {
-							//print out for debug
-							System.out.println("Synthesis Done!");
-						}
+						//print out for debug
+						logger.info("Synthesis Done");
 
 						if (synth == Status.UNSATISFIABLE) {
 							startTime = System.currentTimeMillis();
-							if (debug) {
-								System.out.println("Synthesizer : Unsatisfiable!");
-							}
+							logger.info("Synthesizer : Unsatisfiable");
 							if (fixedCond > 0) {
 								return;
 							}
 							condBound = (int)Math.pow(64, condBoundInc);	//64
-							if (debug) {
-								System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
-							}
+							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 
 							condBoundInc = condBoundInc + 1;
 							iterationCntr = 0;
@@ -247,9 +220,7 @@ public class Cegis extends Thread{
 									return;
 								}
 								heightBound = heightBound + 1;
-								if (debug) {
-									System.out.println("Synthesizer : Increase height bound to " + heightBound);
-								}
+								logger.info("Synthesizer : Increase height bound to " + heightBound);
 								condBound = 1;
 								if (fixedCond > 0) {
 									condBound = fixedCond;
@@ -258,9 +229,7 @@ public class Cegis extends Thread{
 							}
 							//flag = false;
 						} else if (synth == Status.UNKNOWN) {
-							if (debug) {
-								System.out.println("Synthesizer Error : Unknown!");
-							}
+							logger.info("Synthesizer Error : Unknown");
 							flag = false;
 							unsat = false;
 						} else if (synth == Status.SATISFIABLE) {
@@ -268,21 +237,16 @@ public class Cegis extends Thread{
 							unsat = false;
 							//flag = false;	//for test only
 
-							//System.out.println(testSynthesizer.s.getModel());	//for test only
+							//logger.info(testSynthesizer.s.getModel());	//for test only
 							SynthDecoder synthDecoder = new SynthDecoder(ctx, returnType, testSynthesizer.s.getModel(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numV, numFunc);
-							if (debug) {
-								//print out for debug
-								System.out.println("Start decoding synthesizer output............");
-							}
+							//print out for debug
+							logger.info("Start decoding synthesizer output");
 							functions = synthDecoder.generateFunction(var);
-							if (debug) {
-								//print out for debug
-								System.out.println("Synthesizer output decode done!");
-								//print out for debug
-								for (int i = 0; i < numFunc; i++) {
-									System.out.println("f" + i + " : " + functions[i]);
-								}
-								System.out.println();
+							//print out for debug
+							logger.info("Synthesizer output decode done");
+							//print out for debug
+							for (int i = 0; i < numFunc; i++) {
+								logger.info("f" + i + " : " + functions[i]);
 							}
 
 							if (condBound == 64) {
@@ -292,9 +256,7 @@ public class Cegis extends Thread{
 									}
 									condBound = (int)Math.pow(64, condBoundInc);
 									condBoundInc = condBoundInc + 1;
-									if (debug) {
-										System.out.println("Synthesizer : Increase coefficient bound to " + condBound);
-									}
+									logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 									startTime = System.currentTimeMillis();
 								}
 							}
@@ -305,9 +267,7 @@ public class Cegis extends Thread{
 										return;
 									}
 									heightBound = heightBound + 1;
-									if (debug) {
-										System.out.println("Synthesizer : Increase height bound to " + heightBound);
-									}
+									logger.info("Synthesizer : Increase height bound to " + heightBound);
 									condBound = 1;
 									if (fixedCond > 0) {
 										condBound = fixedCond;
@@ -322,10 +282,7 @@ public class Cegis extends Thread{
 
 					}
 				}
-			if (debug) {
-				System.out.println("Iteration : " + k);
-				System.out.println();
-			}
+			logger.info("Iteration : " + k);
 		}
 	}
 }

@@ -3,6 +3,7 @@ import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import com.microsoft.z3.*;
+import java.util.logging.Logger;
 
 public class Synth {
 	public static void main(String[] args) throws Exception {
@@ -13,6 +14,7 @@ public class Synth {
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		SygusParser parser = new SygusParser(tokens);
+		Logger logger = Logger.getLogger("main");
 
 		HashMap<String, String> cfg = new HashMap<String, String>();
 		cfg.put("model", "true");
@@ -25,9 +27,9 @@ public class Synth {
 		ParseTree tree;
 		try{
 			tree = parser.start();
-			System.out.println("Accepted");
+			logger.info("Accepted");
 		} catch(Exception ex) {
-			System.out.println("Not Accepted");
+			logger.info("Not Accepted");
 			return;
 		}
 
@@ -35,14 +37,14 @@ public class Synth {
 		SygusExtractor extractor = new SygusExtractor(ctx);
 		walker.walk(extractor, tree);
 
-		System.out.println("Final Constraints:");
-		System.out.println(extractor.finalConstraint);
+		logger.info("Final Constraints:");
+		logger.info(extractor.finalConstraint.toString());
 
-		Cegis test = new Cegis(ctx, extractor, true);
+		Cegis test = new Cegis(ctx, extractor, logger);
 		test.run();
 
 		long estimatedTime = System.currentTimeMillis() - startTime;
-		System.out.println("Runtime: " + estimatedTime);
+		logger.info("Runtime: " + estimatedTime);
 
 		/*System.out.println("Synth requests:");
 		for(FuncDecl func : extractor.requests.values()) {
