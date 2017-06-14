@@ -1,9 +1,11 @@
 import com.microsoft.z3.*;
 import java.util.*;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 public class RewriteTest {
     public static void main(String [] args) {
         Context ctx = new Context();
+        ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
         FuncDecl f = ctx.mkFuncDecl("f", new Sort[]{ctx.mkIntSort(), ctx.mkIntSort()}, ctx.mkIntSort());
         Expr x = ctx.mkConst("x", ctx.mkIntSort());
         Expr y = ctx.mkConst("y", ctx.mkIntSort());

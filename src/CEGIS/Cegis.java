@@ -1,6 +1,7 @@
 import java.util.*;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 public class Cegis extends Thread{
 
@@ -46,6 +47,8 @@ public class Cegis extends Thread{
 		this.ctx = ctx;
 		this.extractor = extractor.translate(ctx);
 		this.logger = logger;
+
+		this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
 		ArrayList<Integer> argsNumList = new ArrayList<Integer>();
 		for(FuncDecl func : extractor.requests.values()) {

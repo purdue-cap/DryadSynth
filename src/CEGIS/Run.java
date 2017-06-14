@@ -6,6 +6,7 @@ import com.microsoft.z3.*;
 import java.util.logging.Logger;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 public class Run {
 	public static void main(String[] args) throws Exception {
@@ -28,6 +29,7 @@ public class Run {
 		HashMap<String, String> cfg = new HashMap<String, String>();
 		cfg.put("model", "true");
 		Context ctx = new Context(cfg);
+		ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 		//Context z3ctx = new Context();
 
 		ANTLRErrorStrategy es = new CustomErrorStrategy();
