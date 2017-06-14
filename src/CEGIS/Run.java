@@ -13,6 +13,7 @@ public class Run {
 
 		long startTime = System.currentTimeMillis();
 
+		// ANTLRFileStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRFileStream input = new ANTLRFileStream(args[0]);
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
