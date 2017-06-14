@@ -182,7 +182,6 @@ public class Cegis extends Thread{
 			condBound = fixedCond;
 		}
 		int condBoundInc = 1;
-		int iterationCntr = 0;
 		long startTime = System.currentTimeMillis();
 
 		int k = 0;	//number of iterations
@@ -261,7 +260,6 @@ public class Cegis extends Thread{
 							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 
 							condBoundInc = condBoundInc + 1;
-							iterationCntr = 0;
 							if (condBoundInc > 3) {		//for 2, >6		//for 4, >4	64 	//infinite 5
 								if (fixedHeight > 0) {
 									logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
