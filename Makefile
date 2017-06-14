@@ -26,7 +26,7 @@ $(PARSER_CLASSES): classes/%.class : build/%.java
 
 $(PARSER_SOURCE): $(GRAMMAR_SCRIPT)
 	mkdir -p build
-	java -cp $(LIB_ANTLR) org.antlr.v4.Tool -o build $(GRAMMAR_SCRIPT)
+	java -cp $(LIB_ANTLR) org.antlr.v4.Tool -o build -visitor $(GRAMMAR_SCRIPT)
 
 subdir: $(SUBDIRS)
 

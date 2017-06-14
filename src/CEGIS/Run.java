@@ -78,8 +78,15 @@ public class Run {
 			}
 		}
 
+		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
+		ANTLRInputStream resultBuffer;
+		SygusFormatter formatter = new SygusFormatter();
 		for (DefinedFunc df: results) {
-			System.out.println(df);
+			resultBuffer = new ANTLRInputStream(df.toString());
+			lexer = new SygusLexer(resultBuffer);
+			tokens = new CommonTokenStream(lexer);
+			parser = new SygusParser(tokens);
+			System.out.println(formatter.visit(parser.start()));
 		}
 
 		long estimatedTime = System.currentTimeMillis() - startTime;

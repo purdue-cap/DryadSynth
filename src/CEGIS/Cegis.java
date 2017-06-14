@@ -206,9 +206,6 @@ public class Cegis extends Thread{
 					for (int i = 0; i < numFunc; i++) {
 						results[i] = new DefinedFunc(ctx, names[i], readableArgs,
 						 								functions[i].substitute(var, readableVars));
-						if (fixedCond <= 0 && fixedHeight <= 0) {
-							System.out.println(results[i]);
-						}
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
 					}
 					flag = false;
