@@ -254,6 +254,7 @@ public class Cegis extends Thread{
 							startTime = System.currentTimeMillis();
 							logger.info("Synthesizer : Unsatisfiable");
 							if (fixedCond > 0) {
+								logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
 								return;
 							}
 							condBound = (int)Math.pow(64, condBoundInc);	//64
@@ -263,6 +264,7 @@ public class Cegis extends Thread{
 							iterationCntr = 0;
 							if (condBoundInc > 3) {		//for 2, >6		//for 4, >4	64 	//infinite 5
 								if (fixedHeight > 0) {
+									logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
 									return;
 								}
 								heightBound = heightBound + 1;
@@ -275,7 +277,7 @@ public class Cegis extends Thread{
 							}
 							//flag = false;
 						} else if (synth == Status.UNKNOWN) {
-							logger.info("Synthesizer Error : Unknown");
+							logger.severe("Synthesizer Error : Unknown");
 							flag = false;
 							unsat = false;
 						} else if (synth == Status.SATISFIABLE) {
@@ -298,6 +300,7 @@ public class Cegis extends Thread{
 							if (condBound == 64) {
 								if (System.currentTimeMillis() - startTime > 240000) {
 									if (fixedCond > 0) {
+										logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
 										return;
 									}
 									condBound = (int)Math.pow(64, condBoundInc);
@@ -310,6 +313,7 @@ public class Cegis extends Thread{
 							if (condBound == 4096) {
 								if (System.currentTimeMillis() - startTime > 60000) {
 									if (fixedHeight > 0) {
+										logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
 										return;
 									}
 									heightBound = heightBound + 1;
