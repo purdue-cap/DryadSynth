@@ -821,9 +821,13 @@ extern "C" {
         RESET_ERROR_CODE();
         std::ostringstream buffer;
         switch (mk_c(c)->get_print_mode()) {
-        case Z3_PRINT_SMTLIB_FULL:
-            buffer << mk_pp(to_ast(a), mk_c(c)->m());
+        case Z3_PRINT_SMTLIB_FULL: {
+            params_ref p;
+            p.set_uint("max_depth", 4294967295u);
+            p.set_uint("min_alias_size", 4294967295u);
+            buffer << mk_pp(to_ast(a), mk_c(c)->m(), p);
             break;
+        }
         case Z3_PRINT_LOW_LEVEL:
             buffer << mk_ll_pp(to_ast(a), mk_c(c)->m());
             break;
