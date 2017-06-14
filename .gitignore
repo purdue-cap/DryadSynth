@@ -12,6 +12,7 @@ StarExec.zip
 
 # Log files
 log.*.txt
+log.*.txt.lck
 
 # ctags files
 .tags*
