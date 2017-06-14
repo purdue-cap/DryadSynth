@@ -4,6 +4,7 @@ import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 public class Synth {
 	public static void main(String[] args) throws Exception {
@@ -19,6 +20,7 @@ public class Synth {
 		HashMap<String, String> cfg = new HashMap<String, String>();
 		cfg.put("model", "true");
 		Context ctx = new Context(cfg);
+		ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 		//Context z3ctx = new Context();
 
 		ANTLRErrorStrategy es = new CustomErrorStrategy();
