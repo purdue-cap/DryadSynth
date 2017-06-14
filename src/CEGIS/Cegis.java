@@ -250,17 +250,12 @@ public class Cegis extends Thread{
 						logger.info("Synthesis Done");
 
 						if (synth == Status.UNSATISFIABLE) {
-							startTime = System.currentTimeMillis();
 							logger.info("Synthesizer : Unsatisfiable");
 							if (fixedCond > 0) {
 								logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
 								return;
 							}
-							condBound = (int)Math.pow(64, condBoundInc);	//64
-							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
-
-							condBoundInc = condBoundInc + 1;
-							if (condBoundInc > 3) {		//for 2, >6		//for 4, >4	64 	//infinite 5
+							if (condBoundInc > 2) {		//for 2, >5		//for 4, >3	64 	//infinite 5
 								if (fixedHeight > 0) {
 									logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
 									return;
@@ -272,7 +267,13 @@ public class Cegis extends Thread{
 									condBound = fixedCond;
 								}
 								condBoundInc = 1;
+							} else {
+								condBound = (int)Math.pow(64, condBoundInc);	//64
+								logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+
+								condBoundInc = condBoundInc + 1;
 							}
+							startTime = System.currentTimeMillis();
 							//flag = false;
 						} else if (synth == Status.UNKNOWN) {
 							logger.severe("Synthesizer Error : Unknown");
@@ -295,7 +296,7 @@ public class Cegis extends Thread{
 								logger.info("f" + i + " : " + functions[i]);
 							}
 
-							if (condBound == 64) {
+							if (condBoundInc <= 2) {
 								if (System.currentTimeMillis() - startTime > 240000) {
 									if (fixedCond > 0) {
 										logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
@@ -306,9 +307,7 @@ public class Cegis extends Thread{
 									logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 									startTime = System.currentTimeMillis();
 								}
-							}
-
-							if (condBound == 4096) {
+							} else {
 								if (System.currentTimeMillis() - startTime > 60000) {
 									if (fixedHeight > 0) {
 										logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
