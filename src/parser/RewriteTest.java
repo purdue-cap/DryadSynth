@@ -31,5 +31,10 @@ public class RewriteTest {
         System.out.println("Sort     :" + rewritten2.getSort());
         System.out.println("Expr -x  :" + ctx.mkMul((ArithExpr)x, ctx.mkInt(-1)).simplify());
         System.out.println("NumCore  :" + Runtime.getRuntime().availableProcessors());
+        Expr ite = ctx.mkITE(ctx.mkGt((ArithExpr)x3, (ArithExpr)x2), rewritten1, rewritten2);
+        System.out.println("ITE      :" + ite);
+        Expr iteElimed = SygusFormatter.elimITE(ctx, ite);
+        System.out.println("ITE Elim :" + iteElimed);
+        System.out.println("Splfied  :" + iteElimed.simplify());
     }
 }

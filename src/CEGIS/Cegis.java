@@ -204,8 +204,11 @@ public class Cegis extends Thread{
 					Expr[] readableArgs = extractor.regularVars.values().toArray(new Expr[numV]);
 					results = new DefinedFunc[numFunc];
 					for (int i = 0; i < numFunc; i++) {
-						results[i] = new DefinedFunc(ctx, names[i], readableArgs,
-						 								functions[i].substitute(var, readableVars));
+						Expr readableDef = functions[i].substitute(var, readableVars);
+						if (returnType.equals("INV")) {
+							readableDef = SygusFormatter.elimITE(this.ctx, readableDef);
+						}
+						results[i] = new DefinedFunc(ctx, names[i], readableArgs, readableDef);
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
 					}
 					flag = false;
