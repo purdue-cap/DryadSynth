@@ -297,7 +297,7 @@ public class Cegis extends Thread{
 							}
 
 							if (condBoundInc <= 2) {
-								if (System.currentTimeMillis() - startTime > 240000) {
+								if (System.currentTimeMillis() - startTime > 1200000) {
 									if (fixedCond > 0) {
 										logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
 										return;
@@ -308,7 +308,7 @@ public class Cegis extends Thread{
 									startTime = System.currentTimeMillis();
 								}
 							} else {
-								if (System.currentTimeMillis() - startTime > 60000) {
+								if (System.currentTimeMillis() - startTime > 300000) {
 									if (fixedHeight > 0) {
 										logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
 										return;
