@@ -288,10 +288,6 @@ public class SygusExtractor extends SygusBaseListener {
                 }
                 String name = ctx.symbol().getText();
                 Expr res = operationDispatcher(name, args.toArray(new Expr[args.size()]));
-                // Debugging point
-                // System.out.println(name);
-                // System.out.println(args);
-                // System.out.println(res);
                 termStack.push(res);
             }
         }
