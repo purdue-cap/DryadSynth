@@ -17,6 +17,7 @@ public class SygusExtractor extends SygusBaseListener {
 
     public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>();
     public Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>();
+    public Map<String, Expr[]> requestUsedArgs = new LinkedHashMap<String, Expr[]>();
     List<Expr> currentArgList;
     List<Sort> currentSortList;
 
@@ -24,7 +25,9 @@ public class SygusExtractor extends SygusBaseListener {
     public Map<String, Expr> regularVars = new LinkedHashMap<String, Expr>();
     public List<BoolExpr> constraints = new ArrayList<BoolExpr>();
     public BoolExpr finalConstraint = null;
+    public Map<String, Expr> constraintUsedVars = new LinkedHashMap<String, Expr>();
     Stack<Object> termStack = new Stack<Object>();
+    Set<Expr> usedVars = new HashSet<Expr>();
 
     public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
     Map<String, Expr> defFuncVars;
@@ -82,6 +85,41 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void exitStart(SygusParser.StartContext ctx) {
+        Expr expr;
+        // Scan finalConstraint for used variables
+        Queue<Expr> todo = new LinkedList<Expr>();
+        todo.add(this.finalConstraint);
+        while (!todo.isEmpty()) {
+            expr = todo.remove();
+            if (expr.isVar()) {
+                usedVars.add(expr);
+            } else if (expr.isApp()) {
+                for(Expr arg: expr.getArgs()) {
+                    todo.add(arg);
+                }
+            } else if(expr.isQuantifier()) {
+                todo.add(((Quantifier)expr).getBody());
+            }
+        }
+
+        // Generate used vars lists according to their original orders in
+        // declearation and arguments
+        for (String key : vars.keySet()) {
+            expr = vars.get(key);
+            if (usedVars.contains(expr)) {
+                constraintUsedVars.put(key, expr);
+            }
+        }
+        List<Expr> exprList = new ArrayList<Expr>();
+        for (String key : requests.keySet()) {
+            for (Expr e : requestArgs.get(key)) {
+                if (usedVars.contains(e)) {
+                    exprList.add(e);
+                }
+            }
+            requestUsedArgs.put(key, exprList.toArray(new Expr[exprList.size()]));
+            exprList.clear();
+        }
 
     }
 
