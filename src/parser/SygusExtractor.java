@@ -88,12 +88,16 @@ public class SygusExtractor extends SygusBaseListener {
         Expr expr;
         // Scan finalConstraint for used variables
         Queue<Expr> todo = new LinkedList<Expr>();
-        todo.add(this.finalConstraint);
+        todo.add(finalConstraint);
         while (!todo.isEmpty()) {
             expr = todo.remove();
             if (expr.isConst()) {
                 usedVars.add(expr);
             } else if (expr.isApp()) {
+                FuncDecl func = expr.getFuncDecl();
+                if (requests.values().contains(func)) {
+                    continue;
+                }
                 for(Expr arg: expr.getArgs()) {
                     todo.add(arg);
                 }
