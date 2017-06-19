@@ -29,11 +29,12 @@ public class Extract {
 		walker.walk(extractor, tree);
 
 		System.out.println("Synth requests:");
-		for(FuncDecl func : extractor.requests.values()) {
+		for(String name : extractor.requests.keySet()) {
+			FuncDecl func = extractor.requests.get(name);
 			System.out.println("Name:" + func.getName());
-			for(Sort sort : func.getDomain()) {
-				System.out.println("Has argument with type " + sort.getName());
-			}
+			System.out.println("Argument types:" + Arrays.toString(func.getDomain()));
+			System.out.println("Argument names:" + Arrays.toString(extractor.requestArgs.get(name)));
+			System.out.println("Used argument names:" + Arrays.toString(extractor.requestUsedArgs.get(name)));
 			System.out.println("Return type is " + func.getRange().getName());
 		}
 
@@ -54,6 +55,8 @@ public class Extract {
 
 		System.out.println("Combined Constraints:");
 		System.out.println(extractor.finalConstraint);
+
+		System.out.println("Used variables:" + Arrays.toString(extractor.constraintUsedVars.values().toArray(new Expr[0])));
 	}
 }
 
