@@ -53,7 +53,7 @@ public class DefinedFunc {
         FuncDecl exprFunc;
         while (!todo.empty()) {
             expr = todo.peek();
-            if (expr.isVar()) {
+            if (expr.isConst()) {
                 todo.pop();
                 cache.put(expr, expr);
             } else if (expr.isApp()) {

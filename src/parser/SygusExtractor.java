@@ -91,7 +91,7 @@ public class SygusExtractor extends SygusBaseListener {
         todo.add(this.finalConstraint);
         while (!todo.isEmpty()) {
             expr = todo.remove();
-            if (expr.isVar()) {
+            if (expr.isConst()) {
                 usedVars.add(expr);
             } else if (expr.isApp()) {
                 for(Expr arg: expr.getArgs()) {

@@ -51,7 +51,7 @@ public class SygusFormatter extends SygusBaseVisitor<String> {
         List<Expr> newArgs = new ArrayList<Expr>();
         while (!todo.empty()) {
             expr = todo.peek();
-            if (expr.isVar()) {
+            if (expr.isConst()) {
                 todo.pop();
                 cache.put(expr, expr);
             } else if (expr.isApp()) {
