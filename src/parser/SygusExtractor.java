@@ -66,6 +66,14 @@ public class SygusExtractor extends SygusBaseListener {
             }
             newExtractor.requestArgs.put(key, newArgList);
         }
+        for(String key: this.requestUsedArgs.keySet()){
+            Expr[] argList = this.requestUsedArgs.get(key);
+            Expr[] newArgList = new Expr[argList.length];
+            for(int i = 0; i < argList.length; i++){
+                newArgList[i] = argList[i].translate(ctx);
+            }
+            newExtractor.requestUsedArgs.put(key, newArgList);
+        }
         for(String key : this.vars.keySet()) {
             newExtractor.vars.put(key, this.vars.get(key).translate(ctx));
         }
@@ -77,6 +85,9 @@ public class SygusExtractor extends SygusBaseListener {
         }
         if (this.finalConstraint != null) {
             newExtractor.finalConstraint = (BoolExpr)this.finalConstraint.translate(ctx);
+        }
+        for(String key : this.constraintUsedVars.keySet()) {
+            newExtractor.constraintUsedVars.put(key, this.constraintUsedVars.get(key).translate(ctx));
         }
         for(String key : this.funcs.keySet()) {
             newExtractor.funcs.put(key, this.funcs.get(key).translate(ctx));
