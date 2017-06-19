@@ -16,7 +16,9 @@ public class SygusExtractor extends SygusBaseListener {
     boolean currentOnArgList = false;
 
     public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>();
-    List<Sort> currentArgList;
+    public Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>();
+    List<Expr> currentArgList;
+    List<Sort> currentSortList;
 
     public Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
     public Map<String, Expr> regularVars = new LinkedHashMap<String, Expr>();
@@ -53,6 +55,14 @@ public class SygusExtractor extends SygusBaseListener {
         for(String key : this.requests.keySet()) {
             newExtractor.requests.put(key, this.requests.get(key).translate(ctx));
         }
+        for(String key: this.requestArgs.keySet()){
+            Expr[] argList = this.requestArgs.get(key);
+            Expr[] newArgList = new Expr[argList.length];
+            for(int i = 0; i < argList.length; i++){
+                newArgList[i] = argList[i].translate(ctx);
+            }
+            newExtractor.requestArgs.put(key, newArgList);
+        }
         for(String key : this.vars.keySet()) {
             newExtractor.vars.put(key, this.vars.get(key).translate(ctx));
         }
@@ -71,31 +81,41 @@ public class SygusExtractor extends SygusBaseListener {
         return newExtractor;
     }
 
+    public void exitStart(SygusParser.StartContext ctx) {
+
+    }
+
     public void enterSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
         currentCmd = CmdType.SYNTHFUNC;
-        currentArgList = new ArrayList<Sort>();
+        currentArgList = new ArrayList<Expr>();
+        currentSortList = new ArrayList<Sort>();
     }
 
     public void exitSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
         String name = ctx.symbol().getText();
-        Sort[] argList = currentArgList.toArray(new Sort[currentArgList.size()]);
+        Expr[] argList = currentArgList.toArray(new Expr[currentArgList.size()]);
+        Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
         Sort returnType = strToSort(ctx.sortExpr().getText());
-        FuncDecl func = z3ctx.mkFuncDecl(name, argList, returnType);
+        FuncDecl func = z3ctx.mkFuncDecl(name, typeList, returnType);
         requests.put(name, func);
+        requestArgs.put(name, argList);
         currentCmd = CmdType.NONE;
     }
 
     public void enterSynthInvCmd(SygusParser.SynthInvCmdContext ctx) {
         currentCmd = CmdType.SYNTHINV;
-        currentArgList = new ArrayList<Sort>();
+        currentArgList = new ArrayList<Expr>();
+        currentSortList = new ArrayList<Sort>();
     }
 
     public void exitSynthInvCmd(SygusParser.SynthInvCmdContext ctx) {
         String name = ctx.symbol().getText();
-        Sort[] argList = currentArgList.toArray(new Sort[currentArgList.size()]);
+        Expr[] argList = currentArgList.toArray(new Expr[currentArgList.size()]);
+        Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
         Sort returnType = z3ctx.mkBoolSort();
-        FuncDecl func = z3ctx.mkFuncDecl(name, argList, returnType);
+        FuncDecl func = z3ctx.mkFuncDecl(name, typeList, returnType);
         requests.put(name, func);
+        requestArgs.put(name, argList);
         currentCmd = CmdType.NONE;
     }
 
@@ -107,23 +127,33 @@ public class SygusExtractor extends SygusBaseListener {
         currentOnArgList = false;
     }
 
-    public void enterSymbolSortPair(SygusParser.SymbolSortPairContext ctx) {
-        if ((currentCmd == CmdType.SYNTHFUNC ||
-            currentCmd == CmdType.SYNTHINV) && currentOnArgList) {
-            Sort type = strToSort(ctx.sortExpr().getText());
-            currentArgList.add(type);
+    Expr addOrGetVarPool(String name, Sort type, boolean prime) {
+        Expr newVar;
+        if (vars.get(name) != null) {
+            newVar = vars.get(name);
+            Sort poolType = newVar.getSort();
+            assert poolType.toString().equals(type.toString()) : "Type mismatch for same name var";
+        } else {
+            newVar = z3ctx.mkConst(name, type);
+            vars.put(name, newVar);
+            if (!prime) {
+                regularVars.put(name, newVar);
+            }
         }
-        if (currentCmd == CmdType.FUNCDEF && currentOnArgList) {
+        return newVar;
+    }
+
+    public void enterSymbolSortPair(SygusParser.SymbolSortPairContext ctx) {
+        if (currentOnArgList) {
             Sort type = strToSort(ctx.sortExpr().getText());
             String name = ctx.symbol().getText();
-            Expr var;
-            if (vars.get(name) != null &&
-                vars.get(name).getSort().equals(type)) {
-                var = vars.get(name);
-            } else {
-                var = z3ctx.mkConst(name, type);
+            if (currentCmd == CmdType.SYNTHFUNC || currentCmd == CmdType.SYNTHINV) {
+                currentArgList.add(addOrGetVarPool(name, type, false));
+                currentSortList.add(type);
             }
-            defFuncVars.put(name, var);
+            if (currentCmd == CmdType.FUNCDEF) {
+                defFuncVars.put(name, addOrGetVarPool(name, type, false));
+            }
         }
     }
 
@@ -134,9 +164,7 @@ public class SygusExtractor extends SygusBaseListener {
     public void exitVarDeclCmd(SygusParser.VarDeclCmdContext ctx) {
         String name = ctx.symbol().getText();
         Sort type = strToSort(ctx.sortExpr().getText());
-        Expr var = z3ctx.mkConst(name, type);
-        vars.put(name, var);
-        regularVars.put(name, var);
+        addOrGetVarPool(name, type, false);
         currentCmd = CmdType.NONE;
     }
 
@@ -150,9 +178,8 @@ public class SygusExtractor extends SygusBaseListener {
         Sort type = strToSort(ctx.sortExpr().getText());
         Expr var = z3ctx.mkConst(name, type);
         Expr varp = z3ctx.mkConst(namep, type);
-        vars.put(name, var);
-        regularVars.put(name, var);
-        vars.put(namep, varp);
+        addOrGetVarPool(name, type, false);
+        addOrGetVarPool(namep, type, true);
         currentCmd = CmdType.NONE;
     }
 
@@ -216,6 +243,8 @@ public class SygusExtractor extends SygusBaseListener {
         currentCmd = CmdType.NONE;
     }
 
+    // Since vars in `defFuncVars` should now be always in `vars`, this
+    // dispatcher may not be neccessary and could be deprecated
     void symbolDispatcher(String name, boolean checkLocal) {
         Expr var;
         if (checkLocal) {
