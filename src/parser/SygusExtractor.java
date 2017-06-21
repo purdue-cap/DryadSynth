@@ -7,6 +7,8 @@ public class SygusExtractor extends SygusBaseListener {
     Context z3ctx;
     SygusExtractor(Context initctx) {
         z3ctx = initctx;
+        nomCombinedConstraint = z3ctx.mkTrue();
+        invCombinedConstraint = z3ctx.mkTrue();
     }
 
     enum CmdType {
@@ -15,19 +17,21 @@ public class SygusExtractor extends SygusBaseListener {
     CmdType currentCmd = CmdType.NONE;
     boolean currentOnArgList = false;
 
-    public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>();
-    public Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>();
-    public Map<String, Expr[]> requestUsedArgs = new LinkedHashMap<String, Expr[]>();
+    public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>(); // Original requests
+    public Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>(); // Request arguments with readable names
+    public Map<String, Expr[]> requestUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments
+    public Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
     List<Expr> currentArgList;
     List<Sort> currentSortList;
 
     public Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
     public Map<String, Expr> regularVars = new LinkedHashMap<String, Expr>();
-    public List<BoolExpr> constraints = new ArrayList<BoolExpr>();
-    public BoolExpr finalConstraint = null;
-    public Map<String, Expr> constraintUsedVars = new LinkedHashMap<String, Expr>();
+    public List<BoolExpr> constraints = new ArrayList<BoolExpr>(); // General constraints
+    public Map<String, DefinedFunc[]> invConstraints = new LinkedHashMap<String, DefinedFunc[]>(); // Invariant constraints
+    public BoolExpr nomCombinedConstraint; // CLIA combined constraints
+    public BoolExpr invCombinedConstraint; // INV combined constraints
+    public BoolExpr finalConstraint = null; // Final constraint expressed using reduced request declearations
     Stack<Object> termStack = new Stack<Object>();
-    Set<Expr> usedVars = new HashSet<Expr>();
 
     public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
     Map<String, Expr> defFuncVars;
@@ -83,11 +87,16 @@ public class SygusExtractor extends SygusBaseListener {
         for(BoolExpr expr : this.constraints) {
             newExtractor.constraints.add((BoolExpr)expr.translate(ctx));
         }
+        for(String key : this.invConstraints.keySet()) {
+            DefinedFunc[] funcs = new DefinedFunc[3];
+            DefinedFunc[] origFuncs = this.invConstraints.get(key);
+            for (int i = 0; i < 3; i++) {
+                funcs[i] = origFuncs[i].translate(ctx);
+            }
+            newExtractor.invConstraints.put(key, funcs);
+        }
         if (this.finalConstraint != null) {
             newExtractor.finalConstraint = (BoolExpr)this.finalConstraint.translate(ctx);
-        }
-        for(String key : this.constraintUsedVars.keySet()) {
-            newExtractor.constraintUsedVars.put(key, this.constraintUsedVars.get(key).translate(ctx));
         }
         for(String key : this.funcs.keySet()) {
             newExtractor.funcs.put(key, this.funcs.get(key).translate(ctx));
@@ -95,20 +104,15 @@ public class SygusExtractor extends SygusBaseListener {
         return newExtractor;
     }
 
-    public void exitStart(SygusParser.StartContext ctx) {
-        Expr expr;
-        // Scan finalConstraint for used variables
+    Set<Expr> scanForVars(Expr orig) {
+        Set<Expr> scanned = new HashSet<Expr>();
         Queue<Expr> todo = new LinkedList<Expr>();
-        todo.add(finalConstraint);
+        todo.add(orig);
         while (!todo.isEmpty()) {
-            expr = todo.remove();
+            Expr expr = todo.remove();
             if (expr.isConst()) {
-                usedVars.add(expr);
+                scanned.add(expr);
             } else if (expr.isApp()) {
-                FuncDecl func = expr.getFuncDecl();
-                if (requests.values().contains(func)) {
-                    continue;
-                }
                 for(Expr arg: expr.getArgs()) {
                     todo.add(arg);
                 }
@@ -116,26 +120,161 @@ public class SygusExtractor extends SygusBaseListener {
                 todo.add(((Quantifier)expr).getBody());
             }
         }
+        return scanned;
+    }
 
-        // Generate used vars lists according to their original orders in
-        // declearation and arguments
-        for (String key : vars.keySet()) {
-            expr = vars.get(key);
-            if (usedVars.contains(expr)) {
-                constraintUsedVars.put(key, expr);
+    public void exitStart(SygusParser.StartContext ctx) {
+        // This listener is for used variable scanning after the parsing of the
+        // input benchmark, for the sake of simplifying function synthesis
+
+        // CLIA problems and INV problems shall be handled separately
+        Set<String> invFuncs = new HashSet<String>();
+        for (String name : requests.keySet()) {
+            if (invConstraints.keySet().contains(name)) {
+                invFuncs.add(name);
             }
         }
-        List<Expr> exprList = new ArrayList<Expr>();
-        for (String key : requests.keySet()) {
-            for (Expr e : requestArgs.get(key)) {
-                if (usedVars.contains(e)) {
-                    exprList.add(e);
+        Set<String> nomFuncs = new HashSet<String>(requests.keySet());
+        nomFuncs.removeAll(invFuncs);
+
+        // Store variables in Sets as preparation
+        Set<Expr> varSet = new HashSet<Expr>(vars.values());
+        Set<Expr> rVarSet = new HashSet<Expr>(regularVars.values());
+        Set<Expr> pVarSet = new HashSet<Expr>(varSet);
+        pVarSet.removeAll(rVarSet);
+        // INV problem variable scan
+        for (String name : invFuncs) {
+            Set<Expr> usedInPre = scanForVars(invConstraints.get(name)[0].getDef());
+            Set<Expr> usedInTrans = scanForVars(invConstraints.get(name)[1].getDef());
+            Set<Expr> usedInPost = scanForVars(invConstraints.get(name)[2].getDef());
+            // Unused variable in pref definition is unused
+            Set<Expr> unusedFromPre = new HashSet<Expr>(rVarSet);
+            unusedFromPre.removeAll(usedInPre);
+            // Unused prime variable in transf definition is unused
+            Set<Expr> unusedPrimeFromTrans = new HashSet<Expr>(pVarSet);
+            unusedPrimeFromTrans.removeAll(usedInTrans);
+            Set<Expr> unusedFromTrans = new HashSet<Expr>();
+            for (Expr expr : unusedPrimeFromTrans) {
+                String str = expr.toString();
+                str = str.substring(0, str.length() - 1);
+                unusedFromTrans.add(vars.get(str));
+            }
+            Set<Expr> unused = new HashSet<Expr>(unusedFromPre);
+            unused.addAll(unusedFromTrans);
+            // Any variable used in postf is used
+            unused.removeAll(usedInPost);
+            List<Expr> usedList = new ArrayList<Expr>();
+            for (Expr expr : requestArgs.get(name)) {
+                if (!unused.contains(expr)) {
+                    usedList.add(expr);
                 }
             }
-            requestUsedArgs.put(key, exprList.toArray(new Expr[exprList.size()]));
-            exprList.clear();
+            requestUsedArgs.put(name, usedList.toArray(new Expr[usedList.size()]));
         }
 
+        // Prepare for CLIA Scan
+        // Sets for variable usage in each function calls
+        Map<String, List<Set<Expr>>> usedInArgs = new HashMap<String, List<Set<Expr>>>();
+        for (String name : nomFuncs) {
+            List<Set<Expr>> setList = new ArrayList<Set<Expr>>();
+            for (int i = 0; i < requestUsedArgs.get(name).length; i++) {
+                setList.add(new HashSet<Expr>());
+            }
+            usedInArgs.put(name, setList);
+        }
+
+        // CLIA problem variable scan, in constraints and in function call arguments
+        Set<Expr> usedInConstraints = new HashSet<Expr>();
+        Stack<Expr> todo = new Stack<Expr>();
+        Stack<Expr> funcCall = new Stack<Expr>();
+        todo.add(nomCombinedConstraint);
+        while (!todo.empty()) {
+            Expr expr = todo.peek();
+            if (expr.isConst()) {
+                todo.pop();
+                if (funcCall.empty()) {
+                    usedInConstraints.add(expr);
+                }
+            } else if (expr.isApp()) {
+                FuncDecl func = expr.getFuncDecl();
+                String name = func.getName().toString();
+                Expr[] args = expr.getArgs();
+                if (nomFuncs.contains(name)) {
+                    if (funcCall.empty() || funcCall.peek() != expr) {
+                        for (int i = 0; i < args.length; i++) {
+                            usedInArgs.get(name).get(i).addAll(scanForVars(args[i]));
+                        }
+                        funcCall.push(expr);
+                    } else {
+                        todo.pop();
+                    }
+                } else {
+                    todo.pop();
+                    for(Expr arg: args) {
+                        todo.push(arg);
+                    }
+                }
+            } else if(expr.isQuantifier()) {
+                todo.pop();
+                todo.push(((Quantifier)expr).getBody());
+            } else {
+                todo.pop();
+            }
+        }
+
+        // Generate used arg list for CLIA problems
+        for (String name : nomFuncs) {
+            Set<Expr> unused = new HashSet<Expr>();
+            List<Set<Expr>> argSets = usedInArgs.get(name);
+            for (Set<Expr> argSet : argSets) {
+                Set<Expr> used;
+                boolean hasInterpart = false;
+                used = new HashSet<Expr>(argSet);
+                used.retainAll(usedInConstraints);
+                if (!used.isEmpty()) {
+                    hasInterpart = true;
+                }
+                for (Set<Expr> set : argSets) {
+                    if (set != argSet) {
+                        used = new HashSet<Expr>(argSet);
+                        used.retainAll(set);
+                        if (!used.isEmpty()) {
+                            hasInterpart = true;
+                        }
+                    }
+                }
+                if (!hasInterpart) {
+                    unused.addAll(argSet);
+                }
+            }
+
+            List<Expr> usedList = new ArrayList<Expr>();
+            for (Expr expr : requestArgs.get(name)) {
+                if (!unused.contains(expr)) {
+                    usedList.add(expr);
+                }
+            }
+            requestUsedArgs.put(name, usedList.toArray(new Expr[usedList.size()]));
+        }
+
+        // Generate reduced function declarations and final constraints
+        finalConstraint = z3ctx.mkAnd(nomCombinedConstraint, invCombinedConstraint);
+        for (String name : requestUsedArgs.keySet()) {
+            Expr[] args = requestUsedArgs.get(name);
+            Expr[] allArgs = requestArgs.get(name);
+            Sort[] domain = new Sort[args.length];
+            for (int i = 0; i < domain.length; i++) {
+                domain[i] = args[i].getSort();
+            }
+            FuncDecl func = requests.get(name);
+            Sort range = func.getRange();
+            FuncDecl rdcdFunc = z3ctx.mkFuncDecl(name, domain, range);
+            rdcdRequests.put(name, rdcdFunc);
+            DefinedFunc df = new DefinedFunc(z3ctx, name, allArgs, rdcdFunc.apply(args));
+            finalConstraint = (BoolExpr)df.rewrite(finalConstraint, func);
+        }
+
+        finalConstraint = (BoolExpr)finalConstraint.simplify();
     }
 
     public void enterSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
@@ -243,11 +382,7 @@ public class SygusExtractor extends SygusBaseListener {
     public void exitConstraintCmd(SygusParser.ConstraintCmdContext ctx) {
         BoolExpr cstrt = (BoolExpr)termStack.pop();
         constraints.add(cstrt);
-        if (finalConstraint == null) {
-            finalConstraint = cstrt;
-        } else {
-            finalConstraint = z3ctx.mkAnd(finalConstraint, cstrt);
-        }
+        nomCombinedConstraint = z3ctx.mkAnd(nomCombinedConstraint, cstrt);
         currentCmd = CmdType.NONE;
     }
 
@@ -256,7 +391,8 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void exitInvConstraintCmd(SygusParser.InvConstraintCmdContext ctx) {
-        FuncDecl inv = requests.get(ctx.symbol(0).getText());
+        String name = ctx.symbol(0).getText();
+        FuncDecl inv = requests.get(name);
         DefinedFunc pre = funcs.get(ctx.symbol(1).getText());
         DefinedFunc trans = funcs.get(ctx.symbol(2).getText());
         DefinedFunc post = funcs.get(ctx.symbol(3).getText());
@@ -270,15 +406,13 @@ public class SygusExtractor extends SygusBaseListener {
                                 (BoolExpr)inv.apply(transArgsPrime));
         BoolExpr endCstrt = z3ctx.mkImplies((BoolExpr)inv.apply(post.getArgs()),
                                 (BoolExpr)post.getDef());
+        // Add to general constraints, invariant constraints and combined constraints
         constraints.add(startCstrt);
         constraints.add(loopCstrt);
         constraints.add(endCstrt);
+        invConstraints.put(name, new DefinedFunc[]{pre, trans, post});
         BoolExpr cstrt = z3ctx.mkAnd(startCstrt, loopCstrt, endCstrt);
-        if (finalConstraint == null) {
-            finalConstraint = cstrt;
-        } else {
-            finalConstraint = z3ctx.mkAnd(finalConstraint, cstrt);
-        }
+        invCombinedConstraint = z3ctx.mkAnd(invCombinedConstraint, cstrt);
         currentCmd = CmdType.NONE;
     }
 

@@ -53,10 +53,8 @@ public class Extract {
 			System.out.println(expr);
 		}
 
-		System.out.println("Combined Constraints:");
+		System.out.println("Final Constraints:");
 		System.out.println(extractor.finalConstraint);
-
-		System.out.println("Used variables:" + Arrays.toString(extractor.constraintUsedVars.values().toArray(new Expr[0])));
 	}
 }
 
