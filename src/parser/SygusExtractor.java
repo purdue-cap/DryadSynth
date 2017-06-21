@@ -177,7 +177,7 @@ public class SygusExtractor extends SygusBaseListener {
         Map<String, List<Set<Expr>>> usedInArgs = new HashMap<String, List<Set<Expr>>>();
         for (String name : nomFuncs) {
             List<Set<Expr>> setList = new ArrayList<Set<Expr>>();
-            for (int i = 0; i < requestUsedArgs.get(name).length; i++) {
+            for (int i = 0; i < requestArgs.get(name).length; i++) {
                 setList.add(new HashSet<Expr>());
             }
             usedInArgs.put(name, setList);
@@ -187,31 +187,35 @@ public class SygusExtractor extends SygusBaseListener {
         Set<Expr> usedInConstraints = new HashSet<Expr>();
         Stack<Expr> todo = new Stack<Expr>();
         Stack<Expr> funcCall = new Stack<Expr>();
+        int requestCallDepth = 0;
         todo.add(nomCombinedConstraint);
         while (!todo.empty()) {
             Expr expr = todo.peek();
             if (expr.isConst()) {
                 todo.pop();
-                if (funcCall.empty()) {
+                if (requestCallDepth == 0) {
                     usedInConstraints.add(expr);
                 }
             } else if (expr.isApp()) {
                 FuncDecl func = expr.getFuncDecl();
                 String name = func.getName().toString();
                 Expr[] args = expr.getArgs();
-                if (nomFuncs.contains(name)) {
-                    if (funcCall.empty() || funcCall.peek() != expr) {
+                if (funcCall.empty() || funcCall.peek() != expr) {
+                    for(Expr arg: args) {
+                        todo.push(arg);
+                    }
+                    if (nomFuncs.contains(name)) {
                         for (int i = 0; i < args.length; i++) {
                             usedInArgs.get(name).get(i).addAll(scanForVars(args[i]));
                         }
-                        funcCall.push(expr);
-                    } else {
-                        todo.pop();
+                        requestCallDepth = requestCallDepth + 1;
                     }
+                    funcCall.push(expr);
                 } else {
                     todo.pop();
-                    for(Expr arg: args) {
-                        todo.push(arg);
+                    funcCall.pop();
+                    if (nomFuncs.contains(name)) {
+                        requestCallDepth = requestCallDepth - 1;
                     }
                 }
             } else if(expr.isQuantifier()) {
