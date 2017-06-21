@@ -78,6 +78,9 @@ public class SygusExtractor extends SygusBaseListener {
             }
             newExtractor.requestUsedArgs.put(key, newArgList);
         }
+        for(String key : this.rdcdRequests.keySet()) {
+            newExtractor.rdcdRequests.put(key, this.rdcdRequests.get(key).translate(ctx));
+        }
         for(String key : this.vars.keySet()) {
             newExtractor.vars.put(key, this.vars.get(key).translate(ctx));
         }
@@ -95,6 +98,8 @@ public class SygusExtractor extends SygusBaseListener {
             }
             newExtractor.invConstraints.put(key, funcs);
         }
+        newExtractor.nomCombinedConstraint = (BoolExpr)this.nomCombinedConstraint.translate(ctx);
+        newExtractor.invCombinedConstraint = (BoolExpr)this.invCombinedConstraint.translate(ctx);
         if (this.finalConstraint != null) {
             newExtractor.finalConstraint = (BoolExpr)this.finalConstraint.translate(ctx);
         }
