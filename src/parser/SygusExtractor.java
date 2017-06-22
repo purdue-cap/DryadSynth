@@ -17,6 +17,7 @@ public class SygusExtractor extends SygusBaseListener {
     CmdType currentCmd = CmdType.NONE;
     boolean currentOnArgList = false;
 
+    public List<String> names = new LinkedList<String>();
     public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>(); // Original requests
     public Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>(); // Request arguments with readable names
     public Map<String, Expr[]> requestUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments
@@ -59,6 +60,9 @@ public class SygusExtractor extends SygusBaseListener {
             return this;
         }
         SygusExtractor newExtractor = new SygusExtractor(ctx);
+        for(String name : this.names) {
+            newExtractor.names.add(name);
+        }
         for(String key : this.requests.keySet()) {
             newExtractor.requests.put(key, this.requests.get(key).translate(ctx));
         }
@@ -134,7 +138,7 @@ public class SygusExtractor extends SygusBaseListener {
 
         // CLIA problems and INV problems shall be handled separately
         Set<String> invFuncs = new HashSet<String>();
-        for (String name : requests.keySet()) {
+        for (String name : names) {
             if (invConstraints.keySet().contains(name)) {
                 invFuncs.add(name);
             }
@@ -268,7 +272,7 @@ public class SygusExtractor extends SygusBaseListener {
 
         // Generate reduced function declarations and final constraints
         finalConstraint = z3ctx.mkAnd(nomCombinedConstraint, invCombinedConstraint);
-        for (String name : requestUsedArgs.keySet()) {
+        for (String name : names) {
             Expr[] args = requestUsedArgs.get(name);
             Expr[] allArgs = requestArgs.get(name);
             Sort[] domain = new Sort[args.length];
@@ -298,6 +302,7 @@ public class SygusExtractor extends SygusBaseListener {
         Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
         Sort returnType = strToSort(ctx.sortExpr().getText());
         FuncDecl func = z3ctx.mkFuncDecl(name, typeList, returnType);
+        names.add(name);
         requests.put(name, func);
         requestArgs.put(name, argList);
         currentCmd = CmdType.NONE;
@@ -315,6 +320,7 @@ public class SygusExtractor extends SygusBaseListener {
         Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
         Sort returnType = z3ctx.mkBoolSort();
         FuncDecl func = z3ctx.mkFuncDecl(name, typeList, returnType);
+        names.add(name);
         requests.put(name, func);
         requestArgs.put(name, argList);
         currentCmd = CmdType.NONE;
