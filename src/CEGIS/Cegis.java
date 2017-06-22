@@ -158,6 +158,7 @@ public class Cegis extends Thread{
 			condBound = fixedCond;
 		}
 		int condBoundInc = 1;
+		int searchRegions = 2;
 		long startTime = System.currentTimeMillis();
 
 		int k = 0;	//number of iterations
@@ -229,7 +230,7 @@ public class Cegis extends Thread{
 								logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
 								return;
 							}
-							if (condBoundInc > 2) {		//for 2, >5		//for 4, >3	64 	//infinite 5
+							if (condBoundInc > searchRegions) {		//for 2, >5		//for 4, >3	64 	//infinite 5
 								if (fixedHeight > 0) {
 									logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
 									return;
@@ -242,8 +243,13 @@ public class Cegis extends Thread{
 								}
 								condBoundInc = 1;
 							} else {
-								condBound = (int)Math.pow(64, condBoundInc);	//64
-								logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+								if (condBoundInc == searchRegions) {
+									condBound = -1;
+									logger.info("Synthesizer : Increase coefficient bound to infinity");
+								} else {
+									condBound = (int)Math.pow(64, condBoundInc);	//64
+									logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+								}
 
 								condBoundInc = condBoundInc + 1;
 							}
@@ -270,15 +276,20 @@ public class Cegis extends Thread{
 								logger.info(name + " : " + functions.get(name).toString());
 							}
 
-							if (condBoundInc <= 2) {
+							if (condBoundInc <= searchRegions) {
 								if (System.currentTimeMillis() - startTime > 1200000) {
 									if (fixedCond > 0) {
 										logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
 										return;
 									}
-									condBound = (int)Math.pow(64, condBoundInc);
+									if (condBoundInc == searchRegions) {
+										condBound = -1;
+										logger.info("Synthesizer : Increase coefficient bound to infinity");
+									} else {
+										condBound = (int)Math.pow(64, condBoundInc);	//64
+										logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+									}
 									condBoundInc = condBoundInc + 1;
-									logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 									startTime = System.currentTimeMillis();
 								}
 							} else {
