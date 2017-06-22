@@ -4,55 +4,35 @@ import java.util.logging.Logger;
 
 public class Verifier {
 
-	public Solver s;
 	private Context ctx;
-	private String returnType;
-	private int numVar;
-	private int numV;
-	private int numFunc;
-	private IntExpr[] var;
-	private BoolExpr finalConstraint;
+	public Solver s;
 	private SygusExtractor extractor;
 	private Logger logger;
 
-	public Verifier(Context ctx, String returnType, int numVar, int numV, int numFunc, IntExpr[] var, SygusExtractor extractor, Logger logger) {
-		this.numVar = numVar;
-		this.numV = numV;
-		this.numFunc = numFunc;
+	public Verifier(Context ctx, SygusExtractor extractor, Logger logger) {
 		this.ctx = ctx;
-		this.returnType = returnType;
 		this.s = ctx.mkSolver();
-		this.var = var;
-		this.finalConstraint = extractor.finalConstraint;;
 		this.extractor = extractor;
 		this.logger = logger;
 	}
 
-	public Status verify(Expr[] functions) {
+	public Status verify(Map<String, Expr> functions) {
 
-		Expr spec = finalConstraint;
+		Expr spec = extractor.finalConstraint;
 
-		IntExpr[] vars = new IntExpr[numV];
-		if (returnType.equals("INV")) {
-			for (int i = 0; i < numV; i++) {
-				vars[i] = var[2*i];
-			}
-		} else {
-			System.arraycopy(var, 0, vars, 0, numV);
-		}
-
-		int i = 0;
-		for (FuncDecl f : extractor.requests.values()) {
-			DefinedFunc df = new DefinedFunc(ctx, vars, functions[i]);
+		for (String name : extractor.names) {
+			FuncDecl f = extractor.rdcdRequests.get(name);
+			Expr[] args = extractor.requestUsedArgs.get(name);
+			Expr def = functions.get(name);
+			DefinedFunc df = new DefinedFunc(ctx, args, def);
 			spec = df.rewrite(spec, f);
-			i = i + 1;
 		}
 
-		int j = 0;
-		for(Expr expr: extractor.vars.values()) {
-			spec = 	spec.substitute(expr, var[j]);
-			j = j + 1;
-		}
+		// int j = 0;
+		// for(Expr expr: extractor.vars.values()) {
+		// 	spec = 	spec.substitute(expr, var[j]);
+		// 	j = j + 1;
+		// }
 
 		//System.out.println("Specification : ");
 		//System.out.println(ctx.mkNot((BoolExpr)spec));

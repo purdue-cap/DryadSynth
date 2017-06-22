@@ -7,11 +7,7 @@ public class Synthesizer {
 
 	public Solver s;
 	private Context ctx;
-	private String returnType;
-	private int numVar;
-	private int numV;
-	private int numFunc;
-	private HashSet<IntExpr[]> counterExamples;
+	private Set<Expr[]> counterExamples;
 	private SygusExtractor extractor;
 	private Logger logger;
 
@@ -19,19 +15,15 @@ public class Synthesizer {
 	public int bound;
 	public Expand e;
 
-	public Synthesizer(Context ctx, String returnType, int numVar, int numV, int numFunc, HashSet<IntExpr[]> counterExamples, int heightBound, SygusExtractor extractor, Logger logger) {
+	public Synthesizer(Context ctx, Set<Expr[]> counterExamples, int heightBound, SygusExtractor extractor, Logger logger) {
 		this.ctx = ctx;
-		this.returnType = returnType;
-		this.numVar = numVar;
-		this.numV = numV;
-		this.numFunc = numFunc;
 		this.s = ctx.mkSolver();
 		this.counterExamples = counterExamples;
 		this.extractor = extractor;
 		this.logger = logger;
 		this.heightBound = heightBound;
 		this.bound = (int)Math.pow(2, heightBound) - 1;
-		this.e = new Expand(bound, ctx, numV, numFunc);
+		this.e = new Expand(bound, ctx, extractor);
 	}
 
 	public Status synthesis(int condBound) {
@@ -40,38 +32,20 @@ public class Synthesizer {
 
 		Expr spec = extractor.finalConstraint;
 
-		BoolExpr q = ctx.mkAnd(e.expandCoefficient(condBound, returnType));
-
-		IntExpr[] variables = new IntExpr[numVar];
-		for (int i = 0; i < numVar; i++) {
-			variables[i] = ctx.mkIntConst("variables" + i);
-		}
-
-		IntExpr[] var = new IntExpr[numV];
-		if (returnType.equals("INV")) {
-			for (int i = 0; i < numV; i++) {
-				var[i] = variables[2*i];
-			}
-		} else {
-			System.arraycopy(variables, 0, var, 0, numV);
-		}
+		BoolExpr q = e.expandCoefficient(condBound);
 
 		int k = 0;
-		for (FuncDecl f : extractor.requests.values()) {
-			Expr eval = e.generateEval(k, var, 0, returnType);
+		for (String name : extractor.names) {
+			FuncDecl f = extractor.rdcdRequests.get(name);
+			Expr[] var = extractor.requestUsedArgs.get(name);
+			Expr eval = e.generateEval(k, 0);
 			DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
 			spec = definedfunc.rewrite(spec, f);
 			k = k + 1;
 		}
 
-		int j = 0;
-		for(Expr expr: extractor.vars.values()) {
-			spec = 	spec.substitute(expr, variables[j]);
-			j = j + 1;
-		}
-
-		for (IntExpr[] params : counterExamples) {
-			BoolExpr expandSpec = (BoolExpr) spec.substitute(variables, params);
+		for (Expr[] params : counterExamples) {
+			BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
 			q = ctx.mkAnd(q, expandSpec);
 		}
 

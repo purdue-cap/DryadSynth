@@ -7,11 +7,7 @@ public class Cegis extends Thread{
 
 	private Context ctx;
 	private SygusExtractor extractor;
-	private int numVar;
-	private int numV;
-	private int numFunc;
 	private BoolExpr finalConstraint;
-	private String returnType = null;
 	private Logger logger;
 	private int fixedHeight = -1;
 	private int fixedCond = -1;
@@ -19,9 +15,8 @@ public class Cegis extends Thread{
 	private Producer2D pdc2D = null;
 	private Object condition = null;
 
-	public IntExpr[] var;
-	public Expr[] functions;
-	public HashSet<IntExpr[]> counterExamples;
+	public Map<String, Expr> functions;
+	public Set<Expr[]> counterExamples;
 	public volatile DefinedFunc[] results = null;
 	public volatile boolean running = true;
 
@@ -50,49 +45,28 @@ public class Cegis extends Thread{
 
 		this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
-		ArrayList<Integer> argsNumList = new ArrayList<Integer>();
-		for(FuncDecl func : extractor.requests.values()) {
-			Integer argsNum = func.getDomain().length;
-			argsNumList.add(argsNum);
+		this.finalConstraint = extractor.finalConstraint;
+
+		this.functions = new LinkedHashMap<String, Expr>();
+
+		for(String name : extractor.names) {
+			FuncDecl func = extractor.rdcdRequests.get(name);
 
 			if (func.getRange().toString().equals("Bool")) {
-				this.returnType = "INV";
+				functions.put(name, ctx.mkTrue());
 			} else {
-				this.returnType = "CLIA";
+				functions.put(name, ctx.mkInt(0));
 			}
 		}
 
-		this.numV = Collections.max(argsNumList);	//number of all args in synthesized function
-		this.numVar = extractor.vars.size();	//number of all declared variables
-		this.numFunc = extractor.requests.size();
-		this.finalConstraint = extractor.finalConstraint;
+		counterExamples = new HashSet<Expr[]>();
 
-		var = new IntExpr[numVar];
-		functions = new Expr[numFunc];
-		counterExamples = new HashSet<IntExpr[]>();
-
-		init();
 		//addRandomInitialExamples();
 		//addSimpleExamples();
 	}
 
-	public void init() {
-		for (int i = 0; i < numVar; i++) {
-			var[i] = ctx.mkIntConst("var" + i);
-		}
-
-		for (int i = 0; i < numFunc; i++) {
-			if (returnType.equals("INV")) {
-				functions[i] = ctx.mkTrue();
-			} else {
-				functions[i] = ctx.mkInt(0);
-			}
-
-		}
-	}
-
 	public void addRandomInitialExamples() {
-
+		int numVar = extractor.vars.size();
 		//int numExamples = (int)Math.pow(4, numVar) + 1;
 		int numExamples = (int)Math.pow(numVar, 3) + 1;
 		//int numExamples = (int)Math.pow(2, numVar) + 1;
@@ -119,6 +93,7 @@ public class Cegis extends Thread{
 	}
 
 	public IntExpr[][] addSimpleExamplesRecursive(int nv) {
+		int numVar = extractor.vars.size();
 		IntExpr[][] examples = new IntExpr[(int)Math.pow(3, nv)][numVar];
 
 		if (nv == 0) return examples;
@@ -143,6 +118,7 @@ public class Cegis extends Thread{
 	}
 
 	public void addSimpleExamples() {
+		int numVar = extractor.vars.size();
 		IntExpr[][] examples = addSimpleExamplesRecursive(numVar);
 		for (int j = 0; j < examples.length; j++) {
 			counterExamples.add(examples[j]);
@@ -194,22 +170,21 @@ public class Cegis extends Thread{
 			k = k + 1;
 
 			logger.info("Start verifying");
-			Verifier testVerifier = new Verifier(ctx, returnType, numVar, numV, numFunc, var, extractor, logger);
+			Verifier testVerifier = new Verifier(ctx, extractor, logger);
 
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
-					String[] names = extractor.requests.keySet().toArray(new String[numFunc]);
-					Expr[] readableVars = extractor.vars.values().toArray(new Expr[numVar]);
-					Expr[] readableArgs = extractor.regularVars.values().toArray(new Expr[numV]);
-					results = new DefinedFunc[numFunc];
-					for (int i = 0; i < numFunc; i++) {
-						Expr readableDef = functions[i].substitute(var, readableVars);
-						if (returnType.equals("INV")) {
-							readableDef = SygusFormatter.elimITE(this.ctx, readableDef);
+					results = new DefinedFunc[functions.size()];
+					int i = 0;
+					for (String name : extractor.rdcdRequests.keySet()) {
+						Expr def = functions.get(name);
+						if (def.isBool()) {
+							def = SygusFormatter.elimITE(this.ctx, def);
 						}
-						results[i] = new DefinedFunc(ctx, names[i], readableArgs, readableDef);
+						results[i] = new DefinedFunc(ctx, name, extractor.requestUsedArgs.get(name), def);
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+						i = i + 1;
 					}
 					flag = false;
 					if (fixedCond > 0 || fixedHeight > 0) {
@@ -225,23 +200,22 @@ public class Cegis extends Thread{
 				} else if (v == Status.SATISFIABLE) {
 
 					logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
-					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), numVar, var);
+					VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), extractor.vars.values().toArray(new Expr[extractor.vars.size()]));
 
-					IntExpr[] cntrExmp = decoder.decode();
+					Expr[] cntrExmp = decoder.decode();
 					counterExamples.add(cntrExmp);
 					//print out for debug
 					logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(counterExamples.toArray()));
 
-					//for test only
-					//if (k >= 100) {
-					//	break;
-					//}
+					// if (k >= 10) {
+					// 	break;
+					// }
 
 					boolean unsat = true;
 
 					while(unsat && flag && running) {
 
-						Synthesizer testSynthesizer = new Synthesizer(ctx, returnType, numVar, numV, numFunc, counterExamples, heightBound, extractor, logger);
+						Synthesizer testSynthesizer = new Synthesizer(ctx, counterExamples, heightBound, extractor, logger);
 						//print out for debug
 						logger.info("Start synthesizing");
 
@@ -285,15 +259,15 @@ public class Cegis extends Thread{
 							//flag = false;	//for test only
 
 							//logger.info(testSynthesizer.s.getModel());	//for test only
-							SynthDecoder synthDecoder = new SynthDecoder(ctx, returnType, testSynthesizer.s.getModel(), testSynthesizer.e.getCoefficients(), testSynthesizer.bound, numV, numFunc);
+							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getCoefficients(), extractor);
 							//print out for debug
 							logger.info("Start decoding synthesizer output");
-							functions = synthDecoder.generateFunction(var);
+							synthDecoder.generateFunction(functions);
 							//print out for debug
 							logger.info("Synthesizer output decode done");
 							//print out for debug
-							for (int i = 0; i < numFunc; i++) {
-								logger.info("f" + i + " : " + functions[i]);
+							for (String name : extractor.names) {
+								logger.info(name + " : " + functions.get(name).toString());
 							}
 
 							if (condBoundInc <= 2) {

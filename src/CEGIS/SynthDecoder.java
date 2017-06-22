@@ -2,87 +2,77 @@ import java.util.*;
 import com.microsoft.z3.*;
 
 public class SynthDecoder {
-	
+
 	private Context ctx;
 	private String returnType;
 	private Model model;
 	private IntExpr[][][] c;
-	private int bound;
-	private int numV;
-	private int numCoeff;
-	private int numFunc;
+	private SygusExtractor extractor;
 
-	public SynthDecoder(Context ctx, String returnType, Model model, IntExpr[][][] c, int bound, int numV, int numFunc) {
+	public SynthDecoder(Context ctx, Model model, IntExpr[][][] c, SygusExtractor extractor) {
 		this.ctx = ctx;
 		this.returnType = returnType;
 		this.model = model;
 		this.c = c;
-		this.bound = bound;
-		this.numV = numV;
-		this.numCoeff = numV + 1;
-		this.numFunc = numFunc;
+		this.extractor = extractor;
 	}
 
 	public IntExpr[][][] evaluteCoefficient() {
-		IntExpr[][][] coeff = new IntExpr[numFunc][bound][numCoeff];
 
-		for (int i = 0; i < numFunc; i++) {
-			for (int j = 0; j < bound; j++) {
-				for (int k = 0; k < numCoeff; k++) {
+		IntExpr[][][] coeff = new IntExpr[c.length][0][0];
+
+		for (int i = 0; i < c.length; i++) {
+			coeff[i] = new IntExpr[c[i].length][0];
+			for (int j = 0; j < c[i].length; j++) {
+				coeff[i][j] = new IntExpr[c[i][j].length];
+				for (int k = 0; k < c[i][j].length; k++) {
 					coeff[i][j][k] = (IntExpr) model.evaluate(c[i][j][k], true);
 				}
-			}	
+			}
 		}
 
 		return coeff;
 	}
 
-	public Expr[] generateFunction(IntExpr[] var) {
-		ArithExpr[][] p = new ArithExpr[numFunc][bound];
+	public void generateFunction(Map<String, Expr> functions) {
 		IntExpr[][][] coeff = evaluteCoefficient();
-		Expr[][] f = new Expr[numFunc][bound];
-		Expr[] functions = new Expr[numFunc];
-		IntExpr[] args = new IntExpr[numV];
 
-		if (returnType.equals("INV")) {
-			for (int i = 0; i < numV; i++) {
-				args[i] = var[2*i];
-			}
-		} else {
-			System.arraycopy(var, 0, args, 0, numV);
-		}
+		ArithExpr[][] p = new ArithExpr[coeff.length][0];
+		Expr[][] f = new Expr[coeff.length][0];
 
-		for (int k = 0; k < numFunc; k++) {
-			for (int i = 0; i < bound; i++) {
+		for (int k = 0; k < coeff.length; k++) {
+			p[k] = new ArithExpr[coeff[k].length];
+			for (int i = 0; i < coeff[k].length; i++) {
 				p[k][i] = coeff[k][i][0];
 
-				for (int j = 1; j < numCoeff; j++) {
-					p[k][i] = ctx.mkAdd(p[k][i], ctx.mkMul(coeff[k][i][j], args[j - 1]));
+				Expr[] args = extractor.requestUsedArgs.get(extractor.names.get(k));
+				for (int j = 1; j < coeff[k][i].length; j++) {
+					p[k][i] = ctx.mkAdd(p[k][i], ctx.mkMul(coeff[k][i][j], (ArithExpr)args[j - 1]));
 				}
 			}
 		}
 
-		for (int j = 0; j < numFunc; j++) {
-			for (int i = bound - 1; i >= 0; i--) {
+		for (int j = 0; j < coeff.length; j++) {
+			f[j] = new Expr[coeff[j].length];
+			for (int i = coeff[j].length - 1; i >= 0; i--) {
 				BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
-				
-				if (i < ((bound - 1)/2)) {
+
+				if (i < ((coeff[j].length - 1)/2)) {
 
 					f[j][i] = ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
 
 				} else {
-					if (returnType.equals("INV")) {
+					boolean isINV = extractor.requests.get(extractor.names.get(j)).getRange().toString().equals("Bool");
+					if (isINV) {
 						f[j][i] = ctx.mkITE(cond, ctx.mkTrue(), ctx.mkFalse());
 					} else {
 						f[j][i] = p[j][i];
 					}
-					
+
 				}
 			}
-			functions[j] = f[j][0].simplify();
+			functions.put(extractor.names.get(j), f[j][0].simplify());
 		}
-
-		return functions;
 
 	}
 
@@ -108,7 +98,7 @@ public class SynthDecoder {
 		for (int i = 0; i < numFunc; i++) {
 			System.out.println(function[i]);
 		}
-		
+
 	}*/
 
 }

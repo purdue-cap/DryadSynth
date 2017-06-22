@@ -2,37 +2,34 @@ import java.util.*;
 import com.microsoft.z3.*;
 
 public class VerifierDecoder {
-	
+
 	private Context ctx;
 	private Model model;
-	private IntExpr[] var;
+	private Expr[] vars;
 	private int numVar;
 
-	public VerifierDecoder(Context ctx, Model model, int numVar, IntExpr[] var) {
+	public VerifierDecoder(Context ctx, Model model, Expr[] vars) {
 		this.ctx = ctx;
 		this.model = model;
-		this.numVar = numVar;
-		this.var = var;
+		this.numVar = vars.length;
+		this.vars = vars;
 	}
 
-	public IntExpr[] decode() {
+	public Expr[] decode() {
 
-		IntExpr[] counterExample = new IntExpr[numVar];
+		Expr[] counterExample = new Expr[numVar];
 
 		for (int i = 0; i < numVar; i++) {
-			counterExample[i] = (IntExpr) model.evaluate(var[i], true);
+			counterExample[i] = model.evaluate(vars[i], true);
 		}
 
 		return counterExample;
-		
+
 	}
 
-	public void printOutput() {
-		IntExpr[] ex = decode();
-		for (int i = 0; i < numVar; i++) {
-			System.out.println("var" + i + " : " + ex[i]);
-		}
-		
+	public String toString() {
+		Expr[] ex = decode();
+		return Arrays.toString(ex);
 	}
 
 }
