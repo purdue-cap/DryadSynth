@@ -359,7 +359,7 @@ public class SygusExtractor extends SygusBaseListener {
                 currentSortList.add(type);
             }
             if (currentCmd == CmdType.FUNCDEF) {
-                defFuncVars.put(name, addOrGetVarPool(name, type, false));
+                defFuncVars.put(name, z3ctx.mkConst(name, type));
             }
         }
     }
