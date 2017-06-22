@@ -182,7 +182,7 @@ public class Cegis extends Thread{
 						if (def.isBool()) {
 							def = SygusFormatter.elimITE(this.ctx, def);
 						}
-						results[i] = new DefinedFunc(ctx, name, extractor.requestUsedArgs.get(name), def);
+						results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def);
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
 						i = i + 1;
 					}
