@@ -86,6 +86,9 @@ public class SygusExtractor extends SygusBaseListener {
         for(String key : this.rdcdRequests.keySet()) {
             newExtractor.rdcdRequests.put(key, this.rdcdRequests.get(key).translate(ctx));
         }
+        for(String key : this.candidate.keySet()) {
+            newExtractor.candidate.put(key, this.candidate.get(key).translate(ctx));
+        }
         for(String key : this.vars.keySet()) {
             newExtractor.vars.put(key, this.vars.get(key).translate(ctx));
         }

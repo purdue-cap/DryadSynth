@@ -126,6 +126,12 @@ public class Cegis extends Thread{
 	}
 
 	public void run() {
+		logger.info("Check for possible candidates from parser.");
+		for (String name : extractor.candidate.keySet()) {
+			DefinedFunc df = extractor.candidate.get(name);
+			logger.info(String.format("Candidate for %s : %s", name, df.getDef()));
+			functions.put(name, df.getDef());
+		}
 		logger.info(Thread.currentThread().getName() + " Started");
 		if (pdc1D != null) {
 			while (results == null && running) {
