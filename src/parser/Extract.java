@@ -3,6 +3,7 @@ import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import com.microsoft.z3.*;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 public class Extract {
 	public static void main(String[] args) throws Exception {
@@ -11,6 +12,7 @@ public class Extract {
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		SygusParser parser = new SygusParser(tokens);
 		Context z3ctx = new Context();
+		z3ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
 		ANTLRErrorStrategy es = new CustomErrorStrategy();
 		parser.setErrorHandler(es);
@@ -55,6 +57,13 @@ public class Extract {
 
 		System.out.println("Final Constraints:");
 		System.out.println(extractor.finalConstraint);
+
+		if (!extractor.candidate.isEmpty()) {
+			System.out.println("Possible candidates:");
+			for (String name : extractor.candidate.keySet()) {
+				System.out.println(name + " : " + extractor.candidate.get(name).getDef().toString());
+			}
+		}
 	}
 }
 

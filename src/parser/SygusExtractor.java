@@ -22,6 +22,7 @@ public class SygusExtractor extends SygusBaseListener {
     public Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>(); // Request arguments with readable names
     public Map<String, Expr[]> requestUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments
     public Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
+    public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
     List<Expr> currentArgList;
     List<Sort> currentSortList;
 
@@ -156,6 +157,12 @@ public class SygusExtractor extends SygusBaseListener {
             Set<Expr> usedInPre = scanForVars(invConstraints.get(name)[0].getDef());
             Set<Expr> usedInTrans = scanForVars(invConstraints.get(name)[1].getDef());
             Set<Expr> usedInPost = scanForVars(invConstraints.get(name)[2].getDef());
+            // Check for possible candidates
+            Set<Expr> unusedRegularFromTrans = new HashSet<Expr>(rVarSet);
+            unusedRegularFromTrans.retainAll(usedInTrans);
+            if (unusedRegularFromTrans.isEmpty()) {
+                candidate.put(name, invConstraints.get(name)[2]);
+            }
             // Unused variable in pref definition is unused
             Set<Expr> unusedFromPre = new HashSet<Expr>(rVarSet);
             unusedFromPre.removeAll(usedInPre);
