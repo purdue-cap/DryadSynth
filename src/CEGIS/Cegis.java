@@ -282,37 +282,39 @@ public class Cegis extends Thread{
 								logger.info(name + " : " + functions.get(name).toString());
 							}
 
-							if (condBoundInc <= searchRegions) {
-								if (System.currentTimeMillis() - startTime > 1200000) {
-									if (fixedCond > 0) {
-										logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
-										return;
+							if (condBoundInc > 1) {
+								if (condBoundInc <= searchRegions) {
+									if (System.currentTimeMillis() - startTime > 1200000) {
+										if (fixedCond > 0) {
+											logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
+											return;
+										}
+										if (condBoundInc == searchRegions) {
+											condBound = -1;
+											logger.info("Synthesizer : Increase coefficient bound to infinity");
+										} else {
+											condBound = (int)Math.pow(64, condBoundInc);	//64
+											logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+										}
+										condBoundInc = condBoundInc + 1;
+										startTime = System.currentTimeMillis();
 									}
-									if (condBoundInc == searchRegions) {
-										condBound = -1;
-										logger.info("Synthesizer : Increase coefficient bound to infinity");
-									} else {
-										condBound = (int)Math.pow(64, condBoundInc);	//64
-										logger.info("Synthesizer : Increase coefficient bound to " + condBound);
-									}
-									condBoundInc = condBoundInc + 1;
-									startTime = System.currentTimeMillis();
-								}
-							} else {
-								if (System.currentTimeMillis() - startTime > 300000) {
-									if (fixedHeight > 0) {
-										logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
-										return;
-									}
-									heightBound = heightBound + 1;
-									logger.info("Synthesizer : Increase height bound to " + heightBound);
-									condBound = 1;
-									if (fixedCond > 0) {
-										condBound = fixedCond;
-									}
-									condBoundInc = 1;
-									startTime = System.currentTimeMillis();
+								} else {
+									if (System.currentTimeMillis() - startTime > 300000) {
+										if (fixedHeight > 0) {
+											logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
+											return;
+										}
+										heightBound = heightBound + 1;
+										logger.info("Synthesizer : Increase height bound to " + heightBound);
+										condBound = 1;
+										if (fixedCond > 0) {
+											condBound = fixedCond;
+										}
+										condBoundInc = 1;
+										startTime = System.currentTimeMillis();
 
+									}
 								}
 							}
 
