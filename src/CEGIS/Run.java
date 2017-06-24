@@ -12,6 +12,13 @@ public class Run {
 	public static void main(String[] args) throws Exception {
 
 		long startTime = System.currentTimeMillis();
+		int numCore;
+
+		if (args.length >= 2) {
+			numCore = Integer.parseInt(args[1]);
+		} else {
+			numCore = Runtime.getRuntime().availableProcessors();
+		}
 
 		// ANTLRFileStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRFileStream input = new ANTLRFileStream(args[0]);
@@ -25,7 +32,7 @@ public class Run {
 		handler.setFormatter(new SimpleFormatter());
 		logger.addHandler(handler);
 		Thread mainThread = Thread.currentThread();
-		int numCore = Runtime.getRuntime().availableProcessors();
+		logger.info(String.format("Using %d threads", numCore));
 
 		HashMap<String, String> cfg = new HashMap<String, String>();
 		cfg.put("model", "true");
