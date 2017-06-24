@@ -12,12 +12,21 @@ public class Run {
 	public static void main(String[] args) throws Exception {
 
 		long startTime = System.currentTimeMillis();
-		int numCore;
+		int numCore = Runtime.getRuntime().availableProcessors();
+		int minFinite = 20;
+		int minInfinite = 5;
 
-		if (args.length >= 2) {
+		if (args.length == 2)  {
 			numCore = Integer.parseInt(args[1]);
-		} else {
-			numCore = Runtime.getRuntime().availableProcessors();
+		}
+		if (args.length == 3) {
+			minFinite = Integer.parseInt(args[1]);
+			minInfinite = Integer.parseInt(args[2]);
+		}
+		if (args.length >= 4) {
+			numCore = Integer.parseInt(args[1]);
+			minFinite = Integer.parseInt(args[2]);
+			minInfinite = Integer.parseInt(args[3]);
 		}
 
 		// ANTLRFileStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
@@ -33,6 +42,7 @@ public class Run {
 		logger.addHandler(handler);
 		Thread mainThread = Thread.currentThread();
 		logger.info(String.format("Using %d threads", numCore));
+		logger.info(String.format("Using finite coeffBound timeout %d mins and infinite coeffBound timeout %d mins", minFinite, minInfinite));
 
 		HashMap<String, String> cfg = new HashMap<String, String>();
 		cfg.put("model", "true");
@@ -66,7 +76,7 @@ public class Run {
 			FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
 			threadHandler.setFormatter(new SimpleFormatter());
 			threadLogger.addHandler(threadHandler);
-			threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger);
+			threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite);
 			threads[i].start();
 		}
 

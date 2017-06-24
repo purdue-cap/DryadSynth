@@ -9,6 +9,8 @@ public class Cegis extends Thread{
 	private SygusExtractor extractor;
 	private BoolExpr finalConstraint;
 	private Logger logger;
+	private int minFinite;
+	private int minInfinite;
 	private int fixedHeight = -1;
 	private int fixedCond = -1;
 	private Producer1D pdc1D = null;
@@ -20,28 +22,30 @@ public class Cegis extends Thread{
 	public volatile DefinedFunc[] results = null;
 	public volatile boolean running = true;
 
-	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond, Logger logger) {
-		this(new Context(), extractor, logger);
+	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond, Logger logger, int minFinite, int minInfinite) {
+		this(new Context(), extractor, logger, minFinite, minInfinite);
 		this.fixedHeight = fixedHeight;
 		this.fixedCond = fixedCond;
 	}
 
-	public Cegis(SygusExtractor extractor, Producer1D pdc1D, Object condition, Logger logger) {
-		this(new Context(), extractor, logger);
+	public Cegis(SygusExtractor extractor, Producer1D pdc1D, Object condition, Logger logger, int minFinite, int minInfinite) {
+		this(new Context(), extractor, logger, minFinite, minInfinite);
 		this.pdc1D = pdc1D;
 		this.condition = condition;
 	}
 
-	public Cegis(SygusExtractor extractor, Producer2D pdc2D, Object condition, Logger logger) {
-		this(new Context(), extractor, logger);
+	public Cegis(SygusExtractor extractor, Producer2D pdc2D, Object condition, Logger logger, int minFinite, int minInfinite) {
+		this(new Context(), extractor, logger, minFinite, minInfinite);
 		this.pdc2D = pdc2D;
 		this.condition = condition;
 	}
 
-	public Cegis(Context ctx, SygusExtractor extractor, Logger logger) {
+	public Cegis(Context ctx, SygusExtractor extractor, Logger logger, int minFinite, int minInfinite) {
 		this.ctx = ctx;
 		this.extractor = extractor.translate(ctx);
 		this.logger = logger;
+		this.minFinite = minFinite;
+		this.minInfinite = minInfinite;
 
 		this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
@@ -284,7 +288,7 @@ public class Cegis extends Thread{
 
 							if (condBoundInc > 1) {
 								if (condBoundInc <= searchRegions) {
-									if (System.currentTimeMillis() - startTime > 1200000) {
+									if (System.currentTimeMillis() - startTime > 60000 * this.minFinite) {
 										if (fixedCond > 0) {
 											logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
 											return;
@@ -300,7 +304,7 @@ public class Cegis extends Thread{
 										startTime = System.currentTimeMillis();
 									}
 								} else {
-									if (System.currentTimeMillis() - startTime > 300000) {
+									if (System.currentTimeMillis() - startTime > 60000 * this.minInfinite) {
 										if (fixedHeight > 0) {
 											logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
 											return;

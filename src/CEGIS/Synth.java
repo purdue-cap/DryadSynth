@@ -43,7 +43,7 @@ public class Synth {
 		logger.info("Final Constraints:");
 		logger.info(extractor.finalConstraint.toString());
 
-		Cegis test = new Cegis(ctx, extractor, logger);
+		Cegis test = new Cegis(ctx, extractor, logger, 20, 5);
 		test.run();
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
