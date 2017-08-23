@@ -6,31 +6,33 @@ import com.microsoft.z3.*;
  * Created by tian on 2017/8/8.
  * */
 public class NewMethod{
-
+    
     private String z3String;
-
+    
     private String oldZ3String;
-
+    
     private String DNFString;
-
+    
     private List<String> orString;
-
+    
     private Logger logger;
-
+    
     private List<Expr> arrangeRes;
-
+    
     private List<Expr> DNFExpr;
-
+    
     private List<Function> calFunc;
-
+    
     private Map<String, String> funcNameAndFormat;
-
+    
     private Context ctx;
-
+    
     public Solver s;
-
+    
     private SygusExtractor extractor;
-
+    
+    private boolean ifException;
+    
     public NewMethod(Context ctx, SygusExtractor extractor, Logger logger){
         this.ctx=ctx;
         this.extractor=extractor.translate(ctx);;
@@ -41,15 +43,22 @@ public class NewMethod{
         this.DNFExpr=new LinkedList<Expr>();
         this.calFunc=new LinkedList<>();
         this.funcNameAndFormat=new LinkedHashMap<>();
-
+        this.ifException=false;
+        
         this.z3String=this.changeFunc(this.oldZ3String);
-
+        if (extractor.names.size()>1){
+            int position=this.oldZ3String.indexOf(extractor.names.get(0));
+            if (!this.oldZ3String.substring(position-1,position).equals("(")){
+                this.z3String=this.oldZ3String;
+                this.ifException=true;
+            }
+        }
+        
         Map<String, Expr> functions = new LinkedHashMap<String, Expr>();
-
+        
         if (extractor.names.size()>1){
             List<String> list=this.getEveryExpr(this.z3String.substring(1,this.z3String.length()-1));
             if (!z3String.substring(1,4).equals("and")){
-
                 List<String> everyRightList=this.getEveryExpr(list.get(1));
                 boolean ifExist=false;
                 for (String s1:everyRightList){
@@ -75,14 +84,14 @@ public class NewMethod{
                 }
             }
             String basicFunc=calFunc.get(0).getBasicFuncName();
-
+            
             for (String name : extractor.names) {
                 if (name.equals(basicFunc)){
                     functions.put(name , ctx.mkInt("0"));
                 }else {
                     for (Function function:calFunc){
                         if (function.getName().equals(name)){
-                            if (ifNeedSwap(name)){
+                            if ((!ifException)&&ifNeedSwap(name)){
                                 int x=function.getxPara();
                                 function.setxPara(function.getyPara());
                                 function.setyPara(x);
@@ -95,20 +104,19 @@ public class NewMethod{
             }
         }else {
             this.DNFExpr=this.convertToDNF(this.z3String);
-
+            
             Expr res = this.getFinalRes();
-
+            
             for (String name : extractor.names) {
                 functions.put(name , res);
             }
         }
-
+        
         Verifier testVerifier = new Verifier(ctx, extractor, logger);
         Status v = testVerifier.verify(functions);
         logger.info("************"+v);
-
     }
-
+    
     private boolean ifNeedSwap(String name){
         String format=funcNameAndFormat.get(name);
         String [] temp=format.split(" ");
@@ -117,14 +125,14 @@ public class NewMethod{
         }
         return false;
     }
-
+    
     private Expr makeFunction(Function function){
         Expr expr=ctx.mkAdd(ctx.mkMul(ctx.mkInt(function.getxPara()),ctx.mkIntConst("x")),ctx.mkMul(ctx.mkInt(function.getyPara()),ctx.mkIntConst("y")),ctx.mkInt(function.getcPara()));
         return expr;
     }
-
+    
     private void simplifyFunc(List<String> everyList){
-
+        
         Function function=this.calculatorFunc(everyList.get(0));
         if (extractor.names.contains(everyList.get(1))){
             boolean ifFind=false;
@@ -140,7 +148,7 @@ public class NewMethod{
                 System.out.println(function.toString());
             }
         }else {
-
+            
             List<String> everyRightList=this.getEveryExpr(everyList.get(1));
             Function result=null;
             int i=0;
@@ -171,19 +179,19 @@ public class NewMethod{
             calFunc.add(result);
             System.out.println(result.toString());
         }
-
+        
     }
-
+    
     /*
-    * 将一个String表达式转成函数形式
-    *
-    * */
+     * 将一个String表达式转成函数形式
+     *
+     * */
     private Function calculatorFunc(String funcString){
         List<String> everyList=this.getEveryExpr(funcString);
-
+        
         Function result=new Function("tempVariable","",0,0,0,0);
         if (funcString.substring(0,1).equals("+")){
-
+            
             for (String everyString:everyList){
                 Function function=this.calculatorFunc(everyString);
                 result=result.plus(function);
@@ -195,7 +203,7 @@ public class NewMethod{
                 Function function=this.calculatorFunc(everyString);
                 result=result.times(function);
             }
-
+            
             return result;
         }else if (extractor.names.contains(funcString)){
             for (Function function:calFunc){
@@ -220,35 +228,35 @@ public class NewMethod{
             }
             return result;
         }
-
+        
     }
-
+    
     private Expr getFinalRes(){
         Expr lastExpr=null;
         boolean ifFirst=true;
         for (int i=0;i<DNFExpr.size();i++){
             Status status=ifSatisfy(DNFExpr.get(i));
-
+            
             if (status == Status.UNSATISFIABLE) {
-
+                
                 continue;
-
+                
             }else if (status == Status.UNKNOWN) {
-
+                
                 logger.severe("Verifier Error : Unknown");
-
+                
             }else if (status == Status.SATISFIABLE) {
                 String DNFString=DNFExpr.get(i).toString();
-
+                
                 boolean ifContain=false;
                 for (String name : extractor.names) {
                     if (DNFString.contains(name)){
                         ifContain=true;
                         char [] temp=DNFString.toCharArray();
                         Stack<Character> stack=new Stack<>();
-
+                        
                         int last=0;
-
+                        
                         int position=DNFString.indexOf("(=");
                         for (int j=position;j<temp.length;j++){
                             if (temp[j]=='('){
@@ -274,12 +282,12 @@ public class NewMethod{
                         if (replace.substring(0,1).equals("(")){
                             replace=replace.substring(1,replace.length()-1);
                         }
-
+                        
                         Expr boolExpr = null;
                         Expr resExpr = this.convertStringToExpr(replace);
-
+                        
                         boolExpr = DNFExpr.get(i).substitute(ctx.mkIntConst(name), resExpr);
-
+                        
                         if (ifFirst){
                             lastExpr = ctx.mkITE((BoolExpr)boolExpr, resExpr, ctx.mkInt(-1));
                             ifFirst=false;
@@ -288,7 +296,7 @@ public class NewMethod{
                         }
                     }
                 }
-
+                
                 if (!ifContain){
                     if (ifFirst){
                         lastExpr = ctx.mkITE((BoolExpr)DNFExpr.get(i), ctx.mkInt(0), ctx.mkInt(-1));
@@ -299,29 +307,29 @@ public class NewMethod{
                 }
             }
         }
-
+        
         return lastExpr;
     }
-
+    
     private Status ifSatisfy(Expr expr){
         s.push();
         s.add((BoolExpr)expr);
-
+        
         Status status = s.check();
         s.pop();
         return status;
     }
-
+    
     private List<Expr> convertToDNF(String tempString){
         char [] temp=tempString.toCharArray();
-
+        
         if (tempString.substring(1,4).equals("and")){
-
+            
             List <List<Expr>> atomic= new LinkedList<>();
             int pointer=0;
             boolean ifFirst=true;
             Stack<Character> stack=new Stack<>();
-
+            
             for (int i=1;i<temp.length-1;i++){
                 if (temp[i]=='('){
                     stack.push('(');
@@ -338,21 +346,21 @@ public class NewMethod{
                     }
                 }
             }
-
+            
             this.getArrange(atomic, 0, null);
-
+            
             List<Expr> res=new LinkedList<>();
             res.addAll(this.DNFExpr);
             this.DNFExpr.clear();
             return res;
-
+            
         }else if (tempString.substring(1,3).equals("or")){
-
+            
             int pointer=0;
             boolean ifFirst=true;
             Stack<Character> stack=new Stack<>();
             List<Expr> res=new LinkedList<>();
-
+            
             for (int i=1;i<temp.length-1;i++){
                 if (temp[i]=='('){
                     stack.push('(');
@@ -369,7 +377,7 @@ public class NewMethod{
                     }
                 }
             }
-
+            
             return res;
         }else {
             //Expr expr=this.stackWay(tempString);
@@ -379,13 +387,13 @@ public class NewMethod{
             return res;
         }
     }
-
+    
     private String changeFunc(String z3String){
         for (String name : extractor.names) {
             int length=name.length();
-
+            
             char [] temp=z3String.toCharArray();
-
+            
             int pointer=0;
             int last=0;
             boolean ifFind=false;
@@ -408,14 +416,14 @@ public class NewMethod{
             //logger.info("####33####"+regs);
             z3String=z3String.replace(regs,name);
         }
-
+        
         return z3String;
     }
-
+    
     /*
-    * 将String用栈的方法转成Expr
-    *
-    * */
+     * 将String用栈的方法转成Expr
+     *
+     * */
     private Expr stackWay(String string){
         Stack<String> operatorStack = new Stack<String>();
         Stack<Object> variableStack = new Stack<Object>();
@@ -423,7 +431,7 @@ public class NewMethod{
         for (int i=0;i<charString.length;){
             if (charString[i]=='('){
                 variableStack.push(null);
-
+                
                 int end=string.substring(i+1).indexOf(' ');
                 String operator=string.substring(i+1,i+1+end);
                 operatorStack.push(operator);
@@ -471,7 +479,7 @@ public class NewMethod{
         //System.out.println(res.toString()+"@@@@@@");
         return res;
     }
-
+    
     private Expr getExpr(String name, Expr[] args) {
         if (name.equals("+")) {
             return ctx.mkAdd(Arrays.copyOf(args, args.length, ArithExpr[].class));
@@ -511,17 +519,17 @@ public class NewMethod{
         }
         return null;
     }
-
+    
     /*
-    * 将String用递归的方法转成Expr
-    *
-    * */
+     * 将String用递归的方法转成Expr
+     *
+     * */
     private Expr convertStringToExpr(String z3String){
         char [] temp=z3String.toCharArray();
         //logger.info("####33####"+z3String);
         if (temp.length>2&&z3String.substring(0,3).equals("not")){
             Stack<Character> stack=new Stack<>();
-
+            
             int pointer=0;
             boolean ifFirst=true;
             for (int i=0;i<temp.length;i++){
@@ -544,7 +552,7 @@ public class NewMethod{
         }else if (temp.length>2&&z3String.substring(0,3).equals("and")){
             Expr expr=null;
             Stack<Character> stack=new Stack<>();
-
+            
             int pointer=0;
             boolean ifFirst=true;
             boolean ifNumberOne=true;
@@ -573,7 +581,7 @@ public class NewMethod{
         }else if (temp.length>1&&z3String.substring(0,2).equals("or")){
             Expr expr=null;
             Stack<Character> stack=new Stack<>();
-
+            
             int pointer=0;
             boolean ifFirst=true;
             boolean ifNumberOne=true;
@@ -600,33 +608,32 @@ public class NewMethod{
             }
             return expr;
         }else if (temp.length>1&&z3String.substring(0,2).equals(">=")){
-
+            
             List<String> res=this.getEveryExpr(z3String);
             return ctx.mkGe((ArithExpr)this.convertStringToExpr(res.get(0)),(ArithExpr)this.convertStringToExpr(res.get(1)));
-
+            
         }else if (temp.length>1&&z3String.substring(0,2).equals("<=")){
-
+            
             List<String> res=this.getEveryExpr(z3String);
             return ctx.mkLe((ArithExpr)this.convertStringToExpr(res.get(0)),(ArithExpr)this.convertStringToExpr(res.get(1)));
-
+            
         }else if (temp.length>1&&z3String.substring(0,1).equals(">")){
-
+            
             List<String> res=this.getEveryExpr(z3String);
             return ctx.mkGt((ArithExpr)this.convertStringToExpr(res.get(0)),(ArithExpr)this.convertStringToExpr(res.get(1)));
-
+            
         }else if (temp.length>1&&z3String.substring(0,1).equals("<")){
-
+            
             List<String> res=this.getEveryExpr(z3String);
             return ctx.mkLt((ArithExpr)this.convertStringToExpr(res.get(0)),(ArithExpr)this.convertStringToExpr(res.get(1)));
-
+            
         }else if (z3String.substring(0,1).equals("=")){
-
+            
             List<String> res=this.getEveryExpr(z3String);
-            System.out.println(res.get(1)+"!!!!!");
             return ctx.mkEq((ArithExpr)this.convertStringToExpr(res.get(0)),(ArithExpr)this.convertStringToExpr(res.get(1)));
-
+            
         }else if (z3String.substring(0,1).equals("+")){
-
+            
             List<String> res=this.getEveryExpr(z3String);
             Expr expr=null;
             for (int i=0;i<res.size();i++){
@@ -637,13 +644,13 @@ public class NewMethod{
                 }
             }
             return expr;
-
+            
         }else if (z3String.substring(0,1).equals("-")){
-
+            
             return ctx.mkInt("-"+z3String.substring(2));
-
+            
         }else if (z3String.substring(0,1).equals("*")){
-
+            
             List<String> res=this.getEveryExpr(z3String);
             Expr expr=null;
             for (int i=0;i<res.size();i++){
@@ -654,9 +661,9 @@ public class NewMethod{
                 }
             }
             return expr;
-
+            
         }else if (z3String.substring(0,1).equals("/")){
-
+            
             List<String> res=this.getEveryExpr(z3String);
             Expr expr=null;
             for (int i=0;i<res.size();i++){
@@ -676,16 +683,16 @@ public class NewMethod{
         }
         return null;
     }
-
+    
     public List<String> getEveryExpr(String experString){
         char [] temp=experString.toCharArray();
         List<String> res=new LinkedList<>();
         Stack<Character> stack=new Stack<>();
-
+        
         int pointer=0;
         boolean ifFirst=true;
         boolean ifAlone=true;
-
+        
         for (int i=experString.indexOf(" ")+1;i<temp.length;i++){
             if (temp[i]=='('){
                 stack.push('(');
@@ -711,7 +718,7 @@ public class NewMethod{
                             break;
                         }
                     }
-
+                    
                     if (j==temp.length){
                         res.add(experString.substring(i));
                         i=i+experString.substring(i).length();
@@ -724,11 +731,11 @@ public class NewMethod{
         }
         return res;
     }
-
+    
     private Expr tempString=null;
-
+    
     public void getArrange(List <List<Expr>> atomic, int pointer, Expr res){
-
+        
         List<Expr> temp=atomic.get(pointer);
         int tempLength=0;
         for (int i=0;i< temp.size();i++){
@@ -743,11 +750,11 @@ public class NewMethod{
                 DNFExpr.add(tempString);
             }
         }
-
+        
     }
-
+    
     public String getDNFString() {
         return DNFString;
     }
-
+    
 }
