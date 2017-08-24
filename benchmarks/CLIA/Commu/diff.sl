@@ -6,7 +6,7 @@
 (declare-var x Int)
 (declare-var y Int)
 
-(constraint (= (f x y) (f y x))
+(constraint (= (f x y) (f y x)))
 (constraint (or (= (- x y) (f x y))
 				(= (- y x) (f x y))))
 
