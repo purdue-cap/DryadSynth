@@ -49,6 +49,16 @@ public class NewMethodMain {
 
         NewMethod newMethod=new NewMethod(ctx, extractor, logger);
 
+        ANTLRInputStream resultBuffer;
+		SygusFormatter formatter = new SygusFormatter();
+		for (DefinedFunc df: newMethod.results) {
+			resultBuffer = new ANTLRInputStream(df.toString());
+			lexer = new SygusLexer(resultBuffer);
+			tokens = new CommonTokenStream(lexer);
+			parser = new SygusParser(tokens);
+			System.out.println("*********"+formatter.visit(parser.start()));
+		}
+
         long estimatedTime = System.currentTimeMillis() - startTime;
         logger.info("Runtime: " + estimatedTime);
 
