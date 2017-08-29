@@ -6,10 +6,16 @@ import com.microsoft.z3.*;
 import java.util.logging.Logger;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
-public class NewMethodMain {
+public class NewMutiWayMain {
     public static void main(String[] args) throws Exception {
 
         long startTime = System.currentTimeMillis();
+
+        int numCore = Runtime.getRuntime().availableProcessors();
+
+        if (args.length == 2)  {
+            numCore = Integer.parseInt(args[1]);
+        }
 
         // ANTLRFileStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
         ANTLRFileStream input = new ANTLRFileStream(args[0]);
@@ -47,17 +53,19 @@ public class NewMethodMain {
             logger.info("((((("+name);
         }
 
-        NewMethod newMethod=new NewMethod(ctx, extractor, logger);
 
-        ANTLRInputStream resultBuffer;
-		SygusFormatter formatter = new SygusFormatter();
-		for (DefinedFunc df: newMethod.results) {
-			resultBuffer = new ANTLRInputStream(df.toString());
-			lexer = new SygusLexer(resultBuffer);
-			tokens = new CommonTokenStream(lexer);
-			parser = new SygusParser(tokens);
-			System.out.println("*********"+formatter.visit(parser.start()));
-		}
+
+        NewMutiWay newMethod=new NewMutiWay(ctx, extractor, logger, numCore);
+
+//        ANTLRInputStream resultBuffer;
+//		SygusFormatter formatter = new SygusFormatter();
+//		for (DefinedFunc df: newMethod.results) {
+//			resultBuffer = new ANTLRInputStream(df.toString());
+//			lexer = new SygusLexer(resultBuffer);
+//			tokens = new CommonTokenStream(lexer);
+//			parser = new SygusParser(tokens);
+//			//System.out.println("*********"+formatter.visit(parser.start()));
+//		}
 
         long estimatedTime = System.currentTimeMillis() - startTime;
         logger.info("Runtime: " + estimatedTime);

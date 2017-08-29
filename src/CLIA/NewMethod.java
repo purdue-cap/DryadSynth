@@ -43,7 +43,7 @@ public class NewMethod{
 
     public NewMethod(Context ctx, SygusExtractor extractor, Logger logger){
         this.ctx=ctx;
-        this.extractor=extractor.translate(ctx);;
+        this.extractor=extractor.translate(ctx);
         this.s = ctx.mkSolver();
         this.z3Expr=this.extractor.finalConstraint;
         this.oldZ3String=this.extractor.finalConstraint.toString();
@@ -55,14 +55,6 @@ public class NewMethod{
         this.ifException=false;
         this.FuncName=extractor.names.get(0);
         this.funcDecl=extractor.rdcdRequests.get(this.FuncName);
-
-        if (extractor.names.size()>1){
-            int position=this.oldZ3String.indexOf(extractor.names.get(0));
-            if (!this.oldZ3String.substring(position-1,position).equals("(")){
-                this.z3String=this.oldZ3String;
-                this.ifException=true;
-            }
-        }
 
         Map<String, Expr> functions = new LinkedHashMap<String, Expr>();
 
@@ -84,7 +76,7 @@ public class NewMethod{
                 }else {
                     for (Function function:calFunc){
                         if (function.getName().equals(name)){
-                            if ((!ifException)&&ifNeedSwap(name)){
+                            if (ifNeedSwap(name)){
                                 int x=function.getxPara();
                                 function.setxPara(function.getyPara());
                                 function.setyPara(x);
@@ -99,6 +91,7 @@ public class NewMethod{
         }else {
             this.DNFExpr=this.changeToDNF(this.z3Expr);
 
+            logger.info("*******1*****");
             Expr res = this.getFinalRes();
 
             for (String name : extractor.names) {
@@ -106,9 +99,9 @@ public class NewMethod{
             }
         }
 
-        Verifier testVerifier = new Verifier(ctx, extractor, logger);
-        Status v = testVerifier.verify(functions);
-        logger.info("************"+v);
+//        Verifier testVerifier = new Verifier(ctx, extractor, logger);
+//        Status v = testVerifier.verify(functions);
+//        logger.info("************"+v);
 
         results = new DefinedFunc[functions.size()];
         int i = 0;
@@ -273,6 +266,9 @@ public class NewMethod{
                 if (exprFunc.equals(f)){
                     String format=expr.toString();
                     String [] temp=format.split(" ");
+                    if (temp.length==1){
+                        return false;
+                    }
                     if (!temp[1].equals("x")){
                         return true;
                     }else {
@@ -384,29 +380,22 @@ public class NewMethod{
     private Expr getFinalRes(){
         Expr lastExpr=ctx.mkInt(-1);
         boolean ifFirst=true;
-        for (int i=0;i<DNFExpr.size();i++){
+        for (Expr expr: DNFExpr){
 
-            Status status=ifSatisfy(DNFExpr.get(i));
+            Status status=ifSatisfy(expr);
 
-            if (status == Status.UNSATISFIABLE) {
-                continue;
-
-            }else if (status == Status.UNKNOWN) {
-
-                logger.severe("Verifier Error : Unknown");
-
-            }else if (status == Status.SATISFIABLE) {
+            if (status == Status.SATISFIABLE) {
 
                 Expr []twoExpr=null;
                 Expr resExpr=ctx.mkInt(0);
-                Expr boolExpr = DNFExpr.get(i);
-                if ((twoExpr=findFuncEq(DNFExpr.get(i)))!=null){
+
+                if ((twoExpr=findFuncEq(expr))!=null){
 
                     resExpr=twoExpr[1];
-                    boolExpr = DNFExpr.get(i).substitute(twoExpr[0], resExpr);
+                    expr = expr.substitute(twoExpr[0], resExpr);
 
                 }
-                lastExpr = ctx.mkITE((BoolExpr)boolExpr, resExpr, lastExpr);
+                lastExpr = ctx.mkITE((BoolExpr)expr, resExpr, lastExpr);
             }
         }
 
