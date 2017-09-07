@@ -47,5 +47,5 @@ with elements, or atoms in that form having the form
 \[T_j^{(i)} \Leftrightarrow (x_k' = x_k + c)\]
 
 We would like to prove the argument that given this assumption as a constraint, if there exists an invariant, there must exist another invariant that have the form
-\[\invf \Leftrightarrow C_1' \land C_2' \dots \]
+\[\invf \Leftrightarrow C_1 \land C_2 \dots \]
 with \(C_i\) being in the same form as \(C_j^{(i)}\)
