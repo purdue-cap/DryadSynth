@@ -108,6 +108,16 @@ public class DefinedFunc {
         return definition;
     }
 
+    // Return a new DefinedFunc with replaced argument list
+    public DefinedFunc replaceArgs(Expr[] newArgs) {
+        return new DefinedFunc(this.ctx, this.name, newArgs, this.definition);
+    }
+
+    // Return a new DefinedFunc with replaced name
+    public DefinedFunc replaceName(String newName) {
+        return new DefinedFunc(this.ctx, newName, this.args, this.definition);
+    }
+
     public String toString() {
         String str = "(define-fun %s (%s) %s %s)";
         String argStr = "";
