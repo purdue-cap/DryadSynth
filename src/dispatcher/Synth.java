@@ -4,45 +4,19 @@ import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
-import java.util.logging.FileHandler;
-import java.util.logging.SimpleFormatter;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
-public class Run {
+public class Synth {
 	public static void main(String[] args) throws Exception {
 
 		long startTime = System.currentTimeMillis();
-		int numCore = Runtime.getRuntime().availableProcessors();
-		int minFinite = 20;
-		int minInfinite = 5;
-
-		if (args.length == 2)  {
-			numCore = Integer.parseInt(args[1]);
-		}
-		if (args.length == 3) {
-			minFinite = Integer.parseInt(args[1]);
-			minInfinite = Integer.parseInt(args[2]);
-		}
-		if (args.length >= 4) {
-			numCore = Integer.parseInt(args[1]);
-			minFinite = Integer.parseInt(args[2]);
-			minInfinite = Integer.parseInt(args[3]);
-		}
 
 		// ANTLRFileStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRFileStream input = new ANTLRFileStream(args[0]);
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		SygusParser parser = new SygusParser(tokens);
-
 		Logger logger = Logger.getLogger("main");
-		logger.setUseParentHandlers(false);
-		FileHandler handler = new FileHandler("log.main.txt", false);
-		handler.setFormatter(new SimpleFormatter());
-		logger.addHandler(handler);
-		Thread mainThread = Thread.currentThread();
-		logger.info(String.format("Using %d threads", numCore));
-		logger.info(String.format("Using finite coeffBound timeout %d mins and infinite coeffBound timeout %d mins", minFinite, minInfinite));
 
 		HashMap<String, String> cfg = new HashMap<String, String>();
 		cfg.put("model", "true");
@@ -66,34 +40,14 @@ public class Run {
 		SygusExtractor extractor = new SygusExtractor(ctx);
 		walker.walk(extractor, tree);
 
-		logger.info("Final Constraints:" + extractor.finalConstraint.toString());
+		logger.info("Final Constraints:");
+		logger.info(extractor.finalConstraint.toString());
 
-		Producer1D pdc1d = new Producer1D();
-		Cegis[] threads = new Cegis[numCore];
-		for (int i = 0; i < numCore; i++) {
-			Logger threadLogger = Logger.getLogger("main.thread" + i);
-			threadLogger.setUseParentHandlers(false);
-			FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
-			threadHandler.setFormatter(new SimpleFormatter());
-			threadLogger.addHandler(threadHandler);
-			threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite);
-			threads[i].start();
-		}
-
-		DefinedFunc[] results = new DefinedFunc[0];
-		boolean flag = true;
-		while (flag) {
-			synchronized(mainThread) {
-				mainThread.wait();
-			}
-			for (Cegis thread : threads) {
-				if (thread.results != null) {
-					results = thread.results;
-					flag = false;
-					break;
-				}
-			}
-		}
+		SygusDispatcher dispatcher = new SygusDispatcher(ctx, extractor);
+		dispatcher.setNumCore(1);
+		dispatcher.prescreen();
+		dispatcher.initAlgorithm();
+		DefinedFunc[] results = dispatcher.runAlgorithm();
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRInputStream resultBuffer;
@@ -109,7 +63,6 @@ public class Run {
 		long estimatedTime = System.currentTimeMillis() - startTime;
 		logger.info("Runtime: " + estimatedTime);
 
-		System.exit(0);
 
 	}
 }

@@ -4,19 +4,44 @@ import org.antlr.v4.runtime.tree.*;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
+import java.util.logging.FileHandler;
+import java.util.logging.SimpleFormatter;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
-public class Synth {
+public class Run {
 	public static void main(String[] args) throws Exception {
 
 		long startTime = System.currentTimeMillis();
+		int numCore = Runtime.getRuntime().availableProcessors();
+		int minFinite = 20;
+		int minInfinite = 5;
+
+		if (args.length == 2)  {
+			numCore = Integer.parseInt(args[1]);
+		}
+		if (args.length == 3) {
+			minFinite = Integer.parseInt(args[1]);
+			minInfinite = Integer.parseInt(args[2]);
+		}
+		if (args.length >= 4) {
+			numCore = Integer.parseInt(args[1]);
+			minFinite = Integer.parseInt(args[2]);
+			minInfinite = Integer.parseInt(args[3]);
+		}
 
 		// ANTLRFileStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRFileStream input = new ANTLRFileStream(args[0]);
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		SygusParser parser = new SygusParser(tokens);
+
 		Logger logger = Logger.getLogger("main");
+		logger.setUseParentHandlers(false);
+		FileHandler handler = new FileHandler("log.main.txt", false);
+		handler.setFormatter(new SimpleFormatter());
+		logger.addHandler(handler);
+		logger.info(String.format("Using %d threads", numCore));
+		logger.info(String.format("Using finite coeffBound timeout %d mins and infinite coeffBound timeout %d mins", minFinite, minInfinite));
 
 		HashMap<String, String> cfg = new HashMap<String, String>();
 		cfg.put("model", "true");
@@ -40,16 +65,21 @@ public class Synth {
 		SygusExtractor extractor = new SygusExtractor(ctx);
 		walker.walk(extractor, tree);
 
-		logger.info("Final Constraints:");
-		logger.info(extractor.finalConstraint.toString());
+		logger.info("Final Constraints:" + extractor.finalConstraint.toString());
 
-		Cegis test = new Cegis(ctx, extractor, logger, 20, 5);
-		test.run();
+		SygusDispatcher dispatcher = new SygusDispatcher(ctx, extractor);
+		dispatcher.setNumCore(numCore);
+		dispatcher.setMinFinite(minFinite);
+		dispatcher.setMinInfinite(minInfinite);
+		dispatcher.prescreen();
+		dispatcher.initAlgorithm();
+		DefinedFunc[] results = dispatcher.runAlgorithm();
+
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRInputStream resultBuffer;
 		SygusFormatter formatter = new SygusFormatter();
-		for (DefinedFunc df: test.results) {
+		for (DefinedFunc df: results) {
 			resultBuffer = new ANTLRInputStream(df.toString());
 			lexer = new SygusLexer(resultBuffer);
 			tokens = new CommonTokenStream(lexer);
@@ -60,6 +90,7 @@ public class Synth {
 		long estimatedTime = System.currentTimeMillis() - startTime;
 		logger.info("Runtime: " + estimatedTime);
 
+		System.exit(0);
 
 	}
 }
