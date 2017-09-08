@@ -40,7 +40,6 @@ public class Run {
 		FileHandler handler = new FileHandler("log.main.txt", false);
 		handler.setFormatter(new SimpleFormatter());
 		logger.addHandler(handler);
-		Thread mainThread = Thread.currentThread();
 		logger.info(String.format("Using %d threads", numCore));
 		logger.info(String.format("Using finite coeffBound timeout %d mins and infinite coeffBound timeout %d mins", minFinite, minInfinite));
 
@@ -68,32 +67,14 @@ public class Run {
 
 		logger.info("Final Constraints:" + extractor.finalConstraint.toString());
 
-		Producer1D pdc1d = new Producer1D();
-		Cegis[] threads = new Cegis[numCore];
-		for (int i = 0; i < numCore; i++) {
-			Logger threadLogger = Logger.getLogger("main.thread" + i);
-			threadLogger.setUseParentHandlers(false);
-			FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
-			threadHandler.setFormatter(new SimpleFormatter());
-			threadLogger.addHandler(threadHandler);
-			threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite);
-			threads[i].start();
-		}
+		SygusDispatcher dispatcher = new SygusDispatcher(ctx, extractor);
+		dispatcher.setNumCore(numCore);
+		dispatcher.setMinFinite(minFinite);
+		dispatcher.setMinInfinite(minInfinite);
+		dispatcher.prescreen();
+		dispatcher.initAlgorithm();
+		DefinedFunc[] results = dispatcher.runAlgorithm();
 
-		DefinedFunc[] results = new DefinedFunc[0];
-		boolean flag = true;
-		while (flag) {
-			synchronized(mainThread) {
-				mainThread.wait();
-			}
-			for (Cegis thread : threads) {
-				if (thread.results != null) {
-					results = thread.results;
-					flag = false;
-					break;
-				}
-			}
-		}
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRInputStream resultBuffer;

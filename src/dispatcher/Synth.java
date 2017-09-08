@@ -43,13 +43,16 @@ public class Synth {
 		logger.info("Final Constraints:");
 		logger.info(extractor.finalConstraint.toString());
 
-		Cegis test = new Cegis(ctx, extractor, logger, 20, 5);
-		test.run();
+		SygusDispatcher dispatcher = new SygusDispatcher(ctx, extractor);
+		dispatcher.setNumCore(1);
+		dispatcher.prescreen();
+		dispatcher.initAlgorithm();
+		DefinedFunc[] results = dispatcher.runAlgorithm();
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRInputStream resultBuffer;
 		SygusFormatter formatter = new SygusFormatter();
-		for (DefinedFunc df: test.results) {
+		for (DefinedFunc df: results) {
 			resultBuffer = new ANTLRInputStream(df.toString());
 			lexer = new SygusLexer(resultBuffer);
 			tokens = new CommonTokenStream(lexer);
