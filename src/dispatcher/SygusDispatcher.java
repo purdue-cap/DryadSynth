@@ -5,8 +5,8 @@ import java.util.logging.SimpleFormatter;
 import com.microsoft.z3.*;
 
 public class SygusDispatcher {
-    enum SolveMethod {
-        PRESCREENED, CEGIS
+    public enum SolveMethod {
+        PRESCREENED, CEGIS, SININV
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
@@ -38,12 +38,22 @@ public class SygusDispatcher {
         this.minInfinite = min;
     }
 
+    public SolveMethod getMethod(){
+        return method;
+    }
+
     public void prescreen() {
         logger.info("Checking candidates generated from parsing.");
         boolean checkResult = this.validateCandidates();
         if (checkResult) {
             logger.info("Parsed candidates are valid.");
             this.method = SolveMethod.PRESCREENED;
+            return;
+        }
+        checkResult = this.checkSinInv();
+        if (checkResult) {
+            logger.info("Single Invocation detected, using SinInv method.");
+            this.method = SolveMethod.SININV;
             return;
         }
 
@@ -130,5 +140,33 @@ public class SygusDispatcher {
 
     }
 
+    boolean checkSinInv(){
+        Expr spec = extractor.finalConstraint;
+        Map<FuncDecl, Expr[]> cache = new HashMap<FuncDecl, Expr[]>();
+        Stack<Expr> todo = new Stack<Expr>();
+        todo.push(spec);
 
+        while (!todo.empty()) {
+            Expr expr = todo.pop();
+            if (expr.isApp()) {
+                Expr[] args = expr.getArgs();
+                for (Expr arg: args) {
+                    todo.push(arg);
+                }
+                FuncDecl exprFunc = expr.getFuncDecl();
+                String funcName = exprFunc.getName().toString();
+                if (extractor.rdcdRequests.keySet().contains(funcName) &&
+                    exprFunc.equals(extractor.rdcdRequests.get(funcName)))  {
+                    if (cache.keySet().contains(exprFunc)) {
+                        if (!Arrays.equals(args, cache.get(exprFunc))) {
+                            return false;
+                        }
+                    } else {
+                        cache.put(exprFunc, args);
+                    }
+                }
+            }
+        }
+        return true;
+    }
 }
