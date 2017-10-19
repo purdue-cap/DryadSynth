@@ -181,6 +181,9 @@ public class SygusDispatcher {
                 String funcName = exprFunc.getName().toString();
                 if (extractor.rdcdRequests.keySet().contains(funcName) &&
                     exprFunc.equals(extractor.rdcdRequests.get(funcName)))  {
+                    if (!z3ctx.getIntSort().equals(exprFunc.getRange())) {
+                        return false;
+                    }
                     if (cache.keySet().contains(exprFunc)) {
                         if (!Arrays.equals(args, cache.get(exprFunc))) {
                             return false;
