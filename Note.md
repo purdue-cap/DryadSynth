@@ -10,6 +10,7 @@
         - Maybe it's a better idea to use regex globally
 - Bug in SinInv method when handling contraints with only one disjunction.
     - As it is in new "Common" case benchmarks in CLIA track
+- Bug in SinInv method when handling fg_mpg_example5.sl
 
 # Custom patched Z3
 
