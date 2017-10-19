@@ -8,6 +8,8 @@
     - On reformatting. Currently we're doing reformatting on smaller sizes of
       solutions only, and doing regex replace on larger sizes
         - Maybe it's a better idea to use regex globally
+- Bug in SinInv method when handling contraints with only one disjunction.
+    - As it is in new "Common" case benchmarks in CLIA track
 
 # Custom patched Z3
 
