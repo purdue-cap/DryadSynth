@@ -1,7 +1,13 @@
-# Problems remain to be solved
+# To-dos
 
-- Benchmarks that use non-primitive types as input or output of the functions,
-such as `(BitVec )`, `(Enum )`, `(Array )`
+- Refine single-invocation method codes to fit the design pattern of dispatcher.
+    - Also need to correct poor naming and poor codes in SININV
+- Single invocation methods are generating insanly large results, need
+  optimization
+    - On result size. Large result size may bring in problem for post-processing
+    - On reformatting. Currently we're doing reformatting on smaller sizes of
+      solutions only, and doing regex replace on larger sizes
+        - Maybe it's a better idea to use regex globally
 
 # Custom patched Z3
 
