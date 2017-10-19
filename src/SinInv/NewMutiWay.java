@@ -27,7 +27,7 @@ public class NewMutiWay {
 
     private boolean ifException;
 
-    public DefinedFunc[] results = null;
+    public Map<String,Expr> results = null;
 
     private int numCore;
 
@@ -122,21 +122,7 @@ public class NewMutiWay {
             }
         }
 
-//        Verifier testVerifier = new Verifier(ctx, extractor, logger);
-//        Status v = testVerifier.verify(functions);
-//        logger.info("************"+v);
-
-        results = new DefinedFunc[functions.size()];
-        int i = 0;
-        for (String name : extractor.rdcdRequests.keySet()) {
-            Expr def = functions.get(name);
-            if (def.isBool()) {
-                def = SygusFormatter.elimITE(this.ctx, def);
-            }
-            results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def);
-            logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
-            i = i + 1;
-        }
+        results = functions;
     }
 
     /*

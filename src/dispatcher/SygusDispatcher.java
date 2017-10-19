@@ -17,6 +17,7 @@ public class SygusDispatcher {
     int minInfinite = 5;
     Thread mainThread;
     Thread [] threads = null;
+    Map<String, Expr[]> callCache = null;
 
     // For legacy SININV codes
     // Todo: Refine SININV codes to fit the design pattern here
@@ -134,13 +135,25 @@ public class SygusDispatcher {
         if (this.method == SolveMethod.SININV) {
             logger.info("Starting single invocation algorithms execution.");
             logger.info("Using legacy codes, execution is one-shot.");
+            Map<String, Expr> resultMap;
             if (numCore > 1) {
                 newMutiWay = new NewMutiWay(this.z3ctx, this.extractor, this.logger, this.numCore);
-                return newMutiWay.results;
+                resultMap = newMutiWay.results;
             } else {
                 newMethod = new NewMethod(this.z3ctx, this.extractor, this.logger);
-                return newMethod.results;
+                resultMap = newMethod.results;
             }
+
+            int i = 0;
+            DefinedFunc[] results = new DefinedFunc[resultMap.size()];
+            for (String name : extractor.names) {
+                Expr def = resultMap.get(name);
+                def = def.substitute(this.callCache.get(name), extractor.requestUsedArgs.get(name));
+                results[i] = new DefinedFunc(z3ctx, name, extractor.requestArgs.get(name), def);
+                logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+                i = i + 1;
+            }
+            return results;
         }
 
         return null;
@@ -166,7 +179,7 @@ public class SygusDispatcher {
 
     boolean checkSinInv(){
         Expr spec = extractor.finalConstraint;
-        Map<FuncDecl, Expr[]> cache = new HashMap<FuncDecl, Expr[]>();
+        this.callCache = new HashMap<String, Expr[]>();
         Stack<Expr> todo = new Stack<Expr>();
         todo.push(spec);
 
@@ -179,17 +192,17 @@ public class SygusDispatcher {
                 }
                 FuncDecl exprFunc = expr.getFuncDecl();
                 String funcName = exprFunc.getName().toString();
-                if (extractor.rdcdRequests.keySet().contains(funcName) &&
+                if (extractor.names.contains(funcName) &&
                     exprFunc.equals(extractor.rdcdRequests.get(funcName)))  {
                     if (!z3ctx.getIntSort().equals(exprFunc.getRange())) {
                         return false;
                     }
-                    if (cache.keySet().contains(exprFunc)) {
-                        if (!Arrays.equals(args, cache.get(exprFunc))) {
+                    if (this.callCache.keySet().contains(funcName)) {
+                        if (!Arrays.equals(args, this.callCache.get(funcName))) {
                             return false;
                         }
                     } else {
-                        cache.put(exprFunc, args);
+                        this.callCache.put(funcName, args);
                     }
                 }
             }
