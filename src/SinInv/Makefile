@@ -2,9 +2,6 @@ PWD := $(shell pwd)
 SOURCE := $(wildcard *.java)
 TARGET := $(SOURCE:%.java=../../classes/%.class)
 
-placeholder:
-	@echo Placeholder for Single Invocation classes
-
 all: $(TARGET)
 
 $(TARGET): ../../classes/%.class : %.java
