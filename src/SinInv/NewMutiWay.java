@@ -113,7 +113,7 @@ public class NewMutiWay {
 
             Expr finalExpr=threads[0].resultExpr.translate(ctx);
             for (int i = 1;i < numCore;i++){
-                finalExpr=finalExpr.substitute(ctx.mkInt(-11),threads[i].resultExpr.translate(ctx));
+                finalExpr=finalExpr.substitute(ctx.mkInt(0),threads[i].resultExpr.translate(ctx));
             }
 
             logger.info("Finish!!!!!!!!!!!");

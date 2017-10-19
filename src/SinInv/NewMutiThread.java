@@ -55,7 +55,7 @@ public class NewMutiThread extends Thread{
     * 根据DNF表达式构造最后的ite表达式
     * */
     private Expr getFinalRes(){
-        Expr lastExpr=ctx.mkInt(-11);
+        Expr lastExpr=ctx.mkInt(0);
         boolean ifFirst=true;
         for (Expr expr: DNFExpr){
 
