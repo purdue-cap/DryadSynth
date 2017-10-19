@@ -18,6 +18,13 @@ public class SygusDispatcher {
     Thread mainThread;
     Thread [] threads = null;
 
+    // For legacy SININV codes
+    // Todo: Refine SININV codes to fit the design pattern here
+    // The method shall create worker thread objects in initAlgorithm
+    // And shall run these threads and wait for results in runAlgorithm
+    NewMethod newMethod;
+    NewMutiWay newMutiWay;
+
     SygusDispatcher(Context z3ctx, SygusExtractor extractor) {
         this.z3ctx = z3ctx;
         this.extractor = extractor;
@@ -85,6 +92,11 @@ public class SygusDispatcher {
             return;
         }
 
+        if (this.method == SolveMethod.SININV) {
+            logger.info("Initializing single invocation algorithms.");
+            logger.info("Using legacy one-shot codes, no initialization is performanced.");
+        }
+
     }
 
     public DefinedFunc[] runAlgorithm() throws Exception{
@@ -117,8 +129,20 @@ public class SygusDispatcher {
                 threads[0].run();
                 return ((Cegis)threads[0]).results;
             }
-
         }
+
+        if (this.method == SolveMethod.SININV) {
+            logger.info("Starting single invocation algorithms execution.");
+            logger.info("Using legacy codes, execution is one-shot.");
+            if (numCore > 1) {
+                newMutiWay = new NewMutiWay(this.z3ctx, this.extractor, this.logger, this.numCore);
+                return newMutiWay.results;
+            } else {
+                newMethod = new NewMethod(this.z3ctx, this.extractor, this.logger);
+                return newMethod.results;
+            }
+        }
+
         return null;
 
     }

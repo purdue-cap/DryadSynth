@@ -70,7 +70,7 @@ public class NewMutiWay {
                                 function.setyPara(x);
                             }
                             Expr expr=this.makeFunction(function);
-                            System.out.println(expr.toString());
+                            logger.info(expr.toString());
                             functions.put(name , expr);
                         }
                     }
@@ -109,7 +109,7 @@ public class NewMutiWay {
                     e.printStackTrace();
                 }
             }
-            //System.out.println("Finish one!!!!!!!!!!!");
+            logger.info("Finish one!!!!!!!!!!!");
 
             Expr finalExpr=threads[0].resultExpr.translate(ctx);
             for (int i = 1;i < numCore;i++){
@@ -134,7 +134,7 @@ public class NewMutiWay {
                 def = SygusFormatter.elimITE(this.ctx, def);
             }
             results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def);
-            //logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+            logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
             i = i + 1;
         }
     }
@@ -150,7 +150,7 @@ public class NewMutiWay {
             Function function=this.getAFunction(exprs[0]);
             function.setName(rightFuncName);
             calFunc.add(function);
-            System.out.println(function.toString()+"!!!!");
+            logger.info(function.toString()+"!!!!");
         }else if (ifContainsFuncs(exprs[1])){
             Expr [] rightArgs=exprs[1].getArgs();
             Expr newExpr=null;
@@ -349,9 +349,9 @@ public class NewMutiWay {
                 Expr [] exprs=orig.getArgs();
                 for (Expr expr:exprs){
                     Function function=this.getAFunction(expr);
-                    //System.out.println(function.toString()+"*********");
+                    logger.info(function.toString()+"*********");
                     result=result.plus(function);
-                    //System.out.println(result.toString()+"&&&&&&&&");
+                    logger.info(result.toString()+"&&&&&&&&");
                 }
                 return result;
             }

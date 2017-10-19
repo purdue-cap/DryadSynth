@@ -46,9 +46,9 @@ public class NewMutiThread extends Thread{
     }
 
     public void run(){
-        System.out.println("Thread "+ this.begin + " Started");
+        logger.info("Thread "+ this.begin + " Started");
         this.resultExpr = this.getFinalRes();
-        System.out.println(this.begin+" Finish");
+        logger.info(this.begin+" Finish");
     }
 
     /*

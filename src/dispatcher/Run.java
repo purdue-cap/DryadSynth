@@ -15,6 +15,7 @@ public class Run {
 		int numCore = Runtime.getRuntime().availableProcessors();
 		int minFinite = 20;
 		int minInfinite = 5;
+		int formattingBound = 65535;
 
 		if (args.length == 2)  {
 			numCore = Integer.parseInt(args[1]);
@@ -80,11 +81,19 @@ public class Run {
 		ANTLRInputStream resultBuffer;
 		SygusFormatter formatter = new SygusFormatter();
 		for (DefinedFunc df: results) {
-			resultBuffer = new ANTLRInputStream(df.toString());
-			lexer = new SygusLexer(resultBuffer);
-			tokens = new CommonTokenStream(lexer);
-			parser = new SygusParser(tokens);
-			System.out.println(formatter.visit(parser.start()));
+			String rawResult = df.toString();
+			if (rawResult.length() <= 65535) {
+				resultBuffer = new ANTLRInputStream(rawResult);
+				lexer = new SygusLexer(resultBuffer);
+				tokens = new CommonTokenStream(lexer);
+				parser = new SygusParser(tokens);
+				System.out.println(formatter.visit(parser.start()));
+			} else {
+				// When output size is too large, run regexp replace instead
+				rawResult = rawResult.replaceAll("\\(\\s*-\\s+(\\d+)\\s*\\)", "-$1");
+				rawResult = rawResult.replaceAll("\\s+", " ");
+				System.out.println(rawResult);
+			}
 		}
 
 		long estimatedTime = System.currentTimeMillis() - startTime;
