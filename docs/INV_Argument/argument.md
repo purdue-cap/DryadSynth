@@ -2,10 +2,10 @@
 papersize: letter
 geometry: margin=1in
 ...
-\newcommand{\pref}{\mathrm{Pref}}
-\newcommand{\postf}{\mathrm{Postf}}
-\newcommand{\transf}{\mathrm{Transf}}
-\newcommand{\invf}{\mathrm{Invf}}
+\newcommand{\pref}{\mathrm{F_{PRE}}}
+\newcommand{\postf}{\mathrm{F_{POST}}}
+\newcommand{\transf}{\mathrm{F_{TRAN}}}
+\newcommand{\invf}{\mathrm{F_{INV}}}
 
 # Problem Description
 
@@ -48,9 +48,8 @@ And the form of \(\transf\) is:
 with elements, or atoms \(C_j^{(i)}\) having the form
 \[C_j^{(i)} \Leftrightarrow  \begin{cases}x_k \ge c   \\ x_k \le c \\ x_l - x_k \ge c \end{cases}\]
 
-And atoms \(T_j^{(i)}\) has the form such that
-\[\begin{split}T_1^{(i)} &\land T_2^{(i)} \land \dots \Rightarrow \\
- &(x_1 + c_1' \le x_1' \le x_1 + c_1) \land (x_2 + c_2' \le x_2' \le x_2 + c_2) \land\dots\end{split} \]
+And atoms \(T_j^{(i)}\) have the form
+\[T_j^{(i)} \Leftrightarrow x_j' = x_j + c_j \]
 
 We would like to prove the argument that given this assumption as a constraint, if there exists an invariant, there must exist another invariant that have the form
 \[\invf \Leftrightarrow C_1 \land C_2 \dots \]
@@ -61,43 +60,98 @@ with \(C_i\) being in the same form as \(C_j^{(i)}\)
 We shall use certain terminology for the rest of our discussion. We will define them here.
 
 Region
-:   A region is a set of constraints on variables.\[f_i(x_1, x_2, \dots, x_n) \ge 0\] It represents a geometric region in \(N^n\) space. For CLIA problems, all region involved in the problem shall have linear boundaries.
+:   A region is a set of constraints on variables.\[f_i(x_1, x_2, \dots, x_n) \ge 0\] It represents a geometric region in \(N^n\) space. For CLIA problems, all region involved in the problem shall have linear boundaries. We could use a boolean function of these variables to denote a region, as a boolean function is effectively a set of constraints on it parameters. If the set of constraints of a region are all of linear forms, in other words, if \(f_i\)'s are all linear functions, then we denote such a region as a **linear region**.
+
+Subregion
+:   Given two Regions
+\[R_1({x_i}) \ge 0, R_2({x_i}) \ge 0\]
+if
+\[R_1({x_i}) \ge 0 \Rightarrow R_2({x_i}) \ge 0\]
+We denote that \(R_1\) is a **subregion** of \(R_2\)
 
 Regular Region
 :   A regular region is a region with the form: \[ C_1 \land C_2 \land \dots\] And with atomic constraints in the form being: \[ C_i \Leftrightarrow
 \begin{cases}x_k \ge c   \\ x_k \le c \\ x_l - x_k \ge c \end{cases}\]
 
 Transformation
-:   A transformation is a set of constraints set on \((x_1, x_2, \dots, x_n)\) and \((x_1', x_2', \dots, x_n') \) So that in one interation of the loop, given values of all variables in last interation, constraints on the new values of all variables could be determined
+:   A transformation is a set of constraints set on \((x_1, x_2, \dots, x_n)\) (input variables) and \((x_1', x_2', \dots, x_n') \) (output variables) So that in one interation of the loop, given values of all variables in last interation as input variables, constraints on the new values of all variables could be determined as output variables
 
-Linearly Bounded Transformation
+Linear Deterministic Transformation
 :   If a transformation \(T\) satisfies the following condition:
-\[\begin{split}&T \Rightarrow x_k' \le x_k + c \\
-\lor &T \Rightarrow x_k +c \le x_k'\\
-\lor &T \Rightarrow x_k +c_1 \le x_k' \le x_k + c_2
-\end{split} \]
-Then we call it a linearly bounded transformation
+\[ T \Leftrightarrow (x_1' = x_1 + c_1) \land (x_2' = x_2 + c_2) \land
+\dots \land (x_n' = x_n + c_n) \]
+with \(n\) input variables and \(n\) output variables on \(N^n\) space, then we call it a **Linear Deterministic Transformation**. We also denote the n-dimensional vector
+\[ (c_1, c_2, \dots c_n) \]
+as the **Transform Vector** of the transformation.
 
 Envelope
-:   Given a region and a transformation. A set of constraints on \((x_1', x_2', \dots, x_n')\) could be obtained from the constraints denoted by the region. These constraints actually form a region for the primed version of the variables. Denote this new region as the envelope of the original region under one iteration of the transformation. And denote the transformation from the region to its envelope as one **expanding** of the original region.
+:   Given an input region and a transformation. A set of constraints on \((x_1', x_2', \dots, x_n')\) could be obtained from the constraints denoted by the region. These constraints actually form a region for the  output variables. Denote this new region, unioned with the input region, as the envelope of the original region under one iteration of the transformation. And denote the transformation from the input region to its envelope as one **expanding** of the original region. An input region is always a subregion of its envelope.
 
-Ranges and Subranges of a transformation
-:   If a transformation has certain conditions on its input variables (the unprimed version of the varaibles) that is a region:
+Domains and Subdomains of a transformation
+:   If a transformation has certain conditions on its input variables that is a region:
 \[ T \Leftrightarrow  R(\{x_k\})\land T'(\{x_k, x_k'\})\]
-denote that region as the **Range** of the transformation. If a transformation is in the form of a disjunction, with each part being a ranged transformation without any overlaying parts:
+denote that region as the **Domain** of the transformation. If a transformation is in the form of a disjunction, with each part being a domain transformation without any overlaying parts:
 \[\begin{split} T  \Leftrightarrow  &(R_1(\{x_k\})\land T_1'(\{x_k, x_k'\}))\\
 &\lor(R_2(\{x_k\})\land T_2'(\{x_k, x_k'\}))\\
 &\dots
 \end{split} \]
 \[R_i \land R_j = \emptyset, \text{for any } i \neq j\]
-Then denote this transformation as a **multi-ranged** transformation, denote each of these regions as **subranges** of the transformation and denote the transformations in subranges as **subtransformations**.
+Then denote this transformation as a **multi-domain** transformation, denote each of these regions as **subdomains** of the transformation and denote the transformations in subdomains as **subtransformations**.
+
+Regular Multi-domain Transformation
+:   If the domains of a multi-domain transformation are regular regions, we denote that transformation as a regular multi-domain transformation.
+
+Linear Deterministic Regular Multi-domain Transformation
+:   If for each domains of a regular multi-domain transformation, the subtransformations are linear Deterministic transformations, we denote the whole transformation as a linear deterministic regular multi-domain transformation.
 
 Extended Transformation
-:   If a multi-ranged transformation's subranges do not cover the whole \(N^n\) space, then for the uncovered part of the space, or for the **undefined range** of the transformation, constraints on primed version of variables does not exist, so principally they could be any value. An **extended transformation** could be introduced, for which in the undfined range of the original multi-ranged transformation, \(x_k' = x_k\) is enforced for all variable pairs. We still call that range as undefined range for convenience. Observe that this enforces the subtransformation to be linearly bounded for the undefined ranges.
+:   If a multi-domain transformation's subdomains do not cover the whole \(N^n\) space, then for the uncovered part of the space, or for the **undefined domain** of the transformation, constraints on output variables does not exist, so principally they could be any value. An **extended transformation** could be introduced, for which in the undfined domain of the original multi-domain transformation, \(x_k' = x_k\) is enforced for all variable pairs. We still call that domain as undefined domain for convenience. Observe that this enforces the subtransformation to be linearly bounded for the undefined domains.
 
 Contain
-:   Given a region and a transformation. If the envelope of the region under one iteration of that transformation is still a subset of the region, we call that this transformation is **contained** with in such region. In other words, if a transformation is contained by certain region, expanding that region would not result in a region that's larger than the original region.
+:   Given a region and a transformation. If the envelope of the region under one iteration of that transformation is still a subregion of the region, we call that this transformation is **contained** with in such region. In other words, if a transformation is contained by certain region, expanding that region would not result in a region that's larger than the original region.
 
-# Observation of problem and assumptions
+# Equivalent expression for the problem
 
-Using the terminology defined above, certain observations could be obtained for the problem and the assumptions
+Using the terminology defined above, certain observations could be obtained for the problem:
+
+- \(\pref, \postf, \invf\) denotes three regions in \(N^n\) space
+- \(\pref\) should be a subregion of \(\invf\)
+- \(\invf\) should be a subregion of \(\postf\)
+- Transform denoted by \(\transf\) should be contained in \(\invf\)
+
+These observations could serve as a set of equivalent expressions to the original invariant synthesis problem.
+
+# Lemmas
+
+Certain lemmas could be obtained to help the proof of the argument as well.
+
+Lemma 1
+:   The envelope of a regular region under a linear deterministic regular multi-domain transformation is still a regular region.
+
+# Linear Deterministic Regular Multi-domain Transformation Conditions
+
+Theorem 1
+:   For an invariant synthesis problem with regular \(\pref\), regular \(\postf\), and a linear deterministic regular multi-domain transformation as its \(\invf\), if :
+
+    - there exisits a linear invariant \(\invf'\) for this problem, and,
+    - the region of \(\invf'\) has at least one complete subdomain of \(\transf\) as its subregion
+
+    Then:
+
+    - Taking the combined region of all subdomains of \(\transf\) that are subregions of \(\invf'\), denoted as \(R_0\)
+    - The envelope of \(R_0\), denoted as \(\invf\), is a regular invariant of the synthesis problem
+
+Proof:
+
+Use proof by contradiction.
+
+- Assume that \(\invf\) is not an invariant
+- Denote the subdomains of \(\transf\) that are not subregions of \(\invf'\) as **boundary domains** of \(\transf\) for \(\invf'\)
+- For input points from \(R_0\), after one transformation, the output points have 2 possibilities:
+    - They're still in \(R_0\)
+        - These points are contained by \(R_0\), thus certainly contained by \(\invf\)
+    - They're in one of the boundary domains
+- Thus, given that \(\invf\) is not an invariant, there must exist some point in \(\invf\) and also in the boundary domains of \(\transf\) for \(\invf'\), that transfers out of \(\invf\) after one transformation
+- ***KEY***: prove that this leads to points near the boundaries of \(\invf'\) would transfer out of \(\invf'\) as well, which would cause a contradiction
+     - The directions of the boundaries may be important in providing this proof
+     - Easy case: \(\invf'\) boundaries are regular.
