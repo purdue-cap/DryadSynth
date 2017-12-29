@@ -16,3 +16,12 @@ log.*.txt.lck
 
 # ctags files
 .tags*
+
+# python script caches
+__pycache__/
+
+# Doc build intermediate files
+*.aux
+*.html
+*.out
+*.log
