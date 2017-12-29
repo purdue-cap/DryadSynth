@@ -144,13 +144,14 @@ public class SygusDispatcher {
                 resultMap = newMethod.results;
             }
 
+            logger.info("Results gathered, changing arguments.");
             int i = 0;
             DefinedFunc[] results = new DefinedFunc[resultMap.size()];
             for (String name : extractor.names) {
                 Expr def = resultMap.get(name);
                 def = def.substitute(this.callCache.get(name), extractor.requestUsedArgs.get(name));
                 results[i] = new DefinedFunc(z3ctx, name, extractor.requestArgs.get(name), def);
-                logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+                logger.info("Done, Synthesized function " + name);
                 i = i + 1;
             }
             return results;
