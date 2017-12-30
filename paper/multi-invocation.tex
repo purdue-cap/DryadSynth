@@ -153,6 +153,10 @@ We call each normalized conditional term $\ite(\varphi, \vecx + \vecc, t_2)$ a \
 \begin{theorem}
 For any $\trans(\vecx)$ be a conditional term and any linear arithmetic constraint $\varphi$, there exists another linear arithmetic constraint, denoted as $T_{\trans,\varphi}$, such that $\forall x: \varphi(\vecx) \equiv T_{\trans,\varphi}(\trans(\vecx))$.
 \end{theorem}
+\begin{proof}
+Let $\trans$ be normalized and $\branches(\trans)$ be the set of branches within $\trans$. Then one can construct the formula as follows: $$T_{\trans,\varphi} \equiv \displaystyle \bigvee_{\ite(\varphi, \vecx + \vecc, t_2) \in \branches(\trans)} \varphi(\vecx - \vecc)$$
+The formula enumerates all branches and each $\varphi(\vecx - \vecc)$ characterizes the set of values that satisfy the branch guard before transition. Notice that $\varphi(\vecx - \vecc)$ can be converted to a standard linear arithmetic formula: if $\varphi$ is $c_0 \cdot \vecx \geq d$, then $\varphi(\vecx - \vecc)$ is equivalent to $c_0 \cdot \vecx \geq d + c_0 \cdot c$; if $\varphi$ is a boolean combination of atomic formulas, then $\varphi(\vecx - \vecc)$ can be converted recursively.
+\end{proof}
 
 \begin{definition}[Region]
 For each branch $\ite(\varphi, \vecx + \vecc, t_2)$ and each constant vector $\vec{d} < \vecc$, we define a region $R_{\varphi, \vec{d}}$ as $\varphi \wedge (\vecx \mod \vecc = \vec{d})$.
