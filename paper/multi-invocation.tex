@@ -107,7 +107,56 @@
 \section{Invariant Synthesis}
 \label{sec:invariant}
 
+\begin{figure}
+  \begin{displaymath}
+    \begin{array}{rcl}
+      \multicolumn{3}{c}{d \in \mathbb{Z} \qquad \vecc \in \mathbb{Z}^n \qquad \vecx \equiv (x_1, \dots, x_n)}
+      \\
+      \\
+      \textrm{Constraint}~ \varphi,\varphi_1,\varphi_2 & ::= & \true
+      		\mid  \vecc \cdot \vecx \geq d
+      		\mid \varphi_1 \wedge \varphi_2
+		\mid \varphi_1 \vee \varphi_2
+      \\
+      \textrm{Term}~ t,t_1,t_2 & ::= & \bot
+      		\mid \vecx + \vec{c}
+      		\mid \ite(\varphi, t_1, t_2)
+    \end{array}
+  \end{displaymath}
+  \caption{Invariant synthesis problem.}
+  \label{fig:invariant-synthesis-problem}
+\end{figure}
 
+\begin{definition}[Invariant synthesis problem]
+An invariant synthesis problem is a triple $(\pre(\vecx),\trans(\vecx),\post(\vecx))$, where $\pre$/$\post$ are linear arithmet constraints and $\trans$ is a conditional linear arithmetic term, all defined in Figure~\ref{fig:invariant-synthesis-problem}. A solution to $\syn$ is a constraint $\inv(\vecx)$ such that
+\begin{itemize}
+\item $\forall \vecx: \pre(\vecx) \Rightarrow \inv(\vecx)$
+\item $\forall \vecx: \inv(\vecx) \Rightarrow \inv(\trans(\vecx))$
+\item $\forall \vecx: \inv(\vecx) \Rightarrow \post(\vecx)$
+\end{itemize}
+\end{definition}
+
+Intuitively, $(\pre(\vecx),\trans(\vecx),\post(\vecx))$ represents a program with a set of variables $\vecx$. $\pre(\vecx)$ and $\post(\vecx)$ are the pre- and post-conditions, respectively. $\trans(\vecx)$ represents the iterative transition: $\vecx := \trans(\vecx)$. The loop terminates when $\trans(\vecx)$ is evaluated to the special value $\bot$. The goal of the synthesis problem is to find a loop invariant guaranteeing the partial correctness of the program with respect to $\pre$ and $\post$.
+
+Notice that $\trans(\vecx)$ is \emph{constantly updated} from $\vecx$: there exists a constant vector $\vecc$ such that $\trans(\vecx) = \vecx + \vecc$, i.e., for every variable $x_i \in \vecx$, the update is of form $x_i := x_i + c_i$.
+
+\paragraph{Normalization.} 
+We assume the synthesis problem is normalized:
+\begin{enumerate}
+\item in $\trans(\vecx)$, for each occurrence of conditional term $\ite(\varphi, t_1, t_2)$, $\varphi$ is free of disjunction, and $t_1$ is an atomic term of form $\vecx + \vecc$; and for each two occurrences $\ite(\varphi, t_1, t_2)$ and $\ite(\psi, t_3, t_4)$, $\varphi$ and $\psi$ are disjoint;
+\item $\pre(\vecx)$ is in Disjunctive Normal Form (DNF);
+\item $\post(\vecx)$ is in Conjunctive Normal Form (CNF).
+\end{enumerate}
+Obviously, any invariant synthesis problem can be converted to the above normal form. 
+We call each normalized conditional term $\ite(\varphi, \vecx + \vecc, t_2)$ a \emph{branch}.
+
+\begin{theorem}
+For any $\trans(\vecx)$ be a conditional term and any linear arithmetic constraint $\varphi$, there exists another linear arithmetic constraint, denoted as $T_{\trans,\varphi}$, such that $\forall x: \varphi(\vecx) \equiv T_{\trans,\varphi}(\trans(\vecx))$.
+\end{theorem}
+
+\begin{definition}[Region]
+For each branch $\ite(\varphi, \vecx + \vecc, t_2)$ and each constant vector $\vec{d} < \vecc$, we define a region $R_{\varphi, \vec{d}}$ as $\varphi \wedge (\vecx \mod \vecc = \vec{d})$.
+\end{definition}
 
 \bibliographystyle{splncs03}
 
