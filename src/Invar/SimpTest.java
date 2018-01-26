@@ -78,7 +78,8 @@ public class SimpTest {
                ctx.mkSymbol(""),
                ctx.mkSymbol("")
                 );
-        System.out.println(q);
+        BoolExpr eq = ctx.mkOr(q, ctx.mkEq(x, ctx.mkInt(-10)));
+        System.out.println(eq);
 
         g = ctx.mkGoal(false, false, false);
         g.add(q);

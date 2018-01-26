@@ -4,7 +4,8 @@ import com.microsoft.z3.*;
 public class Transf {
     private Context z3ctx;
     private Map<String, Expr> vars;
-    private Expr k;
+    // Complement Region
+    private Expr rc;
 
     private Tactic qe;
     private Tactic simp;
@@ -61,8 +62,21 @@ public class Transf {
     }
 
     public void kExtend() {
+        List<Expr> clauses = new ArrayList<Expr>();
         for (Region r : transMap.keySet()) {
             r.kExtend(transMap.get(r));
+            clauses.add(r.toExpr());
+        }
+        this.rc = z3ctx.mkNot(z3ctx.mkOr(clauses.toArray(new BoolExpr[clauses.size()])));
+        Solver s = z3ctx.mkSolver();
+        s.add((BoolExpr)this.rc);
+        Status result = s.check();
+        if (result == Status.SATISFIABLE) {
+            Goal g = z3ctx.mkGoal(false, false, false);
+            g.add((BoolExpr)this.rc);
+            this.rc = simp.apply(g).getSubgoals()[0].AsBoolExpr();
+        } else {
+            this.rc = null;
         }
     }
 
@@ -115,7 +129,7 @@ public class Transf {
                 z3ctx.mkSymbol("")
                 );
         Goal g = z3ctx.mkGoal(false, false, false);
-        g.add(q);
+        g.add(z3ctx.mkOr(q, (BoolExpr)input));
         g = z3ctx.then(qe, simp).apply(g).getSubgoals()[0];
         return g.AsBoolExpr();
     }
@@ -129,6 +143,25 @@ public class Transf {
                 }
                 Expr orig = r1.toExpr();
                 Expr dest = r2.toExpr();
+                Expr substInput = input;
+                Map<Expr, Integer> tbl = transMap.get(r1).deltaTbl;
+                for (Expr var: tbl.keySet()) {
+                    orig = orig.substitute(var,
+                            z3ctx.mkSub((ArithExpr)var, z3ctx.mkInt(tbl.get(var)))
+                            );
+                    substInput = substInput.substitute(var,
+                            z3ctx.mkSub((ArithExpr)var, z3ctx.mkInt(tbl.get(var)))
+                            );
+                }
+                clauses.add(z3ctx.mkAnd(
+                            (BoolExpr)orig,
+                            (BoolExpr)dest,
+                            (BoolExpr)substInput
+                            ));
+            }
+            if (this.rc != null) {
+                Expr orig = r1.toExpr();
+                Expr dest = this.rc;
                 Expr substInput = input;
                 Map<Expr, Integer> tbl = transMap.get(r1).deltaTbl;
                 for (Expr var: tbl.keySet()) {

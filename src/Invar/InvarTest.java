@@ -581,6 +581,8 @@ public class InvarTest {
         System.out.println(t.toExpr());
         System.out.println("Pre expr:");
         System.out.println(pre);
+        System.out.println("Post expr:");
+        System.out.println(post);
         t.kExtend();
         long startTime = System.currentTimeMillis();
         Expr inv = t.run(pre);
