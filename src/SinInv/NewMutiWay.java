@@ -27,7 +27,14 @@ public class NewMutiWay {
 
     private boolean ifException;
 
+    // Default expression to fall back to
+    // This shall be 0 in the final result, but we need to use a placeholder
+    // to avoid other conflicts
+    private Expr defaultExpr;
+
     public Map<String,Expr> results = null;
+
+    private Map<String,Expr[]> callCache = null;
 
     private int numCore;
 
@@ -43,6 +50,8 @@ public class NewMutiWay {
         this.calFunc=new LinkedList<>();
         this.ifException=false;
         this.numCore=numCore;
+        this.defaultExpr = ctx.mkFreshConst("default", ctx.mkIntSort());
+        this.callCache = new LinkedHashMap<String,Expr[]>();
 
         Map<String, Expr> functions = new LinkedHashMap<String, Expr>();
 
@@ -60,7 +69,7 @@ public class NewMutiWay {
 
             for (String name : extractor.names) {
                 if (name.equals(basicFunc)){
-                    functions.put(name , ctx.mkInt("0"));
+                    functions.put(name , this.defaultExpr);
                 }else {
                     for (Function function:calFunc){
                         if (function.getName().equals(name)){
@@ -78,6 +87,9 @@ public class NewMutiWay {
             }
         }else {
             this.DNFExpr=this.changeToDNF(this.z3Expr);
+            //for (Expr expr: this.DNFExpr) {
+            //    logger.info(expr.toString());
+            //}
 
             logger.info("*******1*****"+DNFExpr.size());
             int gap=0;
@@ -87,6 +99,7 @@ public class NewMutiWay {
                 numCore=this.DNFExpr.size();
                 gap=1;
             }
+            //logger.info("numcore="+numCore);
 
             NewMutiThread[] threads = new NewMutiThread[numCore];
             int begin=0;
@@ -97,7 +110,8 @@ public class NewMutiWay {
                 if (i==numCore-1){
                     end=this.DNFExpr.size();
                 }
-                threads[i] = new NewMutiThread(extractor, logger, begin, end, this.DNFExpr.subList(begin,end));
+                //logger.info(String.format("%d %d %d %d", this.DNFExpr.size(), gap, begin, end));
+                threads[i] = new NewMutiThread(extractor, logger, begin, end, this.DNFExpr.subList(begin,end), this.defaultExpr);
                 threads[i].start();
             }
 
@@ -113,9 +127,16 @@ public class NewMutiWay {
 
             Expr finalExpr=threads[0].resultExpr.translate(ctx);
             for (int i = 1;i < numCore;i++){
-                finalExpr=finalExpr.substitute(ctx.mkInt(0),threads[i].resultExpr.translate(ctx));
+                //logger.info(finalExpr.toString());
+                finalExpr=finalExpr.substitute(this.defaultExpr,threads[i].resultExpr.translate(ctx));
+                //logger.info(threads[i].resultExpr.toString());
+                //logger.info(finalExpr.toString());
             }
 
+            finalExpr = finalExpr.substitute(this.defaultExpr, ctx.mkInt(0));
+            for (String name : extractor.names) {
+                finalExpr = finalExpr.substitute(this.callCache.get(name), extractor.requestUsedArgs.get(name));
+            }
             logger.info("Finish!!!!!!!!!!!");
             for (String name : extractor.names) {
                 functions.put(name , finalExpr);
@@ -167,6 +188,9 @@ public class NewMutiWay {
                 for (String name : extractor.names) {
                     FuncDecl f = extractor.rdcdRequests.get(name);
                     if (exprFunc.equals(f)){
+                        if (!this.callCache.keySet().contains(name)) {
+                            this.callCache.put(name, expr.getArgs());
+                        }
                         return true;
                     }
                 }

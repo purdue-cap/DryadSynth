@@ -28,7 +28,9 @@ public class NewMutiThread extends Thread{
 
     public Expr resultExpr;
 
-    public NewMutiThread(SygusExtractor extractor, Logger logger, int begin, int end, List<Expr> DNFExpr){
+    private Expr defaultExpr;
+
+    public NewMutiThread(SygusExtractor extractor, Logger logger, int begin, int end, List<Expr> DNFExpr, Expr defaultExpr){
         this.ctx=new Context();
         this.extractor=extractor.translate(ctx);
 
@@ -36,6 +38,7 @@ public class NewMutiThread extends Thread{
         for (Expr expr : DNFExpr){
             this.DNFExpr.add(expr.translate(ctx));
         }
+        this.defaultExpr = defaultExpr.translate(ctx);
 
         this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
         this.s = ctx.mkSolver();
@@ -51,11 +54,23 @@ public class NewMutiThread extends Thread{
         logger.info(this.begin+" Finish");
     }
 
+    private BoolExpr simp(Expr expr) {
+        //return (BoolExpr)expr;
+        Goal g = ctx.mkGoal(false, false, false);
+        Tactic t = ctx.repeat(ctx.then(
+                    ctx.mkTactic("simplify"),
+                    ctx.mkTactic("ctx-simplify"),
+                    ctx.mkTactic("ctx-solver-simplify")
+                    ), 8);
+        g.add((BoolExpr)expr);
+        return t.apply(g).getSubgoals()[0].AsBoolExpr();
+    }
+
     /*
     * 根据DNF表达式构造最后的ite表达式
     * */
     private Expr getFinalRes(){
-        Expr lastExpr=ctx.mkInt(0);
+        Expr lastExpr=this.defaultExpr;
         boolean ifFirst=true;
         for (Expr expr: DNFExpr){
 
@@ -64,7 +79,7 @@ public class NewMutiThread extends Thread{
             if (status == Status.SATISFIABLE) {
 
             Expr []twoExpr=null;
-            Expr resExpr=ctx.mkInt(0);
+            Expr resExpr=this.defaultExpr;
 
             if ((twoExpr=findFuncEq(expr))!=null){
 
@@ -72,7 +87,7 @@ public class NewMutiThread extends Thread{
                 expr = expr.substitute(twoExpr[0], resExpr);
 
             }
-            lastExpr = ctx.mkITE((BoolExpr)expr, resExpr, lastExpr);
+            lastExpr = ctx.mkITE(this.simp(expr), resExpr, lastExpr);
             }
         }
 
