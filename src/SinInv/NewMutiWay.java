@@ -55,6 +55,8 @@ public class NewMutiWay {
 
         Map<String, Expr> functions = new LinkedHashMap<String, Expr>();
 
+        this.buildCallCache();
+
         if (extractor.names.size()>1){
             if (this.z3Expr.isAnd()){
                 Expr [] exprs=this.z3Expr.getArgs();
@@ -134,9 +136,6 @@ public class NewMutiWay {
             }
 
             finalExpr = finalExpr.substitute(this.defaultExpr, ctx.mkInt(0));
-            for (String name : extractor.names) {
-                finalExpr = finalExpr.substitute(this.callCache.get(name), extractor.requestUsedArgs.get(name));
-            }
             logger.info("Finish!!!!!!!!!!!");
             //logger.info(finalExpr.toString());
             for (String name : extractor.names) {
@@ -144,7 +143,41 @@ public class NewMutiWay {
             }
         }
 
+        for (String name : extractor.names) {
+            //logger.info("CallCache "+ name + " : " + this.callCache.get(name).length );
+            Expr expr = functions.get(name);
+            expr = expr.substitute(this.callCache.get(name), extractor.requestUsedArgs.get(name));
+            functions.put(name, expr);
+        }
+
         results = functions;
+    }
+
+    private void buildCallCache() {
+        Stack<Expr> todo = new Stack<Expr>();
+        todo.push(this.extractor.finalConstraint);
+        while(!todo.empty()) {
+            Expr expr = todo.pop();
+            if (expr.isApp()){
+                Expr [] args = expr.getArgs();
+                FuncDecl exprFunc = expr.getFuncDecl();
+                for (String name : extractor.names) {
+                    FuncDecl f = extractor.rdcdRequests.get(name);
+                    if (exprFunc.equals(f)){
+                        if (!this.callCache.keySet().contains(name)) {
+                            this.callCache.put(name, args);
+                            //logger.info(name);
+                            //for (Expr arg: args) {
+                            //    logger.info(arg.toString());
+                            //}
+                        }
+                    }
+                }
+                for (Expr arg: args) {
+                    todo.push(arg);
+                }
+            }
+        }
     }
 
     /*
@@ -189,9 +222,6 @@ public class NewMutiWay {
                 for (String name : extractor.names) {
                     FuncDecl f = extractor.rdcdRequests.get(name);
                     if (exprFunc.equals(f)){
-                        if (!this.callCache.keySet().contains(name)) {
-                            this.callCache.put(name, expr.getArgs());
-                        }
                         return true;
                     }
                 }
