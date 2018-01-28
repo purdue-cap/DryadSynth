@@ -3,6 +3,7 @@ import com.microsoft.z3.*;
 
 public class InvarTest {
     public static Context ctx;
+    public static Expr[] argParas = null;
     public static void main(String[] args) {
         ctx = new Context();
 
@@ -590,6 +591,10 @@ public class InvarTest {
         System.out.println("Runtime:" + (System.currentTimeMillis() - startTime));
         System.out.println("Result:");
         System.out.println(inv);
+        if (argParas == null) {
+            argParas = vars.values().toArray(new Expr[vars.size()]);
+        }
+        DefinedFunc df = new DefinedFunc(ctx, "inv-f", argParas, inv);
         System.out.println("Checking if invariant is valid.");
         BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
         Expr invp = inv;

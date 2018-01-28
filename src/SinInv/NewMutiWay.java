@@ -69,7 +69,7 @@ public class NewMutiWay {
 
             for (String name : extractor.names) {
                 if (name.equals(basicFunc)){
-                    functions.put(name , this.defaultExpr);
+                    functions.put(name , ctx.mkInt(0));
                 }else {
                     for (Function function:calFunc){
                         if (function.getName().equals(name)){
@@ -138,6 +138,7 @@ public class NewMutiWay {
                 finalExpr = finalExpr.substitute(this.callCache.get(name), extractor.requestUsedArgs.get(name));
             }
             logger.info("Finish!!!!!!!!!!!");
+            //logger.info(finalExpr.toString());
             for (String name : extractor.names) {
                 functions.put(name , finalExpr);
             }
@@ -329,6 +330,16 @@ public class NewMutiWay {
 
         Function result=new Function("Variable","",0,0,0,0);
         if (orig.isConst()){
+            if (extractor.names.contains(orig.toString())) {
+                String name = orig.toString();
+                for (Function function:calFunc){
+                    if (function.name.equals(name)){
+                        return function;
+                    }
+                }
+                result=new Function(name, name, 1, 0, 0, 0);
+                return result;
+            }
             if (orig.toString().equals("x")){
                 result=new Function("variable","",0,1,0,0);
             }else if ((orig.toString().equals("y"))){

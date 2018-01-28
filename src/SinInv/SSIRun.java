@@ -63,8 +63,8 @@ public class SSIRun {
         DefinedFunc[] results = new DefinedFunc[extractor.names.size()];
         int i = 0;
         for (String name : extractor.names) {
-           results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), newMethod.results.get(name));
-           i++;
+            results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), newMethod.results.get(name));
+            i++;
         }
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
