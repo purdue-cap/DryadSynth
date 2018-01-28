@@ -311,11 +311,18 @@ public class NewMutiWay {
                 res.add(expr);
                 return res;
             }
-        }else {
-            List<Expr> res=new LinkedList<>();
-            res.add(expr);
-            return res;
+        }else if (expr.isITE()) {
+            Expr[] args = expr.getArgs();
+            if (args[1].isBool() && args[2].isBool()) {
+                return this.changeToDNF(ctx.mkAnd(
+                            ctx.mkOr(ctx.mkNot((BoolExpr)args[0]), (BoolExpr)args[1]),
+                            ctx.mkOr((BoolExpr)args[0], (BoolExpr)args[2])
+                            ));
+            }
         }
+        List<Expr> res=new LinkedList<>();
+        res.add(expr);
+        return res;
     }
 
 
