@@ -1,5 +1,8 @@
 # To-dos
 
+- Currently the SinInv code is not a strict implementation of the SSI theory, it
+  only could handle DNF constraint formats with equation relations in each clause.
+    - It would give incorrect anwsers on benchmarks without equation relations
 - Refine single-invocation method codes to fit the design pattern of dispatcher.
     - Also need to correct poor naming and poor codes in SININV
 - Bug in SinInv method when handling contraints with only one disjunction.
