@@ -7,7 +7,7 @@ import java.util.logging.Logger;
 import java.util.logging.Level;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
-public class SSIRun {
+public class SinInvRun {
     public static void main(String[] args) throws Exception {
 
         long startTime = System.currentTimeMillis();
