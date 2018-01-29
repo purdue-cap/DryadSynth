@@ -201,11 +201,11 @@ public class Transf {
         int timeout = 8;
         while(true) {
             this.lastRunIterCount++;
-            System.out.println("Iteration: " + this.lastRunIterCount);
+            //System.out.println("Iteration: " + this.lastRunIterCount);
             Expr expanded = this.localExpand(init);
-            System.out.println("localExpand: " + expanded.toString());
+            //System.out.println("localExpand: " + expanded.toString());
             expanded = this.switchExpand(expanded);
-            System.out.println("switchExpand: " + expanded.toString());
+            //System.out.println("switchExpand: " + expanded.toString());
             if (!this.isExpanded(init, expanded)){
                 return expanded;
             }

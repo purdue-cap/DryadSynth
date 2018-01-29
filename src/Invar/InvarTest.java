@@ -1,4 +1,5 @@
 import java.util.*;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 import com.microsoft.z3.*;
 
 public class InvarTest {
@@ -6,11 +7,21 @@ public class InvarTest {
     public static Expr[] argParas = null;
     public static void main(String[] args) {
         ctx = new Context();
+        ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
         // Var declarations
         ArithExpr x = (ArithExpr)ctx.mkConst("x", ctx.mkIntSort());
         ArithExpr y = (ArithExpr)ctx.mkConst("y", ctx.mkIntSort());
         ArithExpr z = (ArithExpr)ctx.mkConst("z", ctx.mkIntSort());
+        ArithExpr z1 = (ArithExpr)ctx.mkConst("z1", ctx.mkIntSort());
+        ArithExpr z2 = (ArithExpr)ctx.mkConst("z2", ctx.mkIntSort());
+        ArithExpr z3 = (ArithExpr)ctx.mkConst("z3", ctx.mkIntSort());
+        ArithExpr v1 = (ArithExpr)ctx.mkConst("v1", ctx.mkIntSort());
+        ArithExpr v2 = (ArithExpr)ctx.mkConst("v2", ctx.mkIntSort());
+        ArithExpr v3 = (ArithExpr)ctx.mkConst("v3", ctx.mkIntSort());
+        ArithExpr x1 = (ArithExpr)ctx.mkConst("x1", ctx.mkIntSort());
+        ArithExpr x2 = (ArithExpr)ctx.mkConst("x2", ctx.mkIntSort());
+        ArithExpr x3 = (ArithExpr)ctx.mkConst("x3", ctx.mkIntSort());
         ArithExpr i = (ArithExpr)ctx.mkConst("i", ctx.mkIntSort());
         ArithExpr j = (ArithExpr)ctx.mkConst("j", ctx.mkIntSort());
         ArithExpr n = (ArithExpr)ctx.mkConst("n", ctx.mkIntSort());
@@ -24,7 +35,7 @@ public class InvarTest {
         Expr pre;
         Expr post;
 
-        String name = args[0];
+        String name = args[0].replaceAll("^.*/([^/\\.]+)\\.sl$", "$1");
 
         switch(name) {
 
@@ -45,8 +56,8 @@ public class InvarTest {
                 ctx.mkGe(x, ctx.mkInt(-3)),
                 ctx.mkLe(x, ctx.mkInt(-2))
                 );
-        // Post: True
-        post = ctx.mkTrue();
+        // Post: x >= -5
+        post = ctx.mkGe(x, ctx.mkInt(-5));
         test(name, tr, pre, post, vars);
         break;
 
@@ -68,11 +79,13 @@ public class InvarTest {
         pre = ctx.mkAnd(ctx.mkEq(y, ctx.mkInt(-3)),
                 ctx.mkLe(ctx.mkInt(0), x),
                 ctx.mkLe(x, ctx.mkInt(1)));
-        // Post: True
-        post = ctx.mkTrue();
+        // Post: x <= 1 & y >= -3
+        post = ctx.mkAnd(ctx.mkLe(x, ctx.mkInt(1)), ctx.mkGe(y, ctx.mkInt(-3)));
         test(name, tr, pre, post, vars);
         break;
 
+        case "cegar1_vars":
+        argParas = new Expr[] {x, y, z1, z2, z3};
         case "cegar1":
         // Cegar1
         // Trans: (x' = x + 2 & y' = y + 2)
@@ -100,6 +113,8 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
         
+        case "cegar1_vars-new":
+        argParas = new Expr[] {x, y, z1, z2, z3};
         case "cegar1-new":
         // Cegar1-new
         // Trans: (x' = x + 10 & y' = y + 10)
@@ -224,6 +239,8 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
         
+        case "dec_vars":
+        argParas = new Expr[] {x, n, v1, v2, v3};
         case "dec_simpl":
         // dec_simpl 
         // Trans: (x > 0 & x' = x - 1 & n' = n)
@@ -249,6 +266,8 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
 
+        case "ex7_vars":
+        argParas = new Expr[] {x, y, i, z1, z2, z3};
         case "ex7":
         // ex7 
         // Trans: ( i < y & i' = i + 1 & y' = y & x' = x)
@@ -278,6 +297,8 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
 
+        case "ex_23_vars":
+        argParas = new Expr[] {y, z ,c ,x1, x2, x3};
         case "ex23":
         // ex23 
         // Trans: ( c < 36 & z' = z + 1 & y' = y & c' = c + 1)
@@ -374,6 +395,8 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
 
+        case "inc_vars":
+        argParas = new Expr[] {x, n, v1, v2, v3};
         case "inc_simp":
         // inc_simp 
         // Trans: (x < n & x' = x + 1 & n' = n)
@@ -397,6 +420,8 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
 
+        case "sum1_vars":
+        argParas = new Expr[] {i, n, sn, v1, v2, v3};
         case "sum1":
         // sum1
         // Trans: (i <= n & sn' = sn + 1 & n' = n & i' = i + 1)
@@ -422,6 +447,8 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
 
+        case "sum3_vars":
+        argParas = new Expr[] {x, sn, v1, v2, v3};
         case "sum3":
         // sum3
         // Trans: (x' = x + 1 & sn' = sn + 1)
@@ -470,6 +497,8 @@ public class InvarTest {
         break;
 
 
+        case "sum4_vars":
+        argParas = new Expr[] {i, sn, size, v1, v2, v3};
         case "sum4_simp":
         // sum4_simp
         // Trans: (i <= size & sn' = sn + 1 & i' = i + 1 & size' = size)
@@ -495,21 +524,23 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
         
+        case "tacas_vars":
+        argParas = new Expr[] {i, j, x, y, z1, z2, z3};
         case "tacas":
         // tacas
         // Trans: (x > 0 & x' = x - 1 & y' = y - 1 & i' = i & j' = j) | (x < 0 & x' = x - 1 & y' = y - 1 & i' = i & j' = j)
         vars = new LinkedHashMap<String, Expr>();
-        vars.put("x", x);
-        vars.put("y", y);
         vars.put("i", i);
         vars.put("j", j);
+        vars.put("x", x);
+        vars.put("y", y);
         tr = new Transf(vars, ctx);
         r = new Region(vars, ctx);
-        r.addCond(new int[] {1, 0, 0, 0}, -1);
-        tr.addMap(r, new int[] {-1, -1, 0, 0});
+        r.addCond(new int[] {0, 0, 1, 0}, -1);
+        tr.addMap(r, new int[] {0, 0, -1, -1});
         r = new Region(vars, ctx);
-        r.addCond(new int[] {-1, 0, 0, 0}, -1);
-        tr.addMap(r, new int[] {-1, -1, 0, 0});
+        r.addCond(new int[] {0, 0, -1, 0}, -1);
+        tr.addMap(r, new int[] {0, 0, -1, -1});
         // Pre: i = x & j = y
         pre = ctx.mkAnd(
                 ctx.mkEq(i, x),
@@ -547,6 +578,8 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
 
+        case "dec_vars-new":
+        argParas = new Expr[] {x, n, v1, v2, v3};
         case "dec_simpl-new":
         // dec_simpl-new
         // Trans: (x > 1 & x' = x - 1 & n' = n)
@@ -572,48 +605,77 @@ public class InvarTest {
         test(name, tr, pre, post, vars);
         break;
 
+        case "vardep":
+        // vardep
+        // Trans: (x' = x + 1 & y' = y + 2 & z' = x + 3)
+        vars = new LinkedHashMap<String, Expr>();
+        vars.put("x", x);
+        vars.put("y", y);
+        vars.put("z", z);
+        tr = new Transf(vars, ctx);
+        r = new Region(vars, ctx);
+        r.addCond(new int[] {0, 0, 0}, 1);
+        tr.addMap(r, new int[] {1, 2, 3});
+        // Pre: x = 0 & y = 0 & z = 0
+        pre = ctx.mkAnd(
+                ctx.mkEq(x, ctx.mkInt(0)),
+                ctx.mkEq(y, ctx.mkInt(0)),
+                ctx.mkEq(z, ctx.mkInt(0))
+                );
+        // Post: x >= 0 & y >= 0 & z >= 0
+        post = ctx.mkAnd(
+                    ctx.mkGe(x, ctx.mkInt(0)),
+                    ctx.mkGe(y, ctx.mkInt(0)),
+                    ctx.mkGe(z, ctx.mkInt(0))
+                    );
+        test(name, tr, pre, post, vars);
+        break;
         }
 
     }
     
     public static void test(String name, Transf t, Expr pre, Expr post, Map<String, Expr> vars) {
-        System.out.println("Running algorithm on: " + name);
-        System.out.println("Transf expr:");
-        System.out.println(t.toExpr());
-        System.out.println("Pre expr:");
-        System.out.println(pre);
-        System.out.println("Post expr:");
-        System.out.println(post);
+        //System.out.println("Running algorithm on: " + name);
+        //System.out.println("Transf expr:");
+        //System.out.println(t.toExpr());
+        //System.out.println("Pre expr:");
+        //System.out.println(pre);
+        //System.out.println("Post expr:");
+        //System.out.println(post);
         t.kExtend();
         long startTime = System.currentTimeMillis();
         Expr inv = t.run(pre);
-        System.out.println("Run " + t.lastRunIterCount + " iterations.");
-        System.out.println("Runtime:" + (System.currentTimeMillis() - startTime));
-        System.out.println("Result:");
-        System.out.println(inv);
+        //System.out.println("Run " + t.lastRunIterCount + " iterations.");
+        //System.out.println("Runtime:" + (System.currentTimeMillis() - startTime));
+        //System.out.println("Result:");
+        //System.out.println(inv);
         if (argParas == null) {
             argParas = vars.values().toArray(new Expr[vars.size()]);
         }
         DefinedFunc df = new DefinedFunc(ctx, "inv-f", argParas, inv);
-        System.out.println("Checking if invariant is valid.");
-        BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
-        Expr invp = inv;
-        for (Expr var : vars.values()) {
-            invp = invp.substitute(var,
-                    ctx.mkConst(var.toString() + "!", ctx.mkIntSort()));
-        }
-        BoolExpr e2 = ctx.mkImplies(ctx.mkAnd(
-                    (BoolExpr)inv, (BoolExpr)t.toExpr()
-                    ), (BoolExpr)invp);
-        BoolExpr e3 = ctx.mkImplies((BoolExpr)inv, (BoolExpr)post);
-        Solver s = ctx.mkSolver();
-        s.add(ctx.mkNot(ctx.mkAnd(e1, e2, e3)));
-        Status r = s.check();
-        if ( r == Status.UNSATISFIABLE ) {
-            System.out.println("Valid.");
-        } else {
-            System.out.println("Not Valid, status: " + r.toString());
-        }
+        String rawResult = df.toString();
+        rawResult = rawResult.replaceAll("\\(\\s*-\\s+(\\d+)\\s*\\)", "-$1");
+        rawResult = rawResult.replaceAll("\\s+", " ");
+        System.out.println(rawResult);
+        //System.out.println("Checking if invariant is valid.");
+        //BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
+        //Expr invp = inv;
+        //for (Expr var : vars.values()) {
+        //    invp = invp.substitute(var,
+        //            ctx.mkConst(var.toString() + "!", ctx.mkIntSort()));
+        //}
+        //BoolExpr e2 = ctx.mkImplies(ctx.mkAnd(
+        //            (BoolExpr)inv, (BoolExpr)t.toExpr()
+        //            ), (BoolExpr)invp);
+        //BoolExpr e3 = ctx.mkImplies((BoolExpr)inv, (BoolExpr)post);
+        //Solver s = ctx.mkSolver();
+        //s.add(ctx.mkNot(ctx.mkAnd(e1, e2, e3)));
+        //Status r = s.check();
+        //if ( r == Status.UNSATISFIABLE ) {
+        //    System.out.println("Valid.");
+        //} else {
+        //    System.out.println("Not Valid, status: " + r.toString());
+        //}
     }
 
 }
