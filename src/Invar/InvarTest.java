@@ -633,6 +633,67 @@ public class InvarTest {
         }
 
     }
+
+    public static Expr post_processing(Expr orig) {
+        Stack<Expr> todo = new Stack<Expr>();
+        todo.push(orig);
+        Map<Expr, Expr> cache = new HashMap<Expr, Expr>();
+
+        boolean visited;
+        Expr expr, newExpr, body;
+        Expr [] args, newArgsArray;
+        List<Expr> newArgs = new ArrayList<Expr>();
+        while (!todo.empty()) {
+            expr = todo.peek();
+            if (expr.isConst()) {
+                todo.pop();
+                cache.put(expr, expr);
+            } else if (expr.isApp()) {
+                visited = true;
+                newArgs.clear();
+                args = expr.getArgs();
+                for (Expr arg: args) {
+                    if (!cache.containsKey(arg)) {
+                        todo.push(arg);
+                        visited = false;
+                    } else {
+                        newArgs.add(cache.get(arg));
+                    }
+                }
+                if (visited) {
+                    boolean mod = false;
+                    todo.pop();
+                    newArgsArray = newArgs.toArray(new Expr[newArgs.size()]);
+                    if(expr.isEq()) {
+                        for (Expr arg: newArgsArray) {
+                            if (arg.isModulus()) {
+                                mod = true;
+                            }
+                        }
+                    }
+                    if(mod) {
+                        newExpr = ctx.mkTrue();
+                    } else {
+                        newExpr = expr.update(newArgsArray);
+                    }
+                    cache.put(expr, newExpr);
+                }
+            } else if(expr.isQuantifier()) {
+                body = ((Quantifier)expr).getBody();
+                if (cache.containsKey(body)) {
+                    todo.pop();
+                    newExpr = expr.update(new Expr[]{ cache.get(body) });
+                    cache.put(expr, newExpr);
+                } else {
+                    todo.push(body);
+                }
+            } else {
+                todo.pop();
+                cache.put(expr, expr);
+            }
+        }
+        return cache.get(orig);
+    }
     
     public static void test(String name, Transf t, Expr pre, Expr post, Map<String, Expr> vars) {
         //System.out.println("Running algorithm on: " + name);
@@ -647,8 +708,17 @@ public class InvarTest {
         Expr inv = t.run(pre);
         //System.out.println("Run " + t.lastRunIterCount + " iterations.");
         //System.out.println("Runtime:" + (System.currentTimeMillis() - startTime));
-        //System.out.println("Result:");
-        //System.out.println(inv);
+        System.out.println("Result:");
+        System.out.println(inv);
+
+        inv = post_processing(inv);
+        Tactic simp = ctx.repeat(ctx.then(ctx.mkTactic("simplify"), ctx.mkTactic("ctx-simplify"), ctx.mkTactic("ctx-solver-simplify")), 8);
+        Goal g = ctx.mkGoal(false, false, false);
+        g.add((BoolExpr)inv);
+        inv = simp.apply(g).getSubgoals()[0].AsBoolExpr();
+        System.out.println("After post processing:");
+        System.out.println(inv);
+
         if (argParas == null) {
             argParas = vars.values().toArray(new Expr[vars.size()]);
         }
@@ -657,25 +727,25 @@ public class InvarTest {
         rawResult = rawResult.replaceAll("\\(\\s*-\\s+(\\d+)\\s*\\)", "-$1");
         rawResult = rawResult.replaceAll("\\s+", " ");
         System.out.println(rawResult);
-        //System.out.println("Checking if invariant is valid.");
-        //BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
-        //Expr invp = inv;
-        //for (Expr var : vars.values()) {
-        //    invp = invp.substitute(var,
-        //            ctx.mkConst(var.toString() + "!", ctx.mkIntSort()));
-        //}
-        //BoolExpr e2 = ctx.mkImplies(ctx.mkAnd(
-        //            (BoolExpr)inv, (BoolExpr)t.toExpr()
-        //            ), (BoolExpr)invp);
-        //BoolExpr e3 = ctx.mkImplies((BoolExpr)inv, (BoolExpr)post);
-        //Solver s = ctx.mkSolver();
-        //s.add(ctx.mkNot(ctx.mkAnd(e1, e2, e3)));
-        //Status r = s.check();
-        //if ( r == Status.UNSATISFIABLE ) {
-        //    System.out.println("Valid.");
-        //} else {
-        //    System.out.println("Not Valid, status: " + r.toString());
-        //}
+        System.out.println("Checking if invariant is valid.");
+        BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
+        Expr invp = inv;
+        for (Expr var : vars.values()) {
+           invp = invp.substitute(var,
+                   ctx.mkConst(var.toString() + "!", ctx.mkIntSort()));
+        }
+        BoolExpr e2 = ctx.mkImplies(ctx.mkAnd(
+                   (BoolExpr)inv, (BoolExpr)t.toExpr()
+                   ), (BoolExpr)invp);
+        BoolExpr e3 = ctx.mkImplies((BoolExpr)inv, (BoolExpr)post);
+        Solver s = ctx.mkSolver();
+        s.add(ctx.mkNot(ctx.mkAnd(e1, e2, e3)));
+        Status r = s.check();
+        if ( r == Status.UNSATISFIABLE ) {
+           System.out.println("Valid.");
+        } else {
+           System.out.println("Not Valid, status: " + r.toString());
+        }
     }
 
 }
