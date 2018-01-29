@@ -7,7 +7,7 @@
 (declare-primed-var z Int)
 
 (define-fun pre-f ((x Int) (y Int) (z Int)) Bool
-(and (= x 0) (= y 0) (= z 0))
+(and (= x 0) (= y 0) (= z 0)))
 
 (define-fun trans-f ((x Int) (y Int) (z Int) (x! Int) (y! Int) (z! Int)) Bool
 (and (= x! (+ x 1)) (= y! (+ y 2)) (= z! (+ z 3)) ))
