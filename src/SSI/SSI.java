@@ -35,7 +35,7 @@ public class SSI {
     }
     public Expr getDef() throws SSIException {
         logger.info("Scanning constraints.");
-        this.scanExpr(extractor.finalConstraint);
+        this.scanExpr(this.normalizeExpr(extractor.finalConstraint));
         for (Expr e : compared) {
             logger.info("Candidate: " + e.toString());
         }
@@ -74,6 +74,67 @@ public class SSI {
         def = def.substitute(this.callCache, defUsedArgs);
         DefinedFunc result = new DefinedFunc(ctx, name, defArgs, def);
         this.results = new DefinedFunc[]{result};
+    }
+
+    // This function rewrites the expression so that the function calls
+    // on an atomic formula only appears at right side
+    private Expr normalizeExpr(Expr orig) throws SSIException {
+        Params p = ctx.mkParams();
+        p.add("arith_lhs", true);
+        if (orig.isApp()) {
+            Expr[] args = orig.getArgs();
+            if (orig.isGE() || orig.isLT()|| orig.isGT() || orig.isLE() || orig.isEq()) {
+                logger.info("Atom: " + orig.toString());
+                Expr normed = orig.simplify(p);
+                Expr left = normed.getArgs()[0];
+                Expr right = normed.getArgs()[1];
+                Expr funcTerm = null;
+                List<Expr> remainingTerms = new ArrayList<Expr>();
+                if (!left.isAdd()) {
+                    return orig;
+                }
+                for (Expr expr: left.getArgs()) {
+                    if (expr.isMul()) {
+                        Expr inner = expr.getArgs()[1];
+                        if (inner.isApp() && extractor.rdcdRequests.values().contains(inner.getFuncDecl())) {
+                            if (funcTerm != null) {
+                                throw new SSIException();
+                            }
+                            funcTerm = expr;
+                        } else {
+                            remainingTerms.add(expr);
+                        }
+
+                    } else {
+                        if (expr.isApp() && extractor.rdcdRequests.values().contains(expr.getFuncDecl())) {
+                            if (funcTerm != null) {
+                                throw new SSIException();
+                            }
+                            funcTerm = expr;
+                        } else {
+                            remainingTerms.add(expr);
+                        }
+                    }
+                }
+                if (funcTerm == null) {
+                    return orig;
+                }
+                right = ctx.mkMul(ctx.mkInt(-1), (ArithExpr)right);
+                remainingTerms.add(right);
+                funcTerm = ctx.mkMul(ctx.mkInt(-1), (ArithExpr)funcTerm);
+                normed = normed.update(new Expr[] {ctx.mkAdd(
+                            remainingTerms.toArray(new ArithExpr[remainingTerms.size()])
+                            ).simplify(), funcTerm.simplify() });
+                logger.info("Normalized:" + normed.toString());
+                return normed;
+            }
+            List<Expr> newArgs = new ArrayList<Expr>();
+            for (Expr arg: args) {
+                newArgs.add(this.normalizeExpr(arg));
+            }
+            return orig.update(newArgs.toArray(new Expr[newArgs.size()]));
+        }
+        return orig;
     }
 
     private Expr constructITE() {
@@ -166,16 +227,7 @@ public class SSI {
             if (expr.isLE()|| expr.isGE()|| expr.isLT()|| expr.isGT()|| expr.isEq()) {
                 Expr left = args[0];
                 Expr right = args[1];
-                if (left.isApp() && extractor.rdcdRequests.values().contains(left.getFuncDecl())) {
-                    if (expr.isGE()|| expr.isLE()|| expr.isEq()) {
-                        this.compared.add(right);
-                    } else if (expr.isGT()) {
-                        this.compared.add(ctx.mkAdd((ArithExpr)right, ctx.mkInt(1)));
-                    } else if (expr.isLT()) {
-                        this.compared.add(ctx.mkSub((ArithExpr)right, ctx.mkInt(1)));
-                    }
-                    this.callCache = left.getArgs();
-                } else if (right.isApp() && extractor.rdcdRequests.values().contains(right.getFuncDecl()))  {
+                if (right.isApp() && extractor.rdcdRequests.values().contains(right.getFuncDecl()))  {
                     if (expr.isGE()|| expr.isLE()|| expr.isEq()) {
                         this.compared.add(left);
                     } else if (expr.isGT()) {
@@ -184,6 +236,22 @@ public class SSI {
                         this.compared.add(ctx.mkAdd((ArithExpr)left, ctx.mkInt(1)));
                     }
                     this.callCache = right.getArgs();
+                } else if (right.isMul()) {
+                    Expr inner = right.getArgs()[1];
+                    if(inner.isApp() && extractor.rdcdRequests.values().contains(inner.getFuncDecl())) {
+                        if (right.getArgs()[0].equals(ctx.mkInt(-1))) {
+                            if (expr.isGE()|| expr.isLE()|| expr.isEq()) {
+                                this.compared.add(ctx.mkMul(ctx.mkInt(-1), (ArithExpr)left).simplify());
+                            } else if (expr.isGT()) {
+                                this.compared.add(ctx.mkMul(ctx.mkInt(-1), ctx.mkSub((ArithExpr)left, ctx.mkInt(1))).simplify());
+                            } else if (expr.isLT()) {
+                                this.compared.add(ctx.mkMul(ctx.mkInt(-1), ctx.mkAdd((ArithExpr)left, ctx.mkInt(1))).simplify());
+                            }
+                        this.callCache = inner.getArgs();
+                        } else {
+                            throw new SSIException();
+                        }
+                    }
                 }
             }
             // Handling arguments.
