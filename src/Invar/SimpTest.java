@@ -93,6 +93,7 @@ public class SimpTest {
         g.add((BoolExpr)e);
         g = sim.apply(g).getSubgoals()[0];
         System.out.println(g.AsBoolExpr());
+        System.out.println(ctx.SimplifyHelp());
     }
 
 }

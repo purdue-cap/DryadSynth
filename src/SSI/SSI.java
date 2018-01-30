@@ -3,15 +3,16 @@ import com.microsoft.z3.*;
 import java.util.logging.Logger;
 
 public class SSI {
-    private Context ctx;
-    private SygusExtractor extractor;
-    private Logger logger;
-    private int numCore;
+    protected Context ctx;
+    protected SygusExtractor extractor;
+    protected Logger logger;
+    protected int numCore;
+    protected String name;
     private Expr[] callCache;
     private Expr funcExpr;
     private Set<Expr> compared;
 
-    private Tactic simp;
+    protected Tactic simp;
 
     public DefinedFunc results[];
 
@@ -32,11 +33,7 @@ public class SSI {
                     ctx.mkTactic("ctx-simplify")
                     ), 8);
     }
-    public void run() throws SSIException {
-        if (extractor.names.size() > 1) {
-            throw new SSIException();
-        }
-        String name = extractor.names.get(0);
+    public Expr getDef() throws SSIException {
         logger.info("Scanning constraints.");
         this.scanExpr(extractor.finalConstraint);
         for (Expr e : compared) {
@@ -48,6 +45,17 @@ public class SSI {
         logger.info("Constructing result...");
         Expr def = this.constructITE().simplify();
         
+        return def;
+    }
+
+    public void run() throws SSIException {
+        if (extractor.names.size() > 1) {
+            throw new SSIException();
+        }
+        this.name = extractor.names.get(0);
+
+        Expr def = this.getDef();
+
         // Check result correctness
         //logger.info("Checking result correctness...");
         //Expr checkExpr = extractor.finalConstraint.substitute(this.funcExpr, def);
@@ -65,7 +73,7 @@ public class SSI {
 
         def = def.substitute(this.callCache, defUsedArgs);
         DefinedFunc result = new DefinedFunc(ctx, name, defArgs, def);
-        this.results = new DefinedFunc[]{result };
+        this.results = new DefinedFunc[]{result};
     }
 
     private Expr constructITE() {
