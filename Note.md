@@ -22,6 +22,10 @@
 - SinInv codes may still have problem on arithmetic ITE terms
     - like `(>= (ite (>= x y) x y) 0)`
     - Need "Pop up" algorithm when traversing the AST tree
+- CAT code data strucutre optimization: In Transf, we actually don't need to
+  store the transformation region in normalized and parsed form to do the
+  kExtend. Instead, we can use Z3 to check implies clauses for each atomic
+  expression to decide which side to keep in kExtend
 
 # Fixed problems
 
