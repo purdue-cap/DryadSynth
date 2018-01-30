@@ -7,6 +7,7 @@ public class InvarTest {
 
     private Context ctx;
     private SygusExtractor extractor;
+    private Expr trans;
 
     public class InvarException extends Exception {}
 
@@ -17,7 +18,7 @@ public class InvarTest {
 
     public void run() throws InvarException {
 
-        Expr pre, trans, post;
+        Expr pre, post;
         Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
         Expr[] argParas;
 
@@ -126,19 +127,19 @@ public class InvarTest {
     
     public void test(Transf t, Expr pre, Expr post, Map<String, Expr> vars, Expr[] argParas) {
         //System.out.println("Running algorithm on: " + name);
-        //System.out.println("Transf expr:");
-        //System.out.println(t.toExpr());
-        //System.out.println("Pre expr:");
-        //System.out.println(pre);
-        //System.out.println("Post expr:");
-        //System.out.println(post);
+        System.out.println("Transf expr:");
+        System.out.println(t.toExpr());
+        System.out.println("Pre expr:");
+        System.out.println(pre);
+        System.out.println("Post expr:");
+        System.out.println(post);
         t.kExtend();
         long startTime = System.currentTimeMillis();
         Expr inv = t.run(pre);
-        //System.out.println("Run " + t.lastRunIterCount + " iterations.");
-        //System.out.println("Runtime:" + (System.currentTimeMillis() - startTime));
-        //System.out.println("Result:");
-        //System.out.println(inv);
+        System.out.println("Run " + t.lastRunIterCount + " iterations.");
+        System.out.println("Runtime:" + (System.currentTimeMillis() - startTime));
+        System.out.println("Result:");
+        System.out.println(inv);
 
         inv = post_processing(inv);
         Tactic simp = ctx.repeat(ctx.then(ctx.mkTactic("simplify"), ctx.mkTactic("ctx-simplify"), ctx.mkTactic("ctx-solver-simplify")), 8);
@@ -156,7 +157,7 @@ public class InvarTest {
         rawResult = rawResult.replaceAll("\\(\\s*-\\s+(\\d+)\\s*\\)", "-$1");
         rawResult = rawResult.replaceAll("\\s+", " ");
         System.out.println(rawResult);
-        //System.out.println("Checking if invariant is valid.");
+        System.out.println("Checking if invariant is valid.");
         BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
         Expr invp = inv;
         for (Expr var : vars.values()) {
@@ -164,14 +165,14 @@ public class InvarTest {
                    ctx.mkConst(var.toString() + "!", ctx.mkIntSort()));
         }
         BoolExpr e2 = ctx.mkImplies(ctx.mkAnd(
-                   (BoolExpr)inv, (BoolExpr)t.toExpr()
+                   (BoolExpr)inv, (BoolExpr)this.trans
                    ), (BoolExpr)invp);
         BoolExpr e3 = ctx.mkImplies((BoolExpr)inv, (BoolExpr)post);
         Solver s = ctx.mkSolver();
         s.add(ctx.mkNot(ctx.mkAnd(e1, e2, e3)));
         Status r = s.check();
         if ( r == Status.UNSATISFIABLE ) {
-           //System.out.println("Valid.");
+           System.out.println("Valid.");
         } else {
            System.out.println("Not Valid, status: " + r.toString());
         }
