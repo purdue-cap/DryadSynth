@@ -6,7 +6,7 @@
 (declare-primed-var y Int)
 
 (define-fun pre-f ((x Int) (y Int)) Bool
-(and (<= x 1) (>= x 0) ))
+(and (<= x 1) (>= x 0) (= y -3) ))
 
 (define-fun trans-f ((x Int) (y Int) (x! Int) (y! Int)) Bool
 (or (and (= x! (- x 1)) (= y! (+ y 2)) (< (- x y) 2) )
