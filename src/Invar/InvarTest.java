@@ -137,16 +137,16 @@ public class InvarTest {
         Expr inv = t.run(pre);
         //System.out.println("Run " + t.lastRunIterCount + " iterations.");
         //System.out.println("Runtime:" + (System.currentTimeMillis() - startTime));
-        System.out.println("Result:");
-        System.out.println(inv);
+        //System.out.println("Result:");
+        //System.out.println(inv);
 
         inv = post_processing(inv);
         Tactic simp = ctx.repeat(ctx.then(ctx.mkTactic("simplify"), ctx.mkTactic("ctx-simplify"), ctx.mkTactic("ctx-solver-simplify")), 8);
         Goal g = ctx.mkGoal(false, false, false);
         g.add((BoolExpr)inv);
         inv = simp.apply(g).getSubgoals()[0].AsBoolExpr();
-        System.out.println("After post processing:");
-        System.out.println(inv);
+        //System.out.println("After post processing:");
+        //System.out.println(inv);
 
         if (argParas == null) {
             argParas = vars.values().toArray(new Expr[vars.size()]);
@@ -156,7 +156,7 @@ public class InvarTest {
         rawResult = rawResult.replaceAll("\\(\\s*-\\s+(\\d+)\\s*\\)", "-$1");
         rawResult = rawResult.replaceAll("\\s+", " ");
         System.out.println(rawResult);
-        System.out.println("Checking if invariant is valid.");
+        //System.out.println("Checking if invariant is valid.");
         BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
         Expr invp = inv;
         for (Expr var : vars.values()) {
@@ -171,7 +171,7 @@ public class InvarTest {
         s.add(ctx.mkNot(ctx.mkAnd(e1, e2, e3)));
         Status r = s.check();
         if ( r == Status.UNSATISFIABLE ) {
-           System.out.println("Valid.");
+           //System.out.println("Valid.");
         } else {
            System.out.println("Not Valid, status: " + r.toString());
         }
