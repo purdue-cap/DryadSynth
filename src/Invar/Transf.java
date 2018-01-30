@@ -231,6 +231,65 @@ public class Transf {
         this.transMap.put(r, t);
     }
 
+    public static void splitDisj(Expr expr, List<Expr> conjs) {
+        Expr [] args;
+
+        if (expr.isOr()) {
+            args = expr.getArgs();
+            for (Expr arg: args) {
+                splitDisj(arg, conjs);
+            }
+        } else {
+            conjs.add(expr);
+        }
+    }
+
+    public static void getDelta(Expr nonCond, Map<String, Expr> vars, Map<Expr, Integer> deltas) {
+        Integer delta = null;
+        Expr variable = null;
+
+        // assume nonCond only have the form x' = x + c
+        if(nonCond.isEq()) {
+            Expr[] args;
+            args = nonCond.getArgs();
+            for (Expr arg : args) {
+                if (!arg.isConst()) {
+                    boolean add = true;
+
+                    System.out.println("Add: " + arg);
+                    System.out.println();
+
+                    if (arg.isAdd()) {
+                        add = true;
+                    } else if (arg.isSub()) {
+                        add = false;
+                    } else {
+                        System.out.println("Deltas Extraction Failed!");
+                    }
+                    Expr[] subargs = arg.getArgs();
+                    for (Expr subarg : subargs) {
+                        if (vars.containsValue(subarg)) {
+                            variable = subarg;
+                            System.out.println("var: " + variable);
+                            System.out.println();
+                        } else {
+                            delta = Integer.valueOf(subarg.toString());
+                            System.out.println("delta: " + delta);
+                            System.out.println();
+                        }
+                    }
+                    if (add) {
+                    deltas.put(variable, delta);
+                    } else {
+                        deltas.put(variable, (-delta));
+                    }
+                }
+            }
+        } else {
+            System.out.println("Deltas Extraction Failed!");
+        }
+    }
+
     public static Transf fromTransfFormula(Expr formula, Map<String, Expr> vars, Context ctx) {
         // NOT IMPLEMENTED
         // We assume that the input format is DNF at this point
@@ -252,6 +311,29 @@ public class Transf {
         // regions, and then parse remaining transfer fomulas into uniTrans,
         // and add them using addMap
 
+        List<Expr> conjs = new ArrayList<Expr>();
+        splitDisj(formula, conjs);
+
+        for (Expr conj : conjs) {
+            Region r = new Region(vars, ctx);
+            List<Expr> nonConds = new ArrayList<Expr>();
+            Region[] regions = r.fromConj(conj, nonConds, ctx);
+            int size = vars.size();
+            int[] deltas = new int[size];
+            Map<Expr, Integer> delta_map = new LinkedHashMap<Expr, Integer>();
+
+            int i = 0;
+            for (Expr var : vars.values()) {
+                if (delta_map.containsKey(var)) {
+                    deltas[i] = delta_map.get(var);
+                }
+                i = i + 1;
+            }
+
+            for (Region region : regions) {
+                t.addMap(region, deltas);
+            }
+        }
         return t;
     }
 

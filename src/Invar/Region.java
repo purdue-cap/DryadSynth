@@ -6,8 +6,8 @@ public class Region {
     // List to store if the corresponding condition shall be k-extended
     private List<Boolean> kExtended = new ArrayList<Boolean>();
     private Transf.uniTrans trans = null;
-    private Map<String, Expr> vars;
-    private Context z3ctx;
+    static private Map<String, Expr> vars;
+    static private Context z3ctx;
 
 
     public class Cond {
@@ -132,6 +132,138 @@ public class Region {
         return false;
     }
 
+    public static void eliminate_negation(Expr cond, List<Expr> nnCondList, Context ctx) {
+
+        if (cond.isConst()) {
+            return;
+        }
+        if (cond.isApp()) {
+            Expr[] args = cond.getArgs();
+            if (cond.isNot()) {
+                Expr inner = args[0];
+                Expr[] innerArgs = inner.getArgs();
+                if (inner.isNot()) {
+                    eliminate_negation(inner, nnCondList, ctx);
+                }
+                if (inner.isGE()) {
+                    nnCondList.add(ctx.mkLt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
+                }
+                if (inner.isGT()) {
+                    nnCondList.add(ctx.mkLe((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
+                }
+                if (inner.isLT()) {
+                    nnCondList.add(ctx.mkGe((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
+                }
+                if (inner.isLE()) {
+                    nnCondList.add(ctx.mkGt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
+                }
+                if (inner.isEq()) {
+                    nnCondList.add(ctx.mkLt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
+                    nnCondList.add(ctx.mkGt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
+                }
+            } else {
+                nnCondList.add(cond);
+            }
+        }
+
+    }
+
+    public static Expr getCoeff(Expr expr, Expr[] from, int index, int size) {
+        Expr[] to = new Expr[size];
+        for (int i = 0; i < size; i++) {
+            if (i == index) {
+                to[i] = z3ctx.mkInt(1);
+            } else {
+                to[i] = z3ctx.mkInt(0);
+            }
+        }
+        Expr ret = expr.substitute(from, to).simplify();
+        return ret;
+    }
+
+    public static Expr getConstant(Expr expr, Expr[] from, int size) {
+        return getCoeff(expr, from, size, size);
+    }
+
+    public static Expr[] getCoeffArray(Expr expr, Expr[] from, Expr constant) {
+        int size = from.length;
+        Expr[] coeff = new Expr[size];
+        //Expr constant = getConstant(expr, from, size);
+        for (int i = 0; i < size; i++) {
+            coeff[i] = getCoeff(expr, from, i, size);
+            coeff[i] = z3ctx.mkSub((ArithExpr)coeff[i], (ArithExpr)constant).simplify();
+        }
+        return coeff;
+    }
+
+    public static Expr[] getVarsArray() {
+        int size = vars.size();
+        Expr[] varArray = new Expr[size];
+        int i = 0;
+        for (Expr var : vars.values()) {
+            varArray[i] = var;
+            i = i + 1;
+        }
+        return varArray;
+    }
+
+    public static void normalize(Expr nnCond, Context ctx, Map<Expr[], Expr> region_map) {
+        if (nnCond.isConst()) {
+            return;
+        }
+        if (nnCond.isApp()) {
+            Expr[] args = nnCond.getArgs();
+            Expr[] from = getVarsArray();
+            int size = vars.size();
+            Expr constant_l = getConstant(args[0], from, size);
+            Expr constant_r = getConstant(args[1], from, size);
+            Expr[] argsCoeff_l = getCoeffArray(args[0], from, constant_l);
+            Expr[] argsCoeff_r = getCoeffArray(args[1], from, constant_r);
+            Expr[] coeff_normal = new Expr[size];
+            Expr constant_normal = null;
+
+            if (nnCond.isGE()) {
+                for (int i = 0; i < size; i++) {
+                    coeff_normal[i] = ctx.mkSub((ArithExpr)argsCoeff_l[i], (ArithExpr)argsCoeff_r[i]).simplify();
+                }
+                constant_normal = ctx.mkSub((ArithExpr)constant_l, (ArithExpr)constant_r).simplify();
+            }
+            if (nnCond.isGT()) {
+                for (int i = 0; i < size; i++) {
+                    coeff_normal[i] = ctx.mkSub((ArithExpr)argsCoeff_l[i], (ArithExpr)argsCoeff_r[i]).simplify();
+                }
+                constant_normal = ctx.mkSub(ctx.mkSub((ArithExpr)constant_l, (ArithExpr)constant_r), ctx.mkInt(1)).simplify();
+            }
+            if (nnCond.isLE()) {
+                for (int i = 0; i < size; i++) {
+                    coeff_normal[i] = ctx.mkSub((ArithExpr)argsCoeff_r[i], (ArithExpr)argsCoeff_l[i]).simplify();
+                }
+                constant_normal = ctx.mkSub((ArithExpr)constant_r, (ArithExpr)constant_l).simplify();
+            }
+            if (nnCond.isLT()) {
+                for (int i = 0; i < size; i++) {
+                    coeff_normal[i] = ctx.mkSub((ArithExpr)argsCoeff_r[i], (ArithExpr)argsCoeff_l[i]).simplify();
+                }
+                constant_normal = ctx.mkSub(ctx.mkSub((ArithExpr)constant_r, (ArithExpr)constant_l), ctx.mkInt(1)).simplify();
+            }
+            if (nnCond.isEq()) {
+
+                for (int i = 0; i < size; i++) {
+                    coeff_normal[i] = ctx.mkSub((ArithExpr)argsCoeff_l[i], (ArithExpr)argsCoeff_r[i]).simplify();
+                }
+                constant_normal = ctx.mkSub((ArithExpr)constant_l, (ArithExpr)constant_r).simplify();
+                    
+            }
+            region_map.put(coeff_normal, constant_normal);
+        }
+
+    }
+
+    public static int convertExprToInt(Expr expr) {
+        String str = expr.toString();
+        return Integer.parseInt(str);
+    }
+
     public static Region[] fromConj(Expr conj, List<Expr> nonConds, Context ctx) {
         // NOT IMPLEMENTED
         // This function should implement a mechanism to convert conjuctions
@@ -161,12 +293,41 @@ public class Region {
                 return null;
             }
         }
+
         // Do splitting of Eqs and NEqs here
         // Consider implementing this using a Z3 tactics
-        
+        List<Expr> nnCondList = new ArrayList<Expr>();
+        for (Expr c : condList) {
+            eliminate_negation(c, nnCondList, ctx);
+        }
+
         // Do parsing of Exprs here
-        
+        Map<Expr[], Expr> region_map = new LinkedHashMap<Expr[], Expr>();
+        for (Expr nnCond : nnCondList) {
+            normalize(nnCond, ctx, region_map);
+        }
+
         // Then add the conditions to the returning Region array 
-        return null;
+        int num_region = nnCondList.size();
+        Region[] region_array = new Region[num_region];
+
+        int j = 0;
+        for (Map.Entry<Expr[], Expr> entry : region_map.entrySet()) {
+            Expr[] coeff = entry.getKey();
+            Expr constnt = entry.getValue();
+            int len = coeff.length;
+            int[] coefficient= new int[len];
+            int constant;
+            for (int i = 0; i < coeff.length; i++) {
+                coefficient[i] = convertExprToInt(coeff[i]);
+            }
+            constant = convertExprToInt(constnt);
+            region_array[j] = new Region(vars, ctx);
+            region_array[j].addCond(coefficient, constant);
+            j = j + 1;
+        }
+
+
+        return region_array;
     }
 }
