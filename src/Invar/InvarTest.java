@@ -666,7 +666,9 @@ public class InvarTest {
                     newArgsArray = newArgs.toArray(new Expr[newArgs.size()]);
                     if(expr.isEq()) {
                         for (Expr arg: newArgsArray) {
-                            if (arg.isModulus()) {
+                            if (arg.isConst()) {
+                                mod = mod;
+                            } else if (arg.isModulus()) {
                                 mod = true;
                             }
                         }
