@@ -161,6 +161,10 @@ public class Region {
                     nnCondList.add(ctx.mkLt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
                     nnCondList.add(ctx.mkGt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
                 }
+            } else if (cond.isEq()) {
+                Expr[] innerArgs = cond.getArgs();
+                nnCondList.add(ctx.mkLe((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
+                nnCondList.add(ctx.mkGe((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
             } else {
                 nnCondList.add(cond);
             }
@@ -246,14 +250,14 @@ public class Region {
                 }
                 constant_normal = ctx.mkSub(ctx.mkSub((ArithExpr)constant_r, (ArithExpr)constant_l), ctx.mkInt(1)).simplify();
             }
-            if (nnCond.isEq()) {
+            // if (nnCond.isEq()) {
 
-                for (int i = 0; i < size; i++) {
-                    coeff_normal[i] = ctx.mkSub((ArithExpr)argsCoeff_l[i], (ArithExpr)argsCoeff_r[i]).simplify();
-                }
-                constant_normal = ctx.mkSub((ArithExpr)constant_l, (ArithExpr)constant_r).simplify();
+            //     for (int i = 0; i < size; i++) {
+            //         coeff_normal[i] = ctx.mkSub((ArithExpr)argsCoeff_l[i], (ArithExpr)argsCoeff_r[i]).simplify();
+            //     }
+            //     constant_normal = ctx.mkSub((ArithExpr)constant_l, (ArithExpr)constant_r).simplify();
                     
-            }
+            // }
             region_map.put(coeff_normal, constant_normal);
         }
 
