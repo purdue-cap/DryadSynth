@@ -25,7 +25,7 @@ public class SSICommuRun {
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         SygusParser parser = new SygusParser(tokens);
         Logger logger = Logger.getLogger("main");
-        //logger.setLevel(Level.SEVERE);
+        logger.setLevel(Level.SEVERE);
 
         HashMap<String, String> cfg = new HashMap<String, String>();
         cfg.put("model", "true");

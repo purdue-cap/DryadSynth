@@ -41,21 +41,21 @@ public class SSICommu extends SSI {
         Expr def = ctx.mkITE(sideCondition, onesideDef, othersideDef);
 
         // Check result correctness
-        logger.info("Checking result correctness...");
-        Expr checkExpr = constrt.substitute(this.func.apply(this.commuCache), def);
-        Expr revDef = def.substitute(commuCache[0], tempExpr);
-        revDef = revDef.substitute(commuCache[1], commuCache[0]);
-        revDef = revDef.substitute(tempExpr, commuCache[1]);
-        checkExpr = checkExpr.substitute(this.func.apply(new Expr[] {this.commuCache[1],
-                                                                    this.commuCache[0]}), revDef);
-        Solver s = ctx.mkSolver();
-        s.add(ctx.mkNot((BoolExpr)checkExpr));
-        Status sat = s.check();
-        if (sat == Status.UNSATISFIABLE) {
-            logger.info("Result is correct.");
-        } else {
-            logger.severe("Result incorrect!");
-        }
+        //logger.info("Checking result correctness...");
+        //Expr checkExpr = constrt.substitute(this.func.apply(this.commuCache), def);
+        //Expr revDef = def.substitute(commuCache[0], tempExpr);
+        //revDef = revDef.substitute(commuCache[1], commuCache[0]);
+        //revDef = revDef.substitute(tempExpr, commuCache[1]);
+        //checkExpr = checkExpr.substitute(this.func.apply(new Expr[] {this.commuCache[1],
+        //                                                            this.commuCache[0]}), revDef);
+        //Solver s = ctx.mkSolver();
+        //s.add(ctx.mkNot((BoolExpr)checkExpr));
+        //Status sat = s.check();
+        //if (sat == Status.UNSATISFIABLE) {
+        //    logger.info("Result is correct.");
+        //} else {
+        //    logger.severe("Result incorrect!");
+        //}
 
         Expr defUsedArgs[] = extractor.requestUsedArgs.get(name);
         Expr defArgs[] = extractor.requestArgs.get(name);
