@@ -69,7 +69,7 @@ public class SygusFormatter extends SygusBaseVisitor<String> {
                 if (visited) {
                     todo.pop();
                     newArgsArray = newArgs.toArray(new Expr[newArgs.size()]);
-                    if (expr.isITE()) {
+                    if (expr.isITE() && expr.isBool()) {
                         BoolExpr condTerm = (BoolExpr)newArgsArray[0];
                         BoolExpr thenTerm = (BoolExpr)newArgsArray[1];
                         BoolExpr elseTerm = (BoolExpr)newArgsArray[2];

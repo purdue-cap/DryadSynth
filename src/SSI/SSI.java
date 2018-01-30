@@ -76,6 +76,7 @@ public class SSI {
         Expr cand = (Expr)this.compared.toArray()[0];
         this.compared.remove(cand);
         cond = cond.substitute(this.funcExpr, cand);
+        cond = SygusFormatter.elimITE(ctx, cond);
 
         // Do simplification of conditions
         // This simplification does not change anything in most cases
