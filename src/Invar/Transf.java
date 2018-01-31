@@ -256,9 +256,6 @@ public class Transf {
                 if (!arg.isConst()) {
                     boolean add = true;
 
-                    System.out.println("Add: " + arg);
-                    System.out.println();
-
                     if (arg.isAdd()) {
                         add = true;
                     } else if (arg.isSub()) {
@@ -270,12 +267,12 @@ public class Transf {
                     for (Expr subarg : subargs) {
                         if (vars.containsValue(subarg)) {
                             variable = subarg;
-                            System.out.println("var: " + variable);
-                            System.out.println();
+                            // System.out.println("var: " + variable);
+                            // System.out.println();
                         } else {
                             delta = Integer.valueOf(subarg.toString());
-                            System.out.println("delta: " + delta);
-                            System.out.println();
+                            // System.out.println("delta: " + delta);
+                            // System.out.println();
                         }
                     }
                     if (add) {
@@ -318,9 +315,14 @@ public class Transf {
             Region r = new Region(vars, ctx);
             List<Expr> nonConds = new ArrayList<Expr>();
             Region[] regions = r.fromConj(conj, nonConds, ctx);
+
             int size = vars.size();
             int[] deltas = new int[size];
             Map<Expr, Integer> delta_map = new LinkedHashMap<Expr, Integer>();
+
+            for(Expr nonCond : nonConds) {
+                getDelta(nonCond, vars, delta_map);
+            }
 
             int i = 0;
             for (Expr var : vars.values()) {
@@ -328,6 +330,16 @@ public class Transf {
                     deltas[i] = delta_map.get(var);
                 }
                 i = i + 1;
+            }
+
+            if (regions.length == 0) {
+                regions = new Region[1];
+                regions[0] = new Region(vars, ctx);
+                int[] allzero = new int[size];
+                for(int j = 0; j < size; j++) {
+                    allzero[j] = 0;
+                }
+                regions[0].addCond(allzero, 1);
             }
 
             for (Region region : regions) {
