@@ -90,10 +90,13 @@ public class SSI {
                 Expr right = normed.getArgs()[1];
                 Expr funcTerm = null;
                 List<Expr> remainingTerms = new ArrayList<Expr>();
-                if (!left.isAdd()) {
-                    return orig;
+                Expr[] leftArgs;
+                if (left.isAdd()) {
+                    leftArgs = left.getArgs();
+                } else {
+                    leftArgs = new Expr[] {left};
                 }
-                for (Expr expr: left.getArgs()) {
+                for (Expr expr: leftArgs) {
                     if (expr.isMul()) {
                         Expr inner = expr.getArgs()[1];
                         if (inner.isApp() && extractor.rdcdRequests.values().contains(inner.getFuncDecl())) {
