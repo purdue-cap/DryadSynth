@@ -2,7 +2,7 @@ import java.util.*;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
 
-public class SSI {
+public class SSI extends Thread {
     protected Context ctx;
     protected SygusExtractor extractor;
     protected Logger logger;
@@ -48,13 +48,20 @@ public class SSI {
         return def;
     }
 
-    public void run() throws SSIException {
+    public void run(){
         if (extractor.names.size() > 1) {
-            throw new SSIException();
+            this.results = null;
+            return;
         }
         this.name = extractor.names.get(0);
 
-        Expr def = this.getDef();
+        Expr def;
+        try {
+            def = this.getDef();
+        } catch(SSIException e) {
+            this.results = null;
+            return;
+        }
 
         // Check result correctness
         //logger.info("Checking result correctness...");

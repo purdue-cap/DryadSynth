@@ -6,7 +6,7 @@ import com.microsoft.z3.*;
 
 public class SygusDispatcher {
     public enum SolveMethod {
-        PRESCREENED, CEGIS, SININV
+        PRESCREENED, CEGIS, SSI, SSICOMM, AT
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
@@ -18,13 +18,9 @@ public class SygusDispatcher {
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
+    boolean hasFunc = false;
 
-    // For legacy SININV codes
-    // Todo: Refine SININV codes to fit the design pattern here
-    // The method shall create worker thread objects in initAlgorithm
-    // And shall run these threads and wait for results in runAlgorithm
-    NewMethod newMethod;
-    NewMutiWay newMutiWay;
+    AT preparedAT;
 
     SygusDispatcher(Context z3ctx, SygusExtractor extractor) {
         this.z3ctx = z3ctx;
@@ -58,10 +54,22 @@ public class SygusDispatcher {
             this.method = SolveMethod.PRESCREENED;
             return;
         }
-        checkResult = this.checkSinInv();
+        checkResult = this.checkSSIComm();
         if (checkResult) {
-            logger.info("Single Invocation detected, using SinInv method.");
-            this.method = SolveMethod.SININV;
+            logger.info("SSIComm detected, using SSI-Commutativity algorithm");
+            this.method = SolveMethod.SSICOMM;
+            return;
+        }
+        checkResult = this.checkSSI();
+        if (checkResult) {
+            logger.info("SSI Detected, using SSI algorithm");
+            this.method = SolveMethod.SSI;
+            return;
+        }
+        checkResult = this.checkAT();
+        if (checkResult) {
+            logger.info("AT detected, using AT algorithm");
+            this.method = SolveMethod.AT;
             return;
         }
 
@@ -93,9 +101,28 @@ public class SygusDispatcher {
             return;
         }
 
-        if (this.method == SolveMethod.SININV) {
-            logger.info("Initializing single invocation algorithms.");
-            logger.info("Using legacy one-shot codes, no initialization is performanced.");
+        if (this.method == SolveMethod.SSICOMM) {
+            logger.info("Initializing SSI-Commu algorithms.");
+            // Single thread only algorithm, ignoring numCore settings.
+            threads = new Thread[1];
+            threads[0] = new SSICommu(z3ctx, extractor, logger, numCore);
+            return;
+        }
+
+        if (this.method == SolveMethod.SSI) {
+            logger.info("Initializing SSI algorithms.");
+            // Single thread only algorithm, ignoring numCore settings.
+            threads = new Thread[1];
+            threads[0] = new SSI(z3ctx, extractor, logger, numCore);
+            return;
+        }
+
+        if (this.method == SolveMethod.AT) {
+            logger.info("Initializing AT algorithms.");
+            // Single thread only algorithm, ignoring numCore settings.
+            threads = new Thread[1];
+            threads[0] = preparedAT;
+            return;
         }
 
     }
@@ -132,31 +159,35 @@ public class SygusDispatcher {
             }
         }
 
-        if (this.method == SolveMethod.SININV) {
-            logger.info("Starting single invocation algorithms execution.");
-            logger.info("Using legacy codes, execution is one-shot.");
-            Map<String, Expr> resultMap;
-            if (numCore > 1) {
-                newMutiWay = new NewMutiWay(this.z3ctx, this.extractor, this.logger, this.numCore);
-                resultMap = newMutiWay.results;
-            } else {
-                newMethod = new NewMethod(this.z3ctx, this.extractor, this.logger);
-                resultMap = newMethod.results;
-            }
-
-            logger.info("Results gathered, changing arguments.");
-            int i = 0;
-            DefinedFunc[] results = new DefinedFunc[resultMap.size()];
-            for (String name : extractor.names) {
-                Expr def = resultMap.get(name);
-                def = def.substitute(this.callCache.get(name), extractor.requestUsedArgs.get(name));
-                results[i] = new DefinedFunc(z3ctx, name, extractor.requestArgs.get(name), def);
-                logger.info("Done, Synthesized function " + name);
-                i = i + 1;
+        if (this.method == SolveMethod.SSI) {
+            logger.info("Starting SSI algorithms.");
+            threads[0].run();
+            DefinedFunc[] results = ((SSI)threads[0]).results;
+            if (results == null) {
+                throw(new Exception());
             }
             return results;
         }
 
+        if (this.method == SolveMethod.SSICOMM) {
+            logger.info("Starting SSI-Comm algorithms.");
+            threads[0].run();
+            DefinedFunc[] results = ((SSICommu)threads[0]).results;
+            if (results == null) {
+                throw(new Exception());
+            }
+            return results;
+        }
+
+        if (this.method == SolveMethod.AT){
+            logger.info("Starting AT algorithms.");
+            threads[0].run();
+            DefinedFunc[] results = ((AT)threads[0]).results;
+            if (results == null) {
+                throw(new Exception());
+            }
+            return results;
+        }
         return null;
 
     }
@@ -176,38 +207,104 @@ public class SygusDispatcher {
         solver.pop();
         return status == Status.UNSATISFIABLE;
 
+
     }
 
-    boolean checkSinInv(){
-        Expr spec = extractor.finalConstraint;
-        this.callCache = new HashMap<String, Expr[]>();
-        Stack<Expr> todo = new Stack<Expr>();
-        todo.push(spec);
-
-        while (!todo.empty()) {
-            Expr expr = todo.pop();
-            if (expr.isApp()) {
-                Expr[] args = expr.getArgs();
-                for (Expr arg: args) {
-                    todo.push(arg);
-                }
-                FuncDecl exprFunc = expr.getFuncDecl();
-                String funcName = exprFunc.getName().toString();
-                if (extractor.names.contains(funcName) &&
-                    exprFunc.equals(extractor.rdcdRequests.get(funcName)))  {
-                    if (!z3ctx.getIntSort().equals(exprFunc.getRange())) {
-                        return false;
-                    }
-                    if (this.callCache.keySet().contains(funcName)) {
-                        if (!Arrays.equals(args, this.callCache.get(funcName))) {
-                            return false;
-                        }
-                    } else {
-                        this.callCache.put(funcName, args);
-                    }
-                }
+    boolean checkSSIComm() {
+        if (extractor.problemType != SygusExtractor.ProbType.CLIA) {
+            return false;
+        }
+        boolean flag = false;
+        List<BoolExpr> remainingConstrs = new ArrayList<BoolExpr>();
+        for (Expr constr: extractor.constraints) {
+            if (isCommConstr(constr)) {
+                flag = true;
+            } else {
+                remainingConstrs.add((BoolExpr)constr);
             }
         }
+        if (!flag) {
+            return false;
+        }
+        Expr spec = z3ctx.mkAnd(remainingConstrs.toArray(new BoolExpr[remainingConstrs.size()]));
+        this.callCache = new HashMap<String, Expr[]>();
+        return isSSI(spec);
+    }
+
+    boolean checkSSI(){
+        if (extractor.problemType != SygusExtractor.ProbType.CLIA) {
+            return false;
+        }
+        Expr spec = extractor.finalConstraint;
+        this.callCache = new HashMap<String, Expr[]>();
+        return isSSI(spec);
+    }
+
+    boolean isCommConstr(Expr expr) {
+        if (!expr.isEq()) {
+            return false;
+        }
+        Expr left = expr.getArgs()[0];
+        Expr right = expr.getArgs()[1];
+        if (!(left.isApp() && right.isApp())) {
+            return false;
+        }
+        if (!(left.getFuncDecl().equals(right.getFuncDecl()))) {
+            return false;
+        }
+        if (left.getFuncDecl().getDomain().length != 2) {
+            return false;
+        }
+        Expr arg1 = left.getArgs()[0];
+        Expr arg2 = left.getArgs()[1];
+        if (!(arg1.equals(right.getArgs()[1]) &&
+              arg2.equals(right.getArgs()[0]))) {
+            return false;
+        }
         return true;
+    }
+
+    boolean isSSI(Expr expr) {
+        boolean result = true;
+        if (expr.isApp()) {
+            Expr[] args = expr.getArgs();
+            FuncDecl exprFunc = expr.getFuncDecl();
+            String funcName = exprFunc.getName().toString();
+            if (extractor.names.contains(funcName) &&
+                exprFunc.equals(extractor.rdcdRequests.get(funcName)))  {
+                // For SSI, one atomic expression should have only one function
+                if (hasFunc) {
+                    return false;
+                }
+                if (!z3ctx.getIntSort().equals(exprFunc.getRange())) {
+                    return false;
+                }
+                if (this.callCache.keySet().contains(funcName)) {
+                    if (!Arrays.equals(args, this.callCache.get(funcName))) {
+                        return false;
+                    }
+                } else {
+                    this.callCache.put(funcName, args);
+                }
+                hasFunc = true;
+            }
+            for (Expr arg: args) {
+                result = result && isSSI(arg);
+            }
+            // After atomic expression evalutation, reset the hasFunc flag
+            if (expr.isGE() || expr.isLT()|| expr.isGT() || expr.isLE() || expr.isEq()) {
+                hasFunc = false;
+            }
+        }
+        return result;
+    }
+
+    boolean checkAT() {
+        if (extractor.problemType != SygusExtractor.ProbType.INV) {
+            return false;
+        }
+        this.preparedAT = new AT(z3ctx, extractor, logger);
+        this.preparedAT.init();
+        return false;
     }
 }

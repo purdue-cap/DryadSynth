@@ -12,9 +12,10 @@ public class SSICommu extends SSI {
         this.commuCache = null;
     }
 
-    public void run() throws SSIException {
+    public void run() {
         if (extractor.names.size() > 1) {
-            throw new SSIException();
+            this.results = null;
+            return;
         }
 
         this.name = extractor.names.get(0);
@@ -22,7 +23,13 @@ public class SSICommu extends SSI {
 
         Expr constrt = extractor.finalConstraint;
         logger.info("Constructing onesided constraint.");
-        Expr sideConstrt = this.exchangeCommu(constrt).simplify();
+        Expr sideConstrt;
+        try {
+            sideConstrt = this.exchangeCommu(constrt).simplify();
+        } catch (SSIException e) {
+            this.results = null;
+            return;
+        }
         BoolExpr sideCondition = ctx.mkGe((ArithExpr)commuCache[0], (ArithExpr)commuCache[1]);
         sideConstrt = ctx.mkImplies(
                 sideCondition,
@@ -31,7 +38,13 @@ public class SSICommu extends SSI {
         logger.info("Onesided constraint:" + sideConstrt.toString());
         
         extractor.finalConstraint = (BoolExpr)sideConstrt;
-        Expr onesideDef = this.getDef();
+        Expr onesideDef;
+        try {
+            onesideDef = this.getDef();
+        } catch (SSIException e) {
+            this.results = null;
+            return;
+        }
         logger.info("Onesided Result:" + onesideDef.toString());
         Expr tempExpr = ctx.mkFreshConst("temp", ctx.mkIntSort());
         Expr othersideDef = onesideDef.substitute(commuCache[0], tempExpr);

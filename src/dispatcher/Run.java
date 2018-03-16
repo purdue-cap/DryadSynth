@@ -37,10 +37,10 @@ public class Run {
 		SygusParser parser = new SygusParser(tokens);
 
 		Logger logger = Logger.getLogger("main");
-		logger.setUseParentHandlers(false);
-		FileHandler handler = new FileHandler("log.main.txt", false);
-		handler.setFormatter(new SimpleFormatter());
-		logger.addHandler(handler);
+		//logger.setUseParentHandlers(false);
+		//FileHandler handler = new FileHandler("log.main.txt", false);
+		//handler.setFormatter(new SimpleFormatter());
+		//logger.addHandler(handler);
 		logger.info(String.format("Using %d threads", numCore));
 		logger.info(String.format("Using finite coeffBound timeout %d mins and infinite coeffBound timeout %d mins", minFinite, minInfinite));
 

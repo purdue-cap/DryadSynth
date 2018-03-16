@@ -17,7 +17,7 @@ public class Invar {
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         SygusParser parser = new SygusParser(tokens);
         Logger logger = Logger.getLogger("main");
-        logger.setLevel(Level.SEVERE);
+        //logger.setLevel(Level.SEVERE);
 
         HashMap<String, String> cfg = new HashMap<String, String>();
         cfg.put("model", "true");
@@ -47,8 +47,19 @@ public class Invar {
             logger.info(name);
         }
 
-        InvarTest invartest = new InvarTest(ctx, extractor);
+        AT invartest = new AT(ctx, extractor, logger);
+        invartest.init();
+        logger.info(invartest.transfunc.toString());
         invartest.run();
+
+		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
+		for (DefinedFunc df: invartest.results) {
+			String rawResult = df.toString();
+            // When output size is too large, run regexp replace instead
+            rawResult = rawResult.replaceAll("\\(\\s*-\\s+(\\d+)\\s*\\)", "-$1");
+            rawResult = rawResult.replaceAll("\\s+", " ");
+            System.out.println(rawResult);
+		}
 
         long estimatedTime = System.currentTimeMillis() - startTime;
         logger.info("Runtime: " + estimatedTime);

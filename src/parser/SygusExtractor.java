@@ -25,6 +25,11 @@ public class SygusExtractor extends SygusBaseListener {
     public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
     List<Expr> currentArgList;
     List<Sort> currentSortList;
+    
+    public enum ProbType {
+        CLIA, INV
+    }
+    public ProbType problemType = null;
 
     public Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
     public Map<String, Expr> regularVars = new LinkedHashMap<String, Expr>();
@@ -301,6 +306,7 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void enterSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
+        problemType = ProbType.CLIA;
         currentCmd = CmdType.SYNTHFUNC;
         currentArgList = new ArrayList<Expr>();
         currentSortList = new ArrayList<Sort>();
@@ -319,6 +325,7 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void enterSynthInvCmd(SygusParser.SynthInvCmdContext ctx) {
+        problemType = ProbType.INV;
         currentCmd = CmdType.SYNTHINV;
         currentArgList = new ArrayList<Expr>();
         currentSortList = new ArrayList<Sort>();

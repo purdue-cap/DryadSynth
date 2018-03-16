@@ -3,47 +3,48 @@ import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
 
-public class InvarTest {
+public class AT extends Thread {
 
     private Context ctx;
     private SygusExtractor extractor;
-    private Expr trans;
+    private Logger logger;
 
-    public class InvarException extends Exception {}
+    public Expr trans;
+    public Transf transfunc;
+    public Expr pre;
+    public Expr post;
+    public Map<String, Expr> vars;
+    public Expr[] argParas;
 
-    public InvarTest(Context ctx, SygusExtractor extractor) {
+    public DefinedFunc[] results;
+
+    public AT(Context ctx, SygusExtractor extractor, Logger logger) {
         this.ctx = ctx;
         this.extractor = extractor;
+        this.logger = logger;
     }
 
-    public void run() throws InvarException {
+    public void init() {
 
-        Expr pre, post;
-        Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
-        Expr[] argParas;
+        vars = new LinkedHashMap<String, Expr>();
 
         Map<String, DefinedFunc[]> invConstraints = extractor.invConstraints;
-        //System.out.println("map size" + invConstraints.size());
+        logger.info("map size" + invConstraints.size());
 
         DefinedFunc[] invFunc = invConstraints.entrySet().iterator().next().getValue();
         if (invFunc.length != 3) {
-            throw new InvarException();
+            this.results = null;
+            return;
         } else {
             pre = invFunc[0].getDef();
-            // System.out.println("Pre");
-            // System.out.println();
-            // System.out.println(pre);
-            // System.out.println();
+            logger.info("Pre");
+            logger.info(pre.toString());
             trans = invFunc[1].getDef();
-            // System.out.println("Trans");
-            // System.out.println();
-            // System.out.println(trans);
-            // System.out.println();
+            logger.info("Trans");
+            logger.info(trans.toString());
             post = invFunc[2].getDef();
-            // System.out.println("Post");
-            // System.out.println();
-            // System.out.println(post);
-            // System.out.println();
+            logger.info("Post");
+            logger.info(post.toString());
         }
 
         Map<String, Expr[]> requestArgs = extractor.requestArgs;
@@ -55,12 +56,12 @@ public class InvarTest {
             vars.put(var.toString(), var);
         }
 
-        Transf tr = new Transf(vars, ctx);
-        Transf transfunc = tr.fromTransfFormula(trans, vars, ctx);
-        
-        test(transfunc, pre, post, vars, argParas);
+        this.transfunc = Transf.fromTransfFormula(trans, vars, ctx);
     }
     
+    public void run () {
+        this.evaluate(transfunc, pre, post, vars, argParas);
+    }
 
     public Expr post_processing(Expr orig) {
         Stack<Expr> todo = new Stack<Expr>();
@@ -125,39 +126,35 @@ public class InvarTest {
         return cache.get(orig);
     }
     
-    public void test(Transf t, Expr pre, Expr post, Map<String, Expr> vars, Expr[] argParas) {
-        //System.out.println("Running algorithm on: " + name);
-        //System.out.println("Transf expr:");
-        //System.out.println(t.toExpr());
-        //System.out.println("Pre expr:");
-        //System.out.println(pre);
-        //System.out.println("Post expr:");
-        //System.out.println(post);
+    public void evaluate(Transf t, Expr pre, Expr post, Map<String, Expr> vars, Expr[] argParas) {
+        logger.info("Running algorithm on: ");
+        logger.info("Transf expr:");
+        logger.info(t.toExpr().toString());
+        logger.info("Pre expr:");
+        logger.info(pre.toString());
+        logger.info("Post expr:");
+        logger.info(post.toString());
         t.kExtend();
         long startTime = System.currentTimeMillis();
         Expr inv = t.run(pre);
-        //System.out.println("Run " + t.lastRunIterCount + " iterations.");
-        //System.out.println("Runtime:" + (System.currentTimeMillis() - startTime));
-        //System.out.println("Result:");
-        //System.out.println(inv);
+        logger.info("Run " + t.lastRunIterCount + " iterations.");
+        logger.info("Runtime:" + (System.currentTimeMillis() - startTime));
+        logger.info("Result:");
+        logger.info(inv.toString());
 
         inv = post_processing(inv);
         Tactic simp = ctx.repeat(ctx.then(ctx.mkTactic("simplify"), ctx.mkTactic("ctx-simplify"), ctx.mkTactic("ctx-solver-simplify")), 8);
         Goal g = ctx.mkGoal(false, false, false);
         g.add((BoolExpr)inv);
         inv = simp.apply(g).getSubgoals()[0].AsBoolExpr();
-        //System.out.println("After post processing:");
-        //System.out.println(inv);
+        logger.info("After post processing:");
+        logger.info(inv.toString());
 
         if (argParas == null) {
             argParas = vars.values().toArray(new Expr[vars.size()]);
         }
-        DefinedFunc df = new DefinedFunc(ctx, "inv-f", argParas, inv);
-        String rawResult = df.toString();
-        rawResult = rawResult.replaceAll("\\(\\s*-\\s+(\\d+)\\s*\\)", "-$1");
-        rawResult = rawResult.replaceAll("\\s+", " ");
-        System.out.println(rawResult);
-        //System.out.println("Checking if invariant is valid.");
+        DefinedFunc df = new DefinedFunc(ctx, extractor.names.get(0), argParas, inv);
+        logger.info("Checking if invariant is valid.");
         BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
         Expr invp = inv;
         for (Expr var : vars.values()) {
@@ -172,9 +169,11 @@ public class InvarTest {
         s.add(ctx.mkNot(ctx.mkAnd(e1, e2, e3)));
         Status r = s.check();
         if ( r == Status.UNSATISFIABLE ) {
-           //System.out.println("Valid.");
+            logger.info("Valid results");
+            this.results = new DefinedFunc[] {df};
         } else {
-           System.out.println("Not Valid, status: " + r.toString());
+            this.results = null;
+            logger.severe("Invalid results for AT algorithm");
         }
     }
 
