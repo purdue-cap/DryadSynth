@@ -244,47 +244,55 @@ public class Transf {
         }
     }
 
-    public static void getDelta(Expr nonCond, Map<String, Expr> vars, Map<Expr, Integer> deltas) {
-        Integer delta = null;
-        Expr variable = null;
+    public static boolean getDelta(Expr nonCond, Map<String, Expr> vars, Map<Expr, Integer> deltas) {
 
-        // assume nonCond only have the form x' = x + c
-        if(nonCond.isEq()) {
-            Expr[] args;
-            args = nonCond.getArgs();
-            for (Expr arg : args) {
-                if (!arg.isConst()) {
-                    boolean add = true;
-
-                    if (arg.isAdd()) {
-                        add = true;
-                    } else if (arg.isSub()) {
-                        add = false;
-                    } else {
-                        System.out.println("Deltas Extraction Failed!");
-                    }
-                    Expr[] subargs = arg.getArgs();
-                    for (Expr subarg : subargs) {
-                        if (vars.containsValue(subarg)) {
-                            variable = subarg;
-                            // System.out.println("var: " + variable);
-                            // System.out.println();
-                        } else {
-                            delta = Integer.valueOf(subarg.toString());
-                            // System.out.println("delta: " + delta);
-                            // System.out.println();
-                        }
-                    }
-                    if (add) {
-                    deltas.put(variable, delta);
-                    } else {
-                        deltas.put(variable, (-delta));
-                    }
-                }
-            }
-        } else {
-            System.out.println("Deltas Extraction Failed!");
+        // assume nonCond only have the form x! = x + c
+        // and x! = x
+        if (!nonCond.isEq()) {
+            return false;
         }
+        Expr[] args  = nonCond.getArgs();
+        if (!args[0].isConst()) {
+            return false;
+        }
+        boolean add = true;
+
+        if (args[1].isAdd()) {
+            add = true;
+        } else if (args[1].isSub()) {
+            add = false;
+        } else if (args[1].isConst()) {
+            if (vars.containsValue(args[1]) &&
+                    args[0].toString().equals(args[1].toString() + "!")) {
+                deltas.put(args[1], 0);
+                return true;
+            }
+            return false;
+        } else {
+            return false;
+        }
+
+        Expr[] subargs = args[1].getArgs();
+
+        if (!vars.containsValue(subargs[0])) {
+            return false;
+        }
+
+        if (!subargs[1].isIntNum())  {
+            return false;
+        }
+
+        if (!args[0].toString().equals(subargs[0].toString() + "!")) {
+            return false;
+        }
+
+        if (add) {
+        deltas.put(subargs[0], Integer.valueOf(subargs[1].toString()));
+        } else {
+            deltas.put(subargs[0], -Integer.valueOf(subargs[1].toString()));
+        }
+
+        return true;
     }
 
     public static Transf fromTransfFormula(Expr formula, Map<String, Expr> vars, Context ctx) {
@@ -321,7 +329,9 @@ public class Transf {
             Map<Expr, Integer> delta_map = new LinkedHashMap<Expr, Integer>();
 
             for(Expr nonCond : nonConds) {
-                getDelta(nonCond, vars, delta_map);
+                if (!getDelta(nonCond, vars, delta_map)) {
+                    return null;
+                }
             }
 
             int i = 0;

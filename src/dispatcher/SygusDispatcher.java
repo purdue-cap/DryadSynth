@@ -305,6 +305,9 @@ public class SygusDispatcher {
         }
         this.preparedAT = new AT(z3ctx, extractor, logger);
         this.preparedAT.init();
+        if (this.preparedAT.transfunc != null) {
+            return true;
+        }
         return false;
     }
 }
