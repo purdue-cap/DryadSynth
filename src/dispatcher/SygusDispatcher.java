@@ -21,6 +21,7 @@ public class SygusDispatcher {
     boolean hasFunc = false;
 
     AT preparedAT;
+    Thread [] fallbackCEGIS = null;
 
     SygusDispatcher(Context z3ctx, SygusExtractor extractor) {
         this.z3ctx = z3ctx;
@@ -82,22 +83,26 @@ public class SygusDispatcher {
             return;
         }
 
-        if (this.method == SolveMethod.CEGIS) {
-            logger.info("Initializing default CEGIS algorithms.");
-    		Producer1D pdc1d = new Producer1D();
-    		threads = new Thread[numCore];
-            if (numCore > 1) {
-        		for (int i = 0; i < numCore; i++) {
-        			Logger threadLogger = Logger.getLogger("main.thread" + i);
-        			threadLogger.setUseParentHandlers(false);
-        			FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
-        			threadHandler.setFormatter(new SimpleFormatter());
-        			threadLogger.addHandler(threadHandler);
-        			threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite);
-        		}
-            } else {
-    			threads[0] = new Cegis(extractor, pdc1d, mainThread, logger, minFinite, minInfinite);
+
+        logger.info("Initializing fallback CEGIS algorithms.");
+        Producer1D pdc1d = new Producer1D();
+        fallbackCEGIS = new Thread[numCore];
+        if (numCore > 1) {
+            for (int i = 0; i < numCore; i++) {
+                Logger threadLogger = Logger.getLogger("main.thread" + i);
+                threadLogger.setUseParentHandlers(false);
+                FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
+                threadHandler.setFormatter(new SimpleFormatter());
+                threadLogger.addHandler(threadHandler);
+                fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite);
             }
+        } else {
+            fallbackCEGIS[0] = new Cegis(extractor, pdc1d, mainThread, logger, minFinite, minInfinite);
+        }
+
+        if (this.method == SolveMethod.CEGIS) {
+            logger.info("No decidable fragment found, fallback to CEGIS.");
+            threads = fallbackCEGIS;
             return;
         }
 
@@ -136,59 +141,49 @@ public class SygusDispatcher {
             }
             return resList.toArray(new DefinedFunc[resList.size()]);
         }
-        if (this.method == SolveMethod.CEGIS) {
-            logger.info("Starting default CEGIS algorithms execution.");
-            if (numCore > 1) {
-                for (int i = 0; i < numCore; i++) {
-                    threads[i].start();
-                }
-        		while (true) {
-        			synchronized(mainThread) {
-        				mainThread.wait();
-        			}
-        			for (Thread thread : threads) {
-                        Cegis cegis = (Cegis)thread;
-        				if (cegis.results != null) {
-                            return cegis.results;
-        				}
-        			}
-        		}
-            } else {
-                threads[0].run();
-                return ((Cegis)threads[0]).results;
-            }
-        }
 
+        DefinedFunc[] results = null;
         if (this.method == SolveMethod.SSI) {
             logger.info("Starting SSI algorithms.");
             threads[0].run();
-            DefinedFunc[] results = ((SSI)threads[0]).results;
-            if (results == null) {
-                throw(new Exception());
-            }
-            return results;
+            results = ((SSI)threads[0]).results;
         }
 
         if (this.method == SolveMethod.SSICOMM) {
             logger.info("Starting SSI-Comm algorithms.");
             threads[0].run();
-            DefinedFunc[] results = ((SSICommu)threads[0]).results;
-            if (results == null) {
-                throw(new Exception());
-            }
-            return results;
+            results = ((SSICommu)threads[0]).results;
         }
 
         if (this.method == SolveMethod.AT){
             logger.info("Starting AT algorithms.");
             threads[0].run();
-            DefinedFunc[] results = ((AT)threads[0]).results;
-            if (results == null) {
-                throw(new Exception());
-            }
-            return results;
+            results = ((AT)threads[0]).results;
         }
-        return null;
+
+        if (this.method == SolveMethod.CEGIS || results == null) {
+            logger.info("Starting fallback CEGIS algorithms execution.");
+            if (numCore > 1) {
+                for (int i = 0; i < numCore; i++) {
+                    fallbackCEGIS[i].start();
+                }
+        		while (results == null) {
+        			synchronized(mainThread) {
+        				mainThread.wait();
+        			}
+        			for (Thread thread : fallbackCEGIS) {
+                        Cegis cegis = (Cegis)thread;
+        				if (cegis.results != null) {
+                            results = cegis.results;
+        				}
+        			}
+        		}
+            } else {
+                fallbackCEGIS[0].run();
+                results = ((Cegis)threads[0]).results;
+            }
+        }
+        return results;
 
     }
 
