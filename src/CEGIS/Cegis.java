@@ -11,6 +11,7 @@ public class Cegis extends Thread{
 	private Logger logger;
 	private int minFinite;
 	private int minInfinite;
+	private boolean maxsmtFlag;
 	private int fixedHeight = -1;
 	private int fixedCond = -1;
 	private Producer1D pdc1D = null;
@@ -22,30 +23,31 @@ public class Cegis extends Thread{
 	public volatile DefinedFunc[] results = null;
 	public volatile boolean running = true;
 
-	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond, Logger logger, int minFinite, int minInfinite) {
-		this(new Context(), extractor, logger, minFinite, minInfinite);
+	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
+		this(new Context(), extractor, logger, minFinite, minInfinite, maxsmtFlag);
 		this.fixedHeight = fixedHeight;
 		this.fixedCond = fixedCond;
 	}
 
-	public Cegis(SygusExtractor extractor, Producer1D pdc1D, Object condition, Logger logger, int minFinite, int minInfinite) {
-		this(new Context(), extractor, logger, minFinite, minInfinite);
+	public Cegis(SygusExtractor extractor, Producer1D pdc1D, Object condition, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
+		this(new Context(), extractor, logger, minFinite, minInfinite, maxsmtFlag);
 		this.pdc1D = pdc1D;
 		this.condition = condition;
 	}
 
-	public Cegis(SygusExtractor extractor, Producer2D pdc2D, Object condition, Logger logger, int minFinite, int minInfinite) {
-		this(new Context(), extractor, logger, minFinite, minInfinite);
+	public Cegis(SygusExtractor extractor, Producer2D pdc2D, Object condition, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
+		this(new Context(), extractor, logger, minFinite, minInfinite, maxsmtFlag);
 		this.pdc2D = pdc2D;
 		this.condition = condition;
 	}
 
-	public Cegis(Context ctx, SygusExtractor extractor, Logger logger, int minFinite, int minInfinite) {
+	public Cegis(Context ctx, SygusExtractor extractor, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
 		this.ctx = ctx;
 		this.extractor = extractor.translate(ctx);
 		this.logger = logger;
 		this.minFinite = minFinite;
 		this.minInfinite = minInfinite;
+		this.maxsmtFlag = maxsmtFlag;
 
 		this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
@@ -230,7 +232,14 @@ public class Cegis extends Thread{
 						//print out for debug
 						logger.info("Start synthesizing");
 
-						Status synth = testSynthesizer.synthesis(condBound);
+						Status synth = Status.UNKNOWN;
+
+						if (!maxsmtFlag) {
+							synth = testSynthesizer.synthesis(condBound);
+						} else {
+							synth = testSynthesizer.synthesisWithSMT();
+						}
+						
 						//print out for debug
 						logger.info("Synthesis Done");
 
@@ -275,7 +284,7 @@ public class Cegis extends Thread{
 							//flag = false;	//for test only
 
 							//logger.info(testSynthesizer.s.getModel());	//for test only
-							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.s.getModel(), testSynthesizer.e.getCoefficients(), extractor);
+							SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.getLastModel(), testSynthesizer.e.getCoefficients(), extractor);
 							//print out for debug
 							logger.info("Start decoding synthesizer output");
 							synthDecoder.generateFunction(functions);

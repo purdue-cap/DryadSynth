@@ -15,6 +15,7 @@ public class SygusDispatcher {
     int numCore;
     int minFinite = 20;
     int minInfinite = 5;
+    boolean maxsmtFlag = false;
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
@@ -40,6 +41,10 @@ public class SygusDispatcher {
 
     public void setMinInfinite(int min) {
         this.minInfinite = min;
+    }
+
+    public void setMaxSMTFlag(boolean maxsmt) {
+        this.maxsmtFlag = maxsmt;
     }
 
     public SolveMethod getMethod(){
@@ -93,10 +98,12 @@ public class SygusDispatcher {
         			FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
         			threadHandler.setFormatter(new SimpleFormatter());
         			threadLogger.addHandler(threadHandler);
-        			threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite);
+        			threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
+                    //threads[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite);
         		}
             } else {
-    			threads[0] = new Cegis(extractor, pdc1d, mainThread, logger, minFinite, minInfinite);
+    			threads[0] = new Cegis(extractor, pdc1d, mainThread, logger, minFinite, minInfinite, maxsmtFlag);
+                //threads[0] = new Cegis(extractor, pdc1d, mainThread, logger, minFinite, minInfinite);
             }
             return;
         }
