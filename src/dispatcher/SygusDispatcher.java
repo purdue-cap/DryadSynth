@@ -15,6 +15,7 @@ public class SygusDispatcher {
     int numCore;
     int minFinite = 20;
     int minInfinite = 5;
+    boolean maxsmtFlag = false;
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
@@ -41,6 +42,10 @@ public class SygusDispatcher {
 
     public void setMinInfinite(int min) {
         this.minInfinite = min;
+    }
+
+    public void setMaxSMTFlag(boolean maxsmt) {
+        this.maxsmtFlag = maxsmt;
     }
 
     public SolveMethod getMethod(){
@@ -83,7 +88,6 @@ public class SygusDispatcher {
             return;
         }
 
-
         logger.info("Initializing fallback CEGIS algorithms.");
         Producer1D pdc1d = new Producer1D();
         fallbackCEGIS = new Thread[numCore];
@@ -94,10 +98,10 @@ public class SygusDispatcher {
                 FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
                 threadHandler.setFormatter(new SimpleFormatter());
                 threadLogger.addHandler(threadHandler);
-                fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite);
+                fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
             }
         } else {
-            fallbackCEGIS[0] = new Cegis(extractor, pdc1d, mainThread, logger, minFinite, minInfinite);
+            fallbackCEGIS[0] = new Cegis(extractor, pdc1d, mainThread, logger, minFinite, minInfinite, maxsmtFlag);
         }
 
         if (this.method == SolveMethod.CEGIS) {

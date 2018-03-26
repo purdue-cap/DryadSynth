@@ -16,19 +16,51 @@ public class Run {
 		int minFinite = 20;
 		int minInfinite = 5;
 		int formattingBound = 65535;
+		boolean maxsmtFlag = false;
 
-		if (args.length == 2)  {
-			numCore = Integer.parseInt(args[1]);
+		if (args.length > 1) {
+			if (args[1].equals("-m")) {
+				maxsmtFlag = true;
+				if (args.length == 3)  {
+					numCore = Integer.parseInt(args[2]);
+				}
+				if (args.length == 4) {
+					minFinite = Integer.parseInt(args[2]);
+					minInfinite = Integer.parseInt(args[3]);
+				}
+				if (args.length >= 5) {
+					numCore = Integer.parseInt(args[2]);
+					minFinite = Integer.parseInt(args[3]);
+					minInfinite = Integer.parseInt(args[4]);
+				}
+			} else {
+				if (args.length == 2)  {
+					numCore = Integer.parseInt(args[1]);
+				}
+				if (args.length == 3) {
+					minFinite = Integer.parseInt(args[1]);
+					minInfinite = Integer.parseInt(args[2]);
+				}
+				if (args.length >= 4) {
+					numCore = Integer.parseInt(args[1]);
+					minFinite = Integer.parseInt(args[2]);
+					minInfinite = Integer.parseInt(args[3]);
+				}
+			}
 		}
-		if (args.length == 3) {
-			minFinite = Integer.parseInt(args[1]);
-			minInfinite = Integer.parseInt(args[2]);
-		}
-		if (args.length >= 4) {
-			numCore = Integer.parseInt(args[1]);
-			minFinite = Integer.parseInt(args[2]);
-			minInfinite = Integer.parseInt(args[3]);
-		}
+
+		// if (args.length == 2)  {
+		// 	numCore = Integer.parseInt(args[1]);
+		// }
+		// if (args.length == 3) {
+		// 	minFinite = Integer.parseInt(args[1]);
+		// 	minInfinite = Integer.parseInt(args[2]);
+		// }
+		// if (args.length >= 4) {
+		// 	numCore = Integer.parseInt(args[1]);
+		// 	minFinite = Integer.parseInt(args[2]);
+		// 	minInfinite = Integer.parseInt(args[3]);
+		// }
 
 		// ANTLRFileStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
 		ANTLRFileStream input = new ANTLRFileStream(args[0]);
@@ -72,6 +104,7 @@ public class Run {
 		dispatcher.setNumCore(numCore);
 		dispatcher.setMinFinite(minFinite);
 		dispatcher.setMinInfinite(minInfinite);
+		dispatcher.setMaxSMTFlag(maxsmtFlag);
 		dispatcher.prescreen();
 		dispatcher.initAlgorithm();
 		DefinedFunc[] results = dispatcher.runAlgorithm();
