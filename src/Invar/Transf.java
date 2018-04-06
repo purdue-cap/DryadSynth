@@ -34,6 +34,10 @@ public class Transf {
         return z3ctx.mkConst(orig.toString() + "!", z3ctx.mkIntSort());
     }
 
+    public Set<Region> getRegions() {
+        return this.transMap.keySet();
+    }
+
     public Expr toExpr() {
         List<Expr> clauses = new ArrayList<Expr>();
         for (Region r : transMap.keySet()) {
@@ -327,6 +331,7 @@ public class Transf {
             int size = vars.size();
             int[] deltas = new int[size];
             Map<Expr, Integer> delta_map = new LinkedHashMap<Expr, Integer>();
+
 
             for(Expr nonCond : nonConds) {
                 if (!getDelta(nonCond, vars, delta_map)) {

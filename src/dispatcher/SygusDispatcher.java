@@ -305,6 +305,21 @@ public class SygusDispatcher {
         this.preparedAT = new AT(z3ctx, extractor, logger);
         this.preparedAT.init();
         if (this.preparedAT.transfunc != null) {
+            Set<Region> regions = this.preparedAT.transfunc.getRegions();
+            for (Region r1: regions) {
+                for (Region r2: regions) {
+                    if (r1 == r2) {
+                        continue;
+                    }
+                    BoolExpr intersec = z3ctx.mkAnd((BoolExpr)r1.toExpr(), (BoolExpr)r2.toExpr());
+                    Solver s = z3ctx.mkSolver();
+                    s.add(intersec);
+                    Status r = s.check();
+                    if (r != Status.UNSATISFIABLE) {
+                        return false;
+                    }
+                }
+            }
             return true;
         }
         return false;

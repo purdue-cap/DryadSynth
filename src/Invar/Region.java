@@ -1,4 +1,5 @@
 import java.util.*;
+import java.lang.Math;
 import com.microsoft.z3.*;
 
 public class Region {
@@ -132,7 +133,7 @@ public class Region {
         return false;
     }
 
-    public static void eliminate_negation(Expr cond, List<Expr> nnCondList, Context ctx) {
+    public static void eliminate_negation(Expr cond, List<Expr> nnCondList, List<Expr[]> neTermList , Context ctx) {
 
         if (cond.isConst()) {
             return;
@@ -143,7 +144,7 @@ public class Region {
                 Expr inner = args[0];
                 Expr[] innerArgs = inner.getArgs();
                 if (inner.isNot()) {
-                    eliminate_negation(inner, nnCondList, ctx);
+                    eliminate_negation(inner, nnCondList, neTermList, ctx);
                 }
                 if (inner.isGE()) {
                     nnCondList.add(ctx.mkLt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
@@ -158,8 +159,7 @@ public class Region {
                     nnCondList.add(ctx.mkGt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
                 }
                 if (inner.isEq()) {
-                    nnCondList.add(ctx.mkLt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
-                    nnCondList.add(ctx.mkGt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]));
+                    neTermList.add(innerArgs);
                 }
             } else if (cond.isEq()) {
                 Expr[] innerArgs = cond.getArgs();
@@ -170,6 +170,22 @@ public class Region {
             }
         }
 
+    }
+
+    public static void construct_neqs_cond(List<Expr[]> neTermList, List<List<Expr>> neCondList, Context ctx) {
+        neCondList.add(new ArrayList<Expr>());
+        for (Expr[] args: neTermList) {
+            Expr lt = ctx.mkLt((ArithExpr)args[0], (ArithExpr)args[1]);
+            Expr gt = ctx.mkGt((ArithExpr)args[0], (ArithExpr)args[1]);
+            int size = neCondList.size();
+            for (int i = 0; i < size; i++) {
+                List<Expr> orig = neCondList.get(i);
+                List<Expr> copy = new ArrayList<Expr>((ArrayList<Expr>)orig);
+                orig.add(lt);
+                copy.add(gt);
+                neCondList.add(copy);
+            }
+        }
     }
 
     public static Expr getCoeff(Expr expr, Expr[] from, int index, int size) {
@@ -298,39 +314,52 @@ public class Region {
             }
         }
 
-        // Do splitting of Eqs and NEqs here
-        // Consider implementing this using a Z3 tactics
+        // Getting NEQs out and eliminate other negations.
+        // nnCondList after this shall contain all non-NEQs
+        // and neTermList shall contain terms for NEQs
         List<Expr> nnCondList = new ArrayList<Expr>();
+        List<Expr[]> neTermList = new ArrayList<Expr[]>();
         for (Expr c : condList) {
-            eliminate_negation(c, nnCondList, ctx);
+            eliminate_negation(c, nnCondList, neTermList, ctx);
         }
+        
+        // Construct NEq condition list
+        // Unavoidable exponential blow-up here
+        List<List<Expr>> neCondList = new ArrayList<List<Expr>>();
+        construct_neqs_cond(neTermList, neCondList, ctx);
 
-        // Do parsing of Exprs here
+        int num_region = neCondList.size();
+        Region[] region_array = new Region[num_region];
+
+        // Parsing of Base Exprs
         Map<Expr[], Expr> region_map = new LinkedHashMap<Expr[], Expr>();
         for (Expr nnCond : nnCondList) {
             normalize(nnCond, ctx, region_map);
         }
 
-        // Then add the conditions to the returning Region array 
-        int num_region = nnCondList.size();
-        Region[] region_array = new Region[num_region];
-
         int j = 0;
-        for (Map.Entry<Expr[], Expr> entry : region_map.entrySet()) {
-            Expr[] coeff = entry.getKey();
-            Expr constnt = entry.getValue();
-            int len = coeff.length;
-            int[] coefficient= new int[len];
-            int constant;
-            for (int i = 0; i < coeff.length; i++) {
-                coefficient[i] = convertExprToInt(coeff[i]);
+        for (List<Expr> neCond: neCondList) {
+            // Parsing of NEQ converted Exprs
+            Map<Expr[], Expr> full_region_map = new LinkedHashMap<Expr[], Expr>((LinkedHashMap<Expr[], Expr>)region_map);
+            for (Expr cond: neCond) {
+                normalize(cond, ctx, full_region_map);
             }
-            constant = convertExprToInt(constnt);
+
             region_array[j] = new Region(vars, ctx);
-            region_array[j].addCond(coefficient, constant);
+            for (Map.Entry<Expr[], Expr> entry : full_region_map.entrySet()) {
+                Expr[] coeff = entry.getKey();
+                Expr constnt = entry.getValue();
+                int len = coeff.length;
+                int[] coefficient= new int[len];
+                int constant;
+                for (int i = 0; i < coeff.length; i++) {
+                    coefficient[i] = convertExprToInt(coeff[i]);
+                }
+                constant = convertExprToInt(constnt);
+                region_array[j].addCond(coefficient, constant);
+            }
             j = j + 1;
         }
-
 
         return region_array;
     }
