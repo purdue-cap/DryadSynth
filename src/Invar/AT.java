@@ -57,6 +57,9 @@ public class AT extends Thread {
         }
 
         this.transfunc = Transf.fromTransfFormula(trans, vars, ctx);
+        if (this.transfunc != null) {
+            logger.info("Parsed tranf:" + this.transfunc.toString());
+        }
     }
     
     public void run () {
