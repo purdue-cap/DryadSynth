@@ -21,6 +21,7 @@ public class SygusExtractor extends SygusBaseListener {
     public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>(); // Original requests
     public Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>(); // Request arguments with readable names
     public Map<String, Expr[]> requestUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments
+    public Map<String, Expr[]> requestSyntaxUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments in Syntax, used in AT fragment
     public Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
     public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
     List<Expr> currentArgList;
@@ -87,6 +88,14 @@ public class SygusExtractor extends SygusBaseListener {
                 newArgList[i] = argList[i].translate(ctx);
             }
             newExtractor.requestUsedArgs.put(key, newArgList);
+        }
+        for(String key: this.requestSyntaxUsedArgs.keySet()){
+            Expr[] argList = this.requestSyntaxUsedArgs.get(key);
+            Expr[] newArgList = new Expr[argList.length];
+            for(int i = 0; i < argList.length; i++){
+                newArgList[i] = argList[i].translate(ctx);
+            }
+            newExtractor.requestSyntaxUsedArgs.put(key, newArgList);
         }
         for(String key : this.rdcdRequests.keySet()) {
             newExtractor.rdcdRequests.put(key, this.rdcdRequests.get(key).translate(ctx));
@@ -187,13 +196,22 @@ public class SygusExtractor extends SygusBaseListener {
             unused.addAll(unusedFromTrans);
             // Any variable used in postf is used
             unused.removeAll(usedInPost);
+            Set<Expr> syntaxUnused = new HashSet<Expr>(unusedFromPre);
+            syntaxUnused.addAll(unusedFromTrans);
+            syntaxUnused.removeAll(usedInTrans);
+            syntaxUnused.removeAll(usedInPost);
             List<Expr> usedList = new ArrayList<Expr>();
+            List<Expr> syntaxUsedList = new ArrayList<Expr>();
             for (Expr expr : requestArgs.get(name)) {
                 if (!unused.contains(expr)) {
                     usedList.add(expr);
                 }
+                if (!syntaxUnused.contains(expr)) {
+                    syntaxUsedList.add(expr);
+                }
             }
             requestUsedArgs.put(name, usedList.toArray(new Expr[usedList.size()]));
+            requestSyntaxUsedArgs.put(name, syntaxUsedList.toArray(new Expr[syntaxUsedList.size()]));
         }
 
         // Prepare for CLIA Scan

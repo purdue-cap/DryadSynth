@@ -50,7 +50,7 @@ public class AT extends Thread {
         Map<String, Expr[]> requestArgs = extractor.requestArgs;
         argParas = requestArgs.entrySet().iterator().next().getValue();
 
-        Map<String, Expr[]> requestUsedArgs = extractor.requestUsedArgs;
+        Map<String, Expr[]> requestUsedArgs = extractor.requestSyntaxUsedArgs;
         Expr[] usedVars = requestUsedArgs.entrySet().iterator().next().getValue();
         for (Expr var: usedVars) {
             vars.put(var.toString(), var);
