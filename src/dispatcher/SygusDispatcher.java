@@ -88,7 +88,7 @@ public class SygusDispatcher {
             return;
         }
 
-        logger.info("Initializing fallback CEGIS algorithms.");
+        logger.info("Initializing CEGIS algorithm as prepared fallback.");
         Producer1D pdc1d = new Producer1D();
         fallbackCEGIS = new Thread[numCore];
         if (numCore > 1) {
