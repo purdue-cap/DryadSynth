@@ -358,6 +358,10 @@ public class Region {
                 constant = convertExprToInt(constnt);
                 region_array[j].addCond(coefficient, constant);
             }
+            if (full_region_map.size() == 0) {
+                int[] coeff = new int[vars.size()];
+                region_array[j].addCond(coeff,0);
+            }
             j = j + 1;
         }
 
