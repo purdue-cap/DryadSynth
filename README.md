@@ -14,7 +14,7 @@ It is theoretically possible to run the program on Windows platform given a work
 
 ## Dependencies
 
-- JDK with version >= 7
+- JDK with version >= 9
 - Z3 with java bindings enabled
 
 ## Steps to compile
