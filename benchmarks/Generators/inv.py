@@ -4,6 +4,7 @@ import sys
 var = sys.argv[1:]
 varl = " ".join("({} Int)".format(i) for i in var)
 pvarl = " ".join("({}! Int)".format(i) for i in var)
+tplt = " ".join("(= {}! {})".format(i, i) for i in var)
 decl = "\n".join("(declare-primed-var {} Int)".format(i) for i in var)
 
 print("(set-logic LIA)")
@@ -16,7 +17,9 @@ print("(define-fun pre-f ({}) Bool".format(varl))
 print(")")
 print("")
 print("(define-fun trans-f ({} {}) Bool".format(varl, pvarl))
-print(")")
+print("(or ")
+print("(and {})".format(tplt))
+print("))")
 print("")
 print("(define-fun post-f ({}) Bool".format(varl))
 print(")")
