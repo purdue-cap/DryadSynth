@@ -2,6 +2,8 @@
 
 There benchmarks are adapted from [FiB](https://github.com/spencerxiao/ase2017-results-and-tools/tree/master/FiB_Tool/benchmarks) 
 
+However, all benchmarks with modular assertions in program body is not included.
+
 # Duplicate
 
 These benchmarks are marked as a similar duplicate to a already included one,
