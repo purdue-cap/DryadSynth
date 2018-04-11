@@ -16,6 +16,7 @@ public class SygusDispatcher {
     int minFinite = 20;
     int minInfinite = 5;
     boolean maxsmtFlag = false;
+    boolean enforceCEGIS = false;
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
@@ -52,7 +53,16 @@ public class SygusDispatcher {
         return method;
     }
 
+    public void setEnforceCEGIS(boolean enforce) {
+        this.enforceCEGIS = enforce;
+    }
+
     public void prescreen() {
+        if (this.enforceCEGIS) {
+            logger.info("Enforcing CEGIS algorithms, skipping prescreen.");
+            this.method = SolveMethod.CEGIS;
+            return;
+        }
         logger.info("Checking candidates generated from parsing.");
         boolean checkResult = this.validateCandidates();
         if (checkResult) {
@@ -105,7 +115,11 @@ public class SygusDispatcher {
         }
 
         if (this.method == SolveMethod.CEGIS) {
-            logger.info("No decidable fragment found, fallback to CEGIS.");
+            if (this.enforceCEGIS) {
+                logger.info("Enforcing CEGIS.");
+            } else {
+                logger.info("No decidable fragment found, fallback to CEGIS.");
+            }
             threads = fallbackCEGIS;
             return;
         }

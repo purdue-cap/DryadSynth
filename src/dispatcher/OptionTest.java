@@ -25,16 +25,18 @@ public class OptionTest {
             return;
         }
         System.out.println("maxSAT:" + options.has("m"));
-        System.out.println("threads:" + options.valuesOf("t").toString());
-        System.out.println("minFinite:" + options.valuesOf("f").toString());
-        System.out.println("minInfinite:" + options.valuesOf("i").toString());
-        System.out.println("formattingBound:" + options.valuesOf("b").toString());
+        System.out.println("threads:" + (int)options.valuesOf("t").get(0));
+        System.out.println("minFinite:" + (int)options.valuesOf("f").get(0));
+        System.out.println("minInfinite:" + (int)options.valuesOf("i").get(0));
+        System.out.println("formattingBound:" + (int)options.valuesOf("b").get(0));
         System.out.println("CEGISOnly:" + options.has("C"));
         System.out.println("modeCheckOnly:" + options.has("M"));
         System.out.println("verbose:" + options.has("v"));
         List<?> nargsl = options.nonOptionArguments();
-        String filename = (String)nargsl.get(0);
-        System.out.println("Filename:" + filename);
+        if (nargsl.size() >= 1) {
+            String filename = (String)nargsl.get(0);
+            System.out.println("Filename:" + filename);
+        }
     }
 }
 

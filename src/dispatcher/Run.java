@@ -7,72 +7,61 @@ import java.util.logging.Logger;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
+import joptsimple.OptionParser;
+import joptsimple.OptionSet;
 
 public class Run {
 	public static void main(String[] args) throws Exception {
 
 		long startTime = System.currentTimeMillis();
-		int numCore = Runtime.getRuntime().availableProcessors();
-		int minFinite = 20;
-		int minInfinite = 5;
-		int formattingBound = 65535;
-		boolean maxsmtFlag = false;
+        OptionParser oParser = new OptionParser();
+        oParser.acceptsAll(Arrays.asList("m", "maxSAT"), "Enable maxSAT");
+        oParser.acceptsAll(Arrays.asList("h", "?", "help"), "Print help");
+        oParser.acceptsAll(Arrays.asList("t", "threads"), "Numbers of parallel threads to use")
+            .withRequiredArg().ofType(Integer.class).defaultsTo(Runtime.getRuntime().availableProcessors());
+        oParser.acceptsAll(Arrays.asList("f", "minFinite"), "Timeout of finite region search, in minutes")
+            .withRequiredArg().ofType(Integer.class).defaultsTo(20);
+        oParser.acceptsAll(Arrays.asList("i", "minInfinite"), "Timeout of infinite region search, in minutes")
+            .withRequiredArg().ofType(Integer.class).defaultsTo(5);
+        oParser.acceptsAll(Arrays.asList("b", "formattingBound"), "Bound of output size to used string formatting instead of parser formatting")
+            .withRequiredArg().ofType(Integer.class).defaultsTo(65535);
+        oParser.acceptsAll(Arrays.asList("C", "CEGISOnly"), "Run synthesiszer in CEGIS mode only, disable all decidable fragments");
+        oParser.acceptsAll(Arrays.asList("M", "modeCheckOnly"), "Run mode check to determine fragment of the problem only, skipping all synthesis");
+        oParser.acceptsAll(Arrays.asList("v", "verbose"), "Enable verbose output of logs to stdout");
+        oParser.nonOptions("SyGuS benchmark file to process");
+        OptionSet options = oParser.parse(args);
+        if (options.has("h")) {
+            oParser.printHelpOn(System.out);
+            return;
+        }
 
-		if (args.length > 1) {
-			if (args[1].equals("-m")) {
-				maxsmtFlag = true;
-				if (args.length == 3)  {
-					numCore = Integer.parseInt(args[2]);
-				}
-				if (args.length == 4) {
-					minFinite = Integer.parseInt(args[2]);
-					minInfinite = Integer.parseInt(args[3]);
-				}
-				if (args.length >= 5) {
-					numCore = Integer.parseInt(args[2]);
-					minFinite = Integer.parseInt(args[3]);
-					minInfinite = Integer.parseInt(args[4]);
-				}
-			} else {
-				if (args.length == 2)  {
-					numCore = Integer.parseInt(args[1]);
-				}
-				if (args.length == 3) {
-					minFinite = Integer.parseInt(args[1]);
-					minInfinite = Integer.parseInt(args[2]);
-				}
-				if (args.length >= 4) {
-					numCore = Integer.parseInt(args[1]);
-					minFinite = Integer.parseInt(args[2]);
-					minInfinite = Integer.parseInt(args[3]);
-				}
-			}
-		}
+		int numCore = (int)options.valuesOf("t").get(0);
+		int minFinite = (int)options.valuesOf("f").get(0);
+		int minInfinite = (int)options.valuesOf("i").get(0);
+		int formattingBound = (int)options.valuesOf("b").get(0);
+		boolean maxsmtFlag = options.has("m");
 
-		// if (args.length == 2)  {
-		// 	numCore = Integer.parseInt(args[1]);
-		// }
-		// if (args.length == 3) {
-		// 	minFinite = Integer.parseInt(args[1]);
-		// 	minInfinite = Integer.parseInt(args[2]);
-		// }
-		// if (args.length >= 4) {
-		// 	numCore = Integer.parseInt(args[1]);
-		// 	minFinite = Integer.parseInt(args[2]);
-		// 	minInfinite = Integer.parseInt(args[3]);
-		// }
+        if (options.nonOptionArguments().size() < 1) {
+            System.out.println("Missing input file!");
+            oParser.printHelpOn(System.out);
+            return;
+        }
+
+        String fn = (String)options.nonOptionArguments().get(0);
 
 		// ANTLRFileStream is deprecated as of antlr 4.7, use it with antlr 4.5 only
-		ANTLRFileStream input = new ANTLRFileStream(args[0]);
+		ANTLRFileStream input = new ANTLRFileStream(fn);
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		SygusParser parser = new SygusParser(tokens);
 
 		Logger logger = Logger.getLogger("main");
-		logger.setUseParentHandlers(false);
-		FileHandler handler = new FileHandler("log.main.txt", false);
-		handler.setFormatter(new SimpleFormatter());
-		logger.addHandler(handler);
+        if (!options.has("v")) {
+            logger.setUseParentHandlers(false);
+            FileHandler handler = new FileHandler("log.main.txt", false);
+            handler.setFormatter(new SimpleFormatter());
+            logger.addHandler(handler);
+        }
 		logger.info(String.format("Using %d threads", numCore));
 		logger.info(String.format("Using finite coeffBound timeout %d mins and infinite coeffBound timeout %d mins", minFinite, minInfinite));
 
@@ -105,7 +94,12 @@ public class Run {
 		dispatcher.setMinFinite(minFinite);
 		dispatcher.setMinInfinite(minInfinite);
 		dispatcher.setMaxSMTFlag(maxsmtFlag);
+        dispatcher.setEnforceCEGIS(options.has("C"));
 		dispatcher.prescreen();
+        if (options.has("M")) {
+            System.out.println(dispatcher.getMethod().toString());
+            return;
+        }
 		dispatcher.initAlgorithm();
 		DefinedFunc[] results = dispatcher.runAlgorithm();
 

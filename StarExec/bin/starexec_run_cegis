@@ -4,6 +4,6 @@ export LD_LIBRARY_PATH=../lib
 export CLASSPATH=classes:../lib/antlr.jar:../lib/com.microsoft.z3.jar
 while true
 do
-    java -Djava.library.path=../lib Run -t 4 -f 20 -i 30 $1 2>/dev/null
+    java -Djava.library.path=../lib Run -C -t 4 -f 20 -i 30 $1 2>/dev/null
     [[ $? == 0 ]] && break
 done
