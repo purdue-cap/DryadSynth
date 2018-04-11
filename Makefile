@@ -9,7 +9,8 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 LIB_ANTLR := lib/antlr.jar
 LIB_Z3 := lib/com.microsoft.z3.jar
-export CP := $(LIB_Z3):$(LIB_ANTLR):classes:$(CLASSPATH)
+LIB_JOPTS := lib/jopt-simple.jar
+export CP := $(LIB_Z3):$(LIB_ANTLR):$(LIB_JOPTS):classes:$(CLASSPATH)
 export SP := build:$(subst $(SPACE),:,$(SUBDIRS))
 
 all: classes subdir
