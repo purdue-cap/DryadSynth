@@ -12,7 +12,7 @@
 
 (define-fun pre-f ((i Int) (pvlen Int) (t Int) (k Int) (n Int) (j Int) (turn Int)) Bool
 (and (= k 0) (= i 0) (= turn 0)
-)
+))
 
 (define-fun trans-f ((i Int) (pvlen Int) (t Int) (k Int) (n Int) (j Int) (turn Int) (i! Int) (pvlen! Int) (t! Int) (k! Int) (n! Int) (j! Int) (turn! Int)) Bool
 (or (and (= turn 0) (= i! (+ i 1)) (= pvlen! pvlen) (= t! t) (= k! k) (= n! n) (= j! j) (= turn! 0))

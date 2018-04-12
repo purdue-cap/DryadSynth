@@ -14,7 +14,7 @@
 (or (and (< i n) (= i! (+ i 1)) (= a! (+ a 1)) (= b! (+ b 2)) )
 (and (< i n) (= i! (+ i 1)) (= a! (+ a 2)) (= b! (+ b 1)) ) 
 (and (>= i n) (= i! i) (= a! a) (= b! b)
-))
+)))
 
 (define-fun post-f ((i Int) (n Int) (a Int) (b Int)) Bool
 (=> (not (< i n)) (= (+ a b) (+ (+ n n) n))))

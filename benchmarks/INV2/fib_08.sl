@@ -9,7 +9,7 @@
 (and (= x 0) (= y 0) ))
 
 (define-fun trans-f ((x Int) (y Int) (x! Int) (y! Int)) Bool
-(or(and (= x! (+ x 1)) (= y! (+ y 100))  )
+(or (and (= x! (+ x 1)) (= y! (+ y 100)))
 (and (>= x 4) (= x! (+ x 1)) (= y! (+ y 1)))
 (and (< x 0) (= x! x) (= y! (- y 1))))
 )
