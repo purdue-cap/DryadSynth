@@ -1,9 +1,0 @@
-#!/bin/bash
-
-export LD_LIBRARY_PATH=../lib
-export CLASSPATH=classes:../lib/antlr.jar:../lib/com.microsoft.z3.jar
-while true
-do
-    java -Djava.library.path=../lib InvarTest $1 2>/dev/null
-    [[ $? == 0 ]] && break
-done
