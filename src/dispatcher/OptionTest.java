@@ -25,10 +25,10 @@ public class OptionTest {
             return;
         }
         System.out.println("maxSAT:" + options.has("m"));
-        System.out.println("threads:" + (int)options.valuesOf("t").get(0));
-        System.out.println("minFinite:" + (int)options.valuesOf("f").get(0));
-        System.out.println("minInfinite:" + (int)options.valuesOf("i").get(0));
-        System.out.println("formattingBound:" + (int)options.valuesOf("b").get(0));
+        System.out.println("threads:" + (Integer)options.valuesOf("t").get(0));
+        System.out.println("minFinite:" + (Integer)options.valuesOf("f").get(0));
+        System.out.println("minInfinite:" + (Integer)options.valuesOf("i").get(0));
+        System.out.println("formattingBound:" + (Integer)options.valuesOf("b").get(0));
         System.out.println("CEGISOnly:" + options.has("C"));
         System.out.println("modeCheckOnly:" + options.has("M"));
         System.out.println("verbose:" + options.has("v"));

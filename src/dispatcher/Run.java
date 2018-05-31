@@ -35,10 +35,10 @@ public class Run {
             return;
         }
 
-		int numCore = (int)options.valuesOf("t").get(0);
-		int minFinite = (int)options.valuesOf("f").get(0);
-		int minInfinite = (int)options.valuesOf("i").get(0);
-		int formattingBound = (int)options.valuesOf("b").get(0);
+		int numCore = (Integer)options.valuesOf("t").get(0);
+		int minFinite = (Integer)options.valuesOf("f").get(0);
+		int minInfinite = (Integer)options.valuesOf("i").get(0);
+		int formattingBound = (Integer)options.valuesOf("b").get(0);
 		boolean maxsmtFlag = options.has("m");
 
         if (options.nonOptionArguments().size() < 1) {
