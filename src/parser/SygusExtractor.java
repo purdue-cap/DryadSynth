@@ -12,7 +12,7 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     enum CmdType {
-        SYNTHFUNC, SYNTHINV, FUNCDEF, CONSTRAINT, INVCONSTRAINT, DECLVAR, DECLPVAR, NONE
+        SYNTHFUNC, SYNTHINV, FUNCDEF, CONSTRAINT, INVCONSTRAINT, DECLVAR, DECLPVAR, NTDEF, NONE
     }
     CmdType currentCmd = CmdType.NONE;
     boolean currentOnArgList = false;
@@ -26,9 +26,9 @@ public class SygusExtractor extends SygusBaseListener {
     public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
     List<Expr> currentArgList;
     List<Sort> currentSortList;
-    
+
     public enum ProbType {
-        CLIA, INV
+        CLIA, INV, GENERAL
     }
     public ProbType problemType = null;
 
@@ -43,6 +43,25 @@ public class SygusExtractor extends SygusBaseListener {
 
     public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
     Map<String, Expr> defFuncVars;
+
+    // For grammar parsing
+    public Map<String, Sort> grammarSybSort = new LinkedHashMap<String, Sort>();
+    public Map<String, List<String[]>>  grammarRules = new LinkedHashMap<String, List<String[]>>();
+    String currentSymbol;
+    boolean inGrammarArgs = false;
+    List<String> grammarArgs = new ArrayList<String>();
+    // Internal expressions that might be used in grammars
+    public static final String[] internalOpsArray = new String[] {
+        "+","-","*","/","and","or","not","<",">","=","<=",">=","=>","ite"
+    };
+    public static final Set<String> internalOps = new HashSet<String>(Arrays.asList(internalOpsArray));
+
+    // For symbol resolving
+    enum SybType {
+        LITERAL, VAR, FUNC, SYMBOL
+    }
+    public Map<String, SybType> sybTypeTbl = new LinkedHashMap<String, SybType>();
+    public boolean isGeneral;
 
     Sort strToSort(String name) {
         Sort sort;
@@ -378,6 +397,7 @@ public class SygusExtractor extends SygusBaseListener {
         } else {
             newVar = z3ctx.mkConst(name, type);
             vars.put(name, newVar);
+            sybTypeTbl.put(name, SybType.VAR);
             if (!prime) {
                 regularVars.put(name, newVar);
             }
@@ -477,7 +497,58 @@ public class SygusExtractor extends SygusBaseListener {
         Expr def = (Expr)termStack.pop();
         DefinedFunc func = new DefinedFunc(z3ctx, name, argList, def);
         funcs.put(name, func);
+        sybTypeTbl.put(name, SybType.FUNC);
         currentCmd = CmdType.NONE;
+    }
+
+    public void enterNTDef(SygusParser.NTDefContext ctx) {
+        problemType = ProbType.GENERAL;
+        isGeneral = true;
+        currentCmd = CmdType.NTDEF;
+        currentSymbol = ctx.symbol().getText();
+        Sort currentSort = strToSort(ctx.sortExpr().getText());
+        grammarSybSort.put(currentSymbol, currentSort);
+        sybTypeTbl.put(currentSymbol, SybType.SYMBOL);
+        grammarRules.put(currentSymbol, new ArrayList<String[]>());
+    }
+
+    public void exitNTDef(SygusParser.NTDefContext ctx) {
+        currentCmd = CmdType.NONE;
+    }
+
+    public void enterGTerm(SygusParser.GTermContext ctx) {
+        if (ctx.gTermStar() != null) {
+            inGrammarArgs = true;
+        }
+    }
+
+    public void exitGTerm(SygusParser.GTermContext ctx) {
+        String currentTerm;
+        if (ctx.symbol() != null){
+            currentTerm = ctx.symbol().getText();
+        } else if (ctx.literal() != null) {
+            currentTerm = ctx.literal().getText();
+            sybTypeTbl.put(currentTerm, SybType.LITERAL);
+        } else {
+            currentTerm = null;
+        }
+        if (inGrammarArgs) {
+            if (ctx.gTermStar() == null) {
+                grammarArgs.add(currentTerm);
+            } else {
+                if (internalOps.contains(currentTerm)) {
+                    sybTypeTbl.put(currentTerm, SybType.FUNC);
+                }
+                String[] args = grammarArgs.toArray(new String[grammarArgs.size()]);
+                String[] repr = Arrays.copyOf(new String[]{currentTerm}, 1 + args.length);
+                System.arraycopy(args, 0, repr, 1, args.length);
+                grammarRules.get(currentSymbol).add(repr);
+                grammarArgs.clear();
+                inGrammarArgs = false;
+            }
+        } else {
+            grammarRules.get(currentSymbol).add(new String[]{currentTerm});
+        }
     }
 
     // Since vars in `defFuncVars` should now be always in `vars`, this
@@ -559,7 +630,11 @@ public class SygusExtractor extends SygusBaseListener {
         }
     }
 
-    Expr operationDispatcher(String name, Expr[] args) {
+    public Expr operationDispatcher(String name, Expr[] args) {
+        return operationDispatcher(name, args, false);
+    }
+
+    public Expr operationDispatcher(String name, Expr[] args, boolean definedOnly) {
         if (name.equals("+")) {
             return z3ctx.mkAdd(Arrays.copyOf(args, args.length, ArithExpr[].class));
         }
@@ -605,6 +680,9 @@ public class SygusExtractor extends SygusBaseListener {
         DefinedFunc df = funcs.get(name);
         if (df != null) {
             return df.apply(args);
+        }
+        if (definedOnly) {
+            return null;
         }
         FuncDecl f = requests.get(name);
         if (f != null) {
