@@ -18,6 +18,8 @@ public class Cegis extends Thread{
 	private Producer2D pdc2D = null;
 	private Object condition = null;
 
+	private boolean isGeneral = false;
+
 	public Map<String, Expr> functions;
 	public Set<Expr[]> counterExamples;
 	public volatile DefinedFunc[] results = null;
@@ -239,7 +241,7 @@ public class Cegis extends Thread{
 						} else {
 							synth = testSynthesizer.synthesisWithSMT();
 						}
-						
+
 						//print out for debug
 						logger.info("Synthesis Done");
 
