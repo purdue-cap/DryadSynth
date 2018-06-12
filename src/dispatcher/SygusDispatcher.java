@@ -63,8 +63,14 @@ public class SygusDispatcher {
             this.method = SolveMethod.CEGIS;
             return;
         }
+        boolean checkResult = this.checkGeneral();
+        if (checkResult) {
+            logger.info("General SyGuS problem detected, using CEGIS.");
+            this.method = SolveMethod.CEGIS;
+            return;
+        }
         logger.info("Checking candidates generated from parsing.");
-        boolean checkResult = this.validateCandidates();
+        checkResult = this.validateCandidates();
         if (checkResult) {
             logger.info("Parsed candidates are valid.");
             this.method = SolveMethod.PRESCREENED;
@@ -203,6 +209,10 @@ public class SygusDispatcher {
         }
         return results;
 
+    }
+
+    boolean checkGeneral() {
+        return extractor.isGeneral;
     }
 
     boolean validateCandidates() {
