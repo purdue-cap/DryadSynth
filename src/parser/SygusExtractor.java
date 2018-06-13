@@ -173,6 +173,11 @@ public class SygusExtractor extends SygusBaseListener {
         // This listener is for used variable scanning after the parsing of the
         // input benchmark, for the sake of simplifying function synthesis
 
+        // Currently we're not trying these procedures on General tracks
+        if (isGeneral) {
+            return;
+        }
+
         // CLIA problems and INV problems shall be handled separately
         Set<String> invFuncs = new HashSet<String>();
         for (String name : names) {
