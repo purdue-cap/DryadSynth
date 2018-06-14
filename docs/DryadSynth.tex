@@ -21,7 +21,7 @@
 %% Legal Notice:
 %% This code is offered as-is without any warranty either expressed or
 %% implied; without even the implied warranty of MERCHANTABILITY or
-%% FITNESS FOR A PARTICULAR PURPOSE! 
+%% FITNESS FOR A PARTICULAR PURPOSE!
 %% User assumes all risk.
 %% In no event shall the IEEE or any contributor to this code be liable for
 %% any damages or losses, including, but not limited to, incidental,
@@ -136,7 +136,7 @@
 % graphicx was written by David Carlisle and Sebastian Rahtz. It is
 % required if you want graphics, photos, etc. graphicx.sty is already
 % installed on most LaTeX systems. The latest version and documentation
-% can be obtained at: 
+% can be obtained at:
 % http://www.ctan.org/pkg/graphicx
 % Another good source of documentation is "Using Imported Graphics in
 % LaTeX2e" by Keith Reckdahl which can be found at:
@@ -318,6 +318,15 @@
 \usepackage{float}
 \usepackage{subfigure}
 \newcommand{\DryadSynth}{{\sc DryadSynth~}}
+\newcommand{\vecx}{\vec{x}}
+\newcommand{\vecy}{\vec{y}}
+\newcommand{\vect}{\vec{t}}
+\newcommand{\vecc}{\vec{c}}
+\newcommand{\ite}{\mathrm{ite}}
+\newcommand{\inv}{\mathrm{\mathbf{inv}}}
+\newcommand{\pre}{\mathrm{\mathbf{pre}}}
+\newcommand{\post}{\mathrm{\mathbf{post}}}
+\newcommand{\trans}{\mathrm{\mathbf{trans}}}
 
 \begin{document}
 %
@@ -337,7 +346,11 @@
 \IEEEauthorblockA{School of Electrical and Computer Engineering\\
 Purdue University\\
 West Lafayette, Indiana 47907--2035\\
-Email: \{kangjinghuang,xkqiu,wang3204\}@purdue.edu}}
+Email: \{kangjinghuang,xkqiu,wang3204\}@purdue.edu}\\
+\IEEEauthorblockN{Qi Tian}
+\IEEEauthorblockN{Nanjing University \\
+Nanjing, Jiangsu, China\\
+Email: 141250126@smail.nju.edu.cn}}
 
 % conference papers do not typically use \thanks and this command
 % is locked out in conference mode. If really needed, such as for
@@ -346,10 +359,10 @@ Email: \{kangjinghuang,xkqiu,wang3204\}@purdue.edu}}
 
 % for over three affiliations, or if they all won't fit within the width
 % of the page, use this alternative format:
-% 
+%
 %\author{\IEEEauthorblockN{Michael Shell\IEEEauthorrefmark{1},
 %Homer Simpson\IEEEauthorrefmark{2},
-%James Kirk\IEEEauthorrefmark{3}, 
+%James Kirk\IEEEauthorrefmark{3},
 %Montgomery Scott\IEEEauthorrefmark{3} and
 %Eldon Tyrell\IEEEauthorrefmark{4}}
 %\IEEEauthorblockA{\IEEEauthorrefmark{1}School of Electrical and Computer Engineering\\
@@ -394,7 +407,7 @@ this paper presents \DryadSynth, a concolic SyGuS solver. The synthesis algorith
 % creates the second title. It will be ignored for other modes.
 \IEEEpeerreviewmaketitle
 
-\DryadSynth is a Syntax-Guided Synthesis (SyGuS) synthesizer that combines explicit search and symbolic search. The solver currently supports synthesis for Conditional Linear Integer Arithmetic (CLIA) and Invariants (INV). For both the two tracks, a conditional arithmetic function or predicate is represented using a decision-tree data structure. 
+\DryadSynth is a Syntax-Guided Synthesis (SyGuS) synthesizer that combines explicit search and symbolic search. The solver currently supports synthesis for Conditional Linear Integer Arithmetic (CLIA) and Invariants (INV). For both the two tracks, a conditional arithmetic function or predicate is represented using a decision-tree data structure.
 
 \subsection*{Decision Tree Representation}
 
@@ -404,8 +417,8 @@ Representing invariants is similar. The only difference is that the leaf node wi
 
 We assume that the decision-tree is a full binary tree -- if it is not full, one can extend the tree with extra nodes with a tautology condition, e.g., $1 \geq 0$. This allows us to reduce the SyGuS synthesis problem to the problem of searching for:
 \begin{itemize}
-\item[a)] the height of the decision tree; 
-\item[b)] the field values $c_0, \dots, c_n$ for each node. 
+\item[a)] the height of the decision tree;
+\item[b)] the field values $c_0, \dots, c_n$ for each node.
 \end{itemize}
 
 
@@ -437,7 +450,7 @@ Overall, \DryadSynth implements the standard CEGIS framework~\cite{sketch}. The 
 
 The synthesizer in the CEGIS framework adopts an enumeration strategy: it enumerates all possible heights of the decision tree, starting from $1$. In each iteration of the CEGIS loop, the synthesizer attempts to synthesize a solution with the current height $h$. If there is no solution, the synthesizer increases the height to $h+1$ and retry.
 
-For each synthesis attempt, the height $h$ is fixed and a set of counterexamples $\Gamma$ is available. The synthesis task is to find all field values of the full decision tree of height $h$, representing a function $f_0$, such that for any counterexample $\vec{d}$ in $\Gamma$, the synthesis specification is valid: $\displaystyle \bigwedge_{\vec{d} \in \Gamma} \varphi(f_0, \vec{d})$. 
+For each synthesis attempt, the height $h$ is fixed and a set of counterexamples $\Gamma$ is available. The synthesis task is to find all field values of the full decision tree of height $h$, representing a function $f_0$, such that for any counterexample $\vec{d}$ in $\Gamma$, the synthesis specification is valid: $\displaystyle \bigwedge_{\vec{d} \in \Gamma} \varphi(f_0, \vec{d})$.
 
 \DryadSynth symbolically solves the synthesis task by encoding it to a SMT query. Notice that the full decision tree of height $h$ consists of $2^h - 1$ nodes. We first encode the location of each node to a distinct integer between $0$ and $2^h-2$, and represent the field $c_i$ of node $j$ as $c_i^j$. Then each occurrence of $f(\vec{d})$ in the synthesis condition with concrete $\vec{d}$ can be encoded using these field variables. For example, if an assignment $(x_1 = 1, x_2 = 2)$ is a counterexample in $\Gamma$ and the current height is $2$, then the expression $f(1, -2)$ can be represented as a LIA expression $$\textrm{if~} c_0^0 + c_1^0 - 2c_2^0 \geq 0 \textrm{~then~} c_0^1 + c_1^1 - 2c_2^1 \textrm{~else~} c_0^2 + c_1^2 - 2c_2^2$$
 
@@ -447,9 +460,9 @@ While the naive enumeration algorithm incrementally searches all possible height
 
 We observed several things from the synthesis results for SyGuS benchmarks:
 \begin{enumerate}
-\item most of the $c_i$'s are very small. In fact, a lot of benchmarks don't need any coefficient beyond $0$, $1$, or $-1$. 
-\item when a benchmark's solution contains large coefficients, there is usually a large coefficient in the specification as well. 
-\item if the search space to restricted to solutions with small coefficients only, the performance can be significantly improved. 
+\item most of the $c_i$'s are very small. In fact, a lot of benchmarks don't need any coefficient beyond $0$, $1$, or $-1$.
+\item when a benchmark's solution contains large coefficients, there is usually a large coefficient in the specification as well.
+\item if the search space to restricted to solutions with small coefficients only, the performance can be significantly improved.
 \end{enumerate}
 These observations allow us to optimize the synthesis algorithm by leveraging a multi-stage strategy. For each height $h$, we split the CEGIS loop into three stages:
 \begin{enumerate}
@@ -459,6 +472,65 @@ These observations allow us to optimize the synthesis algorithm by leveraging a 
 \end{enumerate}
 
 We also implemented several simplification strategies. For example, a variable $x$ is irrelevant in an invariant synthesis problem if: a) $x$ does not appear in the $pre$ function or $x'$ does not appear in the $trans$ function; and b) $x$ does not appear in the $post$ function.
+
+\subsection*{Decidable fragments}
+
+In addition to our Concolic algorithm as a general-purpose algorithm, we also identified two decidable fragments as subclasses of SyGuS benchmarks, and developed two \emph{pure symbolic and decidable procedures}, namely \emph{Strong Single Invocation}(SSI) and \emph{Acyclic Translational} invariant synthesis in \DryadSynth. Although these two decidable fragments are not general enough to serve as standalone synthesiszers, we found they cover a nontrivial portion of SyGuS benchmarks and could work as a complement to our concolic algorithm.
+
+\subsubsection*{Strong Single Invocation}
+This fragment is defined based on a \emph{strong single invocation} property:
+
+A CLIA synthesis problem with synthesis specification $\varphi(f, \vec{x})$ has the Strong Single Invocation property if there is a single vector of terms $t$ such that
+\begin{enumerate}
+    \item $f$ only occurs in $\varphi$ as $f(\vec{t})$;
+    \item in each atomic formula, $f(\vec{t})$ occurs at most once.
+\end{enumerate}
+
+Due to the first property, for such a problem, the formula $\exists f \forall \vecx \varphi (f; \vecx)$ is logically equivalent to $\forall \vecx \exists z \varphi (z; \vecx)$, where $\varphi(z; \vecx)$ replaces all occurrences of $f(\vect)$ in $\varphi (z; \vecx)$ with $z$, a CLIA term.
+
+Now notice that its negation, $\forall z \neg \varphi(z; \vecx)$, is a first-order CLIA formula, and the satisfiability can be decided. Obviously, if the formula is satisfiable, the satisfying assignment of $\vecx$ witnesses the original synthesis problem is unsynthesizable. Hence what remains is to show that if $\forall z \neg \varphi(z; \vecx)$ is unsatisfiable, i.e., $\forall \vecx \exists z \varphi(z; \vecx)$ is valid, the function $f$ can be implemented: there is a CLIA term $t(\vecx)$ such that $\varphi(t(\vecx); \vecx)$ is valid.
+
+Now due to the second property, $\varphi(z;x)$ could be normalized such that every atomic formula is in the form of $z\ge t(\vecx)$ or $z\le t(\vecx)$. Now as we assume $\forall \vecx \exists z \varphi(z; \vecx)$  is valid, and let the set of all $t(\vecx)$ in these forms to be $T$. For each $t_i(\vecx) \in T$, $z = t_i(\vecx)$ must be a valid solution if $\varphi(t_i(\vecx); \vecx)$ is valid. As specification $\varphi(z;x)$ only has atomic formulae in such forms, by enumerating every $t_i(\vecx) \in T$ from $\varphi(z;x)$ as the value of $f(\vect)$ and check if $\varphi(t_i(\vecx);x)$ is valid as the branch condition to use that term, we could build a solution to the problem:
+
+\begin{displaymath}
+\begin{array}{lll}
+f(\vecx) = z & = & \ite \Big( \varphi(t_1(\vecx); \vecx),~ t_1(\vecx),  \\
+& & ~~~~ \ite \Big( \varphi(t_2(\vecx); \vecx),~ t_2(\vecx), \\
+& & ~~~~~~~~ \ite \Big( \cdots ,~ t_3(\vecx), \\
+& & ~~~~~~~~~~~~ \cdots, 0 \Big) \cdots \Big) \Big) \\
+\end{array}
+\end{displaymath}
+
+\subsubsection*{Acyclic Translational Invariant Synthesis}
+
+Another decidable fragment is for invariant synthesis. First we define a invariant synthesis problem
+\begin{displaymath}
+\begin{array}{lll}
+\varphi(\inv; \vecx) & \equiv & \Big( \pre(\vecx) \rightarrow \inv(\vecx) \Big) \\
+& \wedge & \Big( \inv(\vecx) \rightarrow \inv(\trans(\vecx)) \Big) \\
+& \wedge & \Big( \inv(\vecx) \rightarrow \post(\vecx) \Big)
+\end{array}
+\end{displaymath}
+to be \emph{translational} if the corresponding $\trans(\vecx)$ term is defined in a way such that all atomic terms occurring in it are of the form $\vecx + \vecc$. We call this term $\trans$ as translational CLIA term as well.
+
+Then, we could extend the translational CLIA term $\trans(\vecx)$ to a translation on any CLIA condition $\varphi(\vecx)$, denoted as $\trans(\varphi)$ so that $\forall\vecx\Big(\varphi(\vecx) \leftrightarrow \trans(\varphi)(\trans(\vecx))\Big)$.
+
+At this point, intuitively, the problem of finding invariant for the translational invariant synthesis problem could be converted to finding the \emph{transitive closure} of $\pre$ in $\trans$: $\trans^*(\pre)$. Actually it could be proved that, the translational invariant synthesis problem has a solution if and only if $\trans^*(\pre) \rightarrow \post$ is valid, and $\trans^*(\pre)$ should be the strongest invariant possible.
+
+To calculate the transitive closure, we normalize $\trans$ so that in this term, for each occurrence of conditional term $\ite(\varphi, \vect_1, \vect_2)$, $\varphi$ is free of disjunction, and $\vect_1$ is an atomic term of the form $\vecx + \vecc$; and for each two occurrences $\ite(\varphi, \vect_1, \vect_2)$ and $\ite(\psi, \vect_3, \vect_4)$, $\varphi$ and $\psi$ are disjoint, i.e. $\varphi \land \psi = \bot$;
+
+Then we could obtain two other translational terms from $\trans$, $\trans_l$ and $\trans_c$, such that for any $\vecx$ and $\vecy$, $\trans_l(\vecx) = \vecy$ if and only if $\trans(\vecx) = \vecy$ and $\vecx$ and $\vecy$ belong to the same branch, $\trans_c(\vecx) = \vecy$ if and only if $\trans(\vecx) = \vecy$ and $\vecx$ and $\vecy$ belong to two different branches.
+
+By dividing the translational terms to local translational terms ($\trans_l$) and cross-branch translational terms ($\trans_c$). The symbolic calculation of the transitive closure could be converted as well. It could be proven that for any translational CLIA term $\trans$ and any CLIA condition $\varphi$, $\trans^*(\varphi)\equiv \trans_l^*\circ(\trans_c\circ\trans_l^*)^*$
+
+For the local translational terms, we use a quantifier elimination based fast transformation to calculate its transitive closure $\trans_l^*$. $\trans_l^*$ perserves the branch so to calculate $\trans_l^*(\varphi)$ we could divide $\varphi$ into each branch and calculate the transitive closure separately. It could be proven that given the branch condition is $\psi$ and translational term is $\vecx + \vecc$, the local transitive closure could be expressed as
+$$\trans_l^*(\varphi) \equiv \exists k \left(k\ge 0 \land \varphi(\vecx - k\cdot\vecc) \land \psi(\vecx - k \cdot\vecc)\right)$$ Intuitively, this comes from the observations that if a vector $\vecx$ is in the local transitive closure $\trans_l^*(\varphi)$, it must be able to be reached from another vector in $\varphi$ in a finite number of translations without crossing the branches.
+
+Next, we introduce the notion of transition graph for translational terms. The transition graph $(V, E)$ of $\trans$ is a directed graph with $V$ being the set of all branches $V = \{v_{\psi,\vecc}\}$ as vertices and $E$ denoting reachability between branches $E = \{ (v_{\psi, \vecc}, v_{\psi', \vecc'}) \mid \psi(\vecx) \wedge \psi'(\vecx+\vecc) \textrm{ is satisfiable} \}$ as directed edges. We denote the translational term $\trans$ and its related translational invariant synthesis problem to be acyclic translational if its corresponding transition graph is acyclic.
+
+For acyclic translational terms, the calculation of $(\trans_c\circ\trans_l^*)^*$ could be converted to a finite series of the underlying translations. As we have already discussed about the calculation of $\trans_l^*$ by quantifier elimination. The calculation of  $\trans^*(\varphi)\equiv \trans_l^*\circ(\trans_c\circ\trans_l^*)^*$ could thus be done in such a decidable procedure. And then we can check it against $\post$ to determine if it is a solution to the problem or conclude that there's no solution.
+
+One thing needs to be noted is that the invariant generated by the above procedure could contain modulo expressions generated from quantifier eliminations, which would make the solution non-CLIA. This could be solved by dropping all the modulo assertions (replace them with $\top$). It could be proven that if the term with the modulo assertions is a solution to the synthesis problem, the one with the assertions dropped is a solution as well.
 
 %\section{Introduction}
 %% no \IEEEPARstart
@@ -470,7 +542,7 @@ We also implemented several simplification strategies. For example, a variable $
 %I wish you the best of success.
 %
 %\hfill mds
-% 
+%
 %\hfill August 26, 2015
 %
 %\subsection{Subsection Heading Here}
@@ -497,7 +569,7 @@ We also implemented several simplification strategies. For example, a variable $
 %\begin{figure}[!t]
 %\centering
 %\includegraphics[width=2.5in]{myfigure}
-% where an .eps filename suffix will be assumed under latex, 
+% where an .eps filename suffix will be assumed under latex,
 % and a .pdf suffix will be assumed for pdflatex; or what has been declared
 % via \DeclareGraphicsExtensions.
 %\caption{Simulation results for the network.}
@@ -513,7 +585,7 @@ We also implemented several simplification strategies. For example, a variable $
 % The subfigure \label commands are set within each subfloat command,
 % and the \label for the overall figure must come after \caption.
 % \hfil is used as a separator to get equal spacing.
-% Watch out that the combined width of all the subfigures on a 
+% Watch out that the combined width of all the subfigures on a
 % line do not exceed the text width or a line break will occur.
 %
 %\begin{figure*}[!t]
@@ -570,7 +642,7 @@ We also implemented several simplification strategies. For example, a variable $
 % in-text middle ("here") positioning is typically not used, but it
 % is allowed and encouraged for Computer Society conferences (but
 % not Computer Society journals). Most IEEE journals/conferences use
-% top floats exclusively. 
+% top floats exclusively.
 % Note that, LaTeX2e, unlike IEEE journals/conferences, places
 % footnotes above bottom floats. This can be corrected via the
 % \fnbelowfloat command of the stfloats package.
@@ -636,5 +708,3 @@ We also implemented several simplification strategies. For example, a variable $
 
 % that's all folks
 \end{document}
-
-
