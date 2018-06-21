@@ -25,6 +25,7 @@ public class SygusExtractor extends SygusBaseListener {
     public Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
     public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
     List<Expr> currentArgList;
+    List<String> currentArgNameList;
     List<Sort> currentSortList;
 
     public enum ProbType {
@@ -45,8 +46,17 @@ public class SygusExtractor extends SygusBaseListener {
     Map<String, Expr> defFuncVars;
 
     // For grammar parsing
-    public Map<String, Sort> grammarSybSort = new LinkedHashMap<String, Sort>();
-    public Map<String, List<String[]>>  grammarRules = new LinkedHashMap<String, List<String[]>>();
+    enum SybType {
+        LITERAL, GLBVAR, FUNC, SYMBOL, LCLARG
+    }
+    // Inner grammar class
+    static class CFG {
+        public Map<String, Sort> grammarSybSort = new LinkedHashMap<String, Sort>();
+        public Map<String, List<String[]>>  grammarRules = new LinkedHashMap<String, List<String[]>>();
+        // For symbol resolving
+        public Map<String, SybType> sybTypeTbl = new LinkedHashMap<String, SybType>();
+        public Map<String, Expr> localArgs = new LinkedHashMap<String, Expr>();
+    }
     String currentSymbol;
     boolean inGrammarArgs = false;
     List<String> grammarArgs = new ArrayList<String>();
@@ -56,11 +66,9 @@ public class SygusExtractor extends SygusBaseListener {
     };
     public static final Set<String> internalOps = new HashSet<String>(Arrays.asList(internalOpsArray));
 
-    // For symbol resolving
-    enum SybType {
-        LITERAL, VAR, FUNC, SYMBOL
-    }
-    public Map<String, SybType> sybTypeTbl = new LinkedHashMap<String, SybType>();
+    public Map<String, SybType> glbSybTypeTbl = new LinkedHashMap<String, SybType>();
+    public Map<String, CFG> cfgs = new LinkedHashMap<String, CFG>();
+    CFG currentCFG = null;
     public boolean isGeneral;
 
     Sort strToSort(String name) {
@@ -175,6 +183,9 @@ public class SygusExtractor extends SygusBaseListener {
 
         // Currently we're not trying these procedures on General tracks
         if (isGeneral) {
+            // Only thing to do is to generate finalConstraint
+            finalConstraint = z3ctx.mkAnd(constraints.toArray(new BoolExpr[constraints.size()]));
+            finalConstraint = (BoolExpr)finalConstraint.simplify();
             return;
         }
 
@@ -351,6 +362,7 @@ public class SygusExtractor extends SygusBaseListener {
         problemType = ProbType.CLIA;
         currentCmd = CmdType.SYNTHFUNC;
         currentArgList = new ArrayList<Expr>();
+        currentArgNameList = new ArrayList<String>();
         currentSortList = new ArrayList<Sort>();
     }
 
@@ -363,6 +375,18 @@ public class SygusExtractor extends SygusBaseListener {
         names.add(name);
         requests.put(name, func);
         requestArgs.put(name, argList);
+        if (currentCFG != null) {
+            int i = 0;
+            for (String argName : currentArgNameList) {
+                currentCFG.localArgs.put(argName, argList[i]);
+                i++;
+            }
+            for (String arg : currentCFG.localArgs.keySet()) {
+                currentCFG.sybTypeTbl.put(arg, SybType.LCLARG);
+            }
+            cfgs.put(name, currentCFG);
+            currentCFG = null;
+        }
         currentCmd = CmdType.NONE;
     }
 
@@ -370,6 +394,7 @@ public class SygusExtractor extends SygusBaseListener {
         problemType = ProbType.INV;
         currentCmd = CmdType.SYNTHINV;
         currentArgList = new ArrayList<Expr>();
+        currentArgNameList = new ArrayList<String>();
         currentSortList = new ArrayList<Sort>();
     }
 
@@ -402,7 +427,7 @@ public class SygusExtractor extends SygusBaseListener {
         } else {
             newVar = z3ctx.mkConst(name, type);
             vars.put(name, newVar);
-            sybTypeTbl.put(name, SybType.VAR);
+            glbSybTypeTbl.put(name, SybType.GLBVAR);
             if (!prime) {
                 regularVars.put(name, newVar);
             }
@@ -416,6 +441,7 @@ public class SygusExtractor extends SygusBaseListener {
             String name = ctx.symbol().getText();
             if (currentCmd == CmdType.SYNTHFUNC || currentCmd == CmdType.SYNTHINV) {
                 currentArgList.add(addOrGetVarPool(name, type, false));
+                currentArgNameList.add(name);
                 currentSortList.add(type);
             }
             if (currentCmd == CmdType.FUNCDEF) {
@@ -502,7 +528,7 @@ public class SygusExtractor extends SygusBaseListener {
         Expr def = (Expr)termStack.pop();
         DefinedFunc func = new DefinedFunc(z3ctx, name, argList, def);
         funcs.put(name, func);
-        sybTypeTbl.put(name, SybType.FUNC);
+        glbSybTypeTbl.put(name, SybType.FUNC);
         currentCmd = CmdType.NONE;
     }
 
@@ -510,11 +536,14 @@ public class SygusExtractor extends SygusBaseListener {
         problemType = ProbType.GENERAL;
         isGeneral = true;
         currentCmd = CmdType.NTDEF;
+        if (currentCFG == null) {
+            currentCFG = new CFG();
+        }
         currentSymbol = ctx.symbol().getText();
         Sort currentSort = strToSort(ctx.sortExpr().getText());
-        grammarSybSort.put(currentSymbol, currentSort);
-        sybTypeTbl.put(currentSymbol, SybType.SYMBOL);
-        grammarRules.put(currentSymbol, new ArrayList<String[]>());
+        currentCFG.grammarSybSort.put(currentSymbol, currentSort);
+        currentCFG.sybTypeTbl.put(currentSymbol, SybType.SYMBOL);
+        currentCFG.grammarRules.put(currentSymbol, new ArrayList<String[]>());
     }
 
     public void exitNTDef(SygusParser.NTDefContext ctx) {
@@ -533,7 +562,7 @@ public class SygusExtractor extends SygusBaseListener {
             currentTerm = ctx.symbol().getText();
         } else if (ctx.literal() != null) {
             currentTerm = ctx.literal().getText();
-            sybTypeTbl.put(currentTerm, SybType.LITERAL);
+            glbSybTypeTbl.put(currentTerm, SybType.LITERAL);
         } else {
             currentTerm = null;
         }
@@ -542,17 +571,17 @@ public class SygusExtractor extends SygusBaseListener {
                 grammarArgs.add(currentTerm);
             } else {
                 if (internalOps.contains(currentTerm)) {
-                    sybTypeTbl.put(currentTerm, SybType.FUNC);
+                    glbSybTypeTbl.put(currentTerm, SybType.FUNC);
                 }
                 String[] args = grammarArgs.toArray(new String[grammarArgs.size()]);
                 String[] repr = Arrays.copyOf(new String[]{currentTerm}, 1 + args.length);
                 System.arraycopy(args, 0, repr, 1, args.length);
-                grammarRules.get(currentSymbol).add(repr);
+                currentCFG.grammarRules.get(currentSymbol).add(repr);
                 grammarArgs.clear();
                 inGrammarArgs = false;
             }
         } else {
-            grammarRules.get(currentSymbol).add(new String[]{currentTerm});
+            currentCFG.grammarRules.get(currentSymbol).add(new String[]{currentTerm});
         }
     }
 

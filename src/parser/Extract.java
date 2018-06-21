@@ -32,26 +32,34 @@ public class Extract {
 
 		System.out.println("Synth type:" + extractor.problemType.toString());
 
+
 		if (extractor.problemType == SygusExtractor.ProbType.GENERAL) {
-			for (String name: extractor.grammarSybSort.keySet()) {
-				System.out.println("Symbol name:" + name + " Type:" + extractor.grammarSybSort.get(name).toString());
-				System.out.println(name + " := ");
-				for (String[] repr: extractor.grammarRules.get(name)) {
-					if (repr.length == 1) {
-						System.out.println("| " + repr[0]);
-					} else {
-						System.out.println("| (" + String.join(" ", repr) + ")");
-					}
-				}
-			}
-			System.out.println("All symbol types:");
-			for (String name: extractor.sybTypeTbl.keySet()) {
-				System.out.println(name + "  " + extractor.sybTypeTbl.get(name).toString());
+			System.out.println("Global symbol types:");
+			for (String name: extractor.glbSybTypeTbl.keySet()) {
+				System.out.println(name + "  " + extractor.glbSybTypeTbl.get(name).toString());
 			}
 		}
-
 		System.out.println("Synth requests:");
 		for(String name : extractor.requests.keySet()) {
+			if (extractor.problemType == SygusExtractor.ProbType.GENERAL) {
+				System.out.println("Grammar Infos:");
+				SygusExtractor.CFG cfg = extractor.cfgs.get(name);
+				for (String sybName: cfg.grammarSybSort.keySet()) {
+					System.out.println("Symbol name:" + sybName + " Type:" + cfg.grammarSybSort.get(sybName).toString());
+					System.out.println(sybName + " := ");
+					for (String[] repr: cfg.grammarRules.get(sybName)) {
+						if (repr.length == 1) {
+							System.out.println("| " + repr[0]);
+						} else {
+							System.out.println("| (" + String.join(" ", repr) + ")");
+						}
+					}
+				}
+				System.out.println("Symbol types:");
+				for (String sybName: cfg.sybTypeTbl.keySet()) {
+					System.out.println(sybName + "  " + cfg.sybTypeTbl.get(sybName).toString());
+				}
+			}
 			FuncDecl func = extractor.requests.get(name);
 			System.out.println("Name:" + func.getName());
 			System.out.println("Argument types:" + Arrays.toString(func.getDomain()));
