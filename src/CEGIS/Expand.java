@@ -7,11 +7,12 @@ public class Expand {
 	public IntExpr[][][] c;
 	// Terms for General
 	public IntExpr[][] t;
+	// Bound is coefficient array length for CLIA/INV
+	// Bound is term array length for General
+	// Public for outer reference
+	public int bound;
 
 	private Context ctx;
-	// Bound is height for CLIA/INV
-	// Bound is term array length for General
-	private int bound;
 	private SygusExtractor extractor;
 	private int numFunc;
 
@@ -27,21 +28,25 @@ public class Expand {
 	private static Map<String, Expr> intepretCache = new HashMap<String, Expr>();
 
 
-	public Expand(int bound, Context ctx, SygusExtractor extractor) {
-		this.bound = bound;
+	public Expand(Context ctx, SygusExtractor extractor) {
 		this.ctx = ctx;
 		this.extractor = extractor;
 		this.numFunc = extractor.names.size();
+	}
 
-		if (extractor.isGeneral) {
-			t = new IntExpr[numFunc][bound];
-			declareTerms();
-			prepareGrammar();
-		} else {
-			c = new IntExpr[numFunc][bound][0];
-			declareConstants();
-		}
+	public void setVectorBound(int vectorBound) {
+		assert extractor.isGeneral;
+		this.bound = vectorBound;
+		t = new IntExpr[numFunc][bound];
+		declareTerms();
+		prepareGrammar();
+	}
 
+	public void setHeightBound(int heightBound) {
+		assert !extractor.isGeneral;
+		this.bound = (int)Math.pow(2, heightBound) - 1;
+		c = new IntExpr[numFunc][bound][0];
+		declareConstants();
 	}
 
 	public void declareConstants() {
