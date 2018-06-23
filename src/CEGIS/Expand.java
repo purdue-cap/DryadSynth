@@ -205,6 +205,43 @@ public class Expand {
 		}
 	}
 
+	public Expr intepretGeneral(int funcIndex, int[] terms) {
+		ConcreteIntepreter conInte = new ConcreteIntepreter();
+		return conInte.intepretConcrete(funcIndex, terms, 0);
+	}
+
+	class ConcreteIntepreter {
+		int lastIntepreted = -1;
+		public Expr intepretConcrete(int funcIndex, int[] terms, int start) {
+			int ruleIndex = terms[start];
+			String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
+			String termSyb = fullRule[0];
+			int argCount = fullRule.length - 1;
+			SygusExtractor.SybType termType = resolveSyb(funcIndex, termSyb);
+			Expr result;
+			lastIntepreted = start;
+			if (termType == SygusExtractor.SybType.LITERAL) {
+				result = ctx.mkInt(Integer.parseInt(termSyb));
+			} else if (termType == SygusExtractor.SybType.GLBVAR) {
+				result = extractor.vars.get(termSyb);
+			} else if (termType == SygusExtractor.SybType.LCLARG) {
+				result = grammar.cfgs[funcIndex].localArgs.get(termSyb);
+			} else {
+				assert termType == SygusExtractor.SybType.FUNC;
+				Expr[] args = new Expr[argCount];
+				for (int i = 0; i < argCount; i++) {
+					args[i] = intepretConcrete(funcIndex, terms, lastIntepreted + 1);
+				}
+				result = extractor.operationDispatcher(termSyb, args, true);
+			}
+			return result;
+		}
+	}
+
+	public Expr intepretGeneral(int funcIndex, IntExpr[] terms){
+		return generateIntepret(funcIndex, terms, "Start");
+	}
+
 	// Intepret generation for expanding vector vars with grammar rule
 	// corresponding to ruleIndex
 	// Will NOT check overall validity, should be caller to do it
