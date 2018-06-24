@@ -183,9 +183,13 @@ public class SygusExtractor extends SygusBaseListener {
 
         // Currently we're not trying these procedures on General tracks
         if (isGeneral) {
-            // Only thing to do is to generate finalConstraint
+            // Generate finalConstraint
             finalConstraint = z3ctx.mkAnd(constraints.toArray(new BoolExpr[constraints.size()]));
             finalConstraint = (BoolExpr)finalConstraint.simplify();
+            // Use unprocessed as dummy for processed
+            rdcdRequests = requests;
+            requestUsedArgs = requestArgs;
+            requestSyntaxUsedArgs = requestArgs;
             return;
         }
 

@@ -22,7 +22,7 @@ public class Cegis extends Thread{
 
 	private boolean isGeneral = false;
 
-	public Map<String, IntExpr[]> generalFuncs;
+	public Map<String, int[]> generalFuncs;
 
 	public Map<String, Expr> functions;
 	public Set<Expr[]> counterExamples;
@@ -59,7 +59,7 @@ public class Cegis extends Thread{
 
 		this.finalConstraint = extractor.finalConstraint;
 
-		this.generalFuncs = new LinkedHashMap<String, IntExpr[]>();
+		this.generalFuncs = new LinkedHashMap<String, int[]>();
 		this.functions = new LinkedHashMap<String, Expr>();
 
 		if (!extractor.isGeneral) {
@@ -152,9 +152,6 @@ public class Cegis extends Thread{
 
 		}
 
-		public Status verifyGeneral(Map<String, IntExpr[]> functions) {
-			return null;
-		}
 	}
 
 	// Previously VerifierDecoder.java
@@ -255,6 +252,45 @@ public class Cegis extends Thread{
 
 		}
 
+		public Status synthesisGeneral() {
+
+			s.push();
+
+			Expr spec = extractor.finalConstraint;
+
+			// CondBound not implemented for general yet
+			// Currently expandCoefficientGeneral only applies term range restrictions
+			BoolExpr q = expand.expandCoefficientGeneral();
+			//BoolExpr q = expand.expandCoefficient(condBound);
+
+			int k = 0;
+			for (String name : extractor.names) {
+				// Currently preprocessing is disabled, using dummy
+				FuncDecl f = extractor.rdcdRequests.get(name);
+				Expr[] var = extractor.requestUsedArgs.get(name);
+				Expr eval = expand.intepretGeneral(k);
+				DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
+				spec = definedfunc.rewrite(spec, f);
+				k = k + 1;
+			}
+
+			for (Expr[] params : counterExamples) {
+				BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
+				q = ctx.mkAnd(q, expandSpec);
+			}
+
+			s.add(q);
+
+			Status sts = s.check();
+
+			if (sts == Status.SATISFIABLE) {
+				m = s.getModel();
+			}
+
+			s.pop();
+			return sts;
+		}
+
 		public BoolExpr setMax(IntExpr c, IntExpr absolute) {
 			BoolExpr setMax;
 			IntExpr minusc = (IntExpr)ctx.mkSub(ctx.mkInt(0), c);
@@ -323,10 +359,12 @@ public class Cegis extends Thread{
 
 		private Model model;
 		private IntExpr[][][] c;
+		private IntExpr[][] t;
 
 		public SynthDecoder(Model model) {
 			this.model = model;
 			this.c = expand.getCoefficients();
+			this.t = expand.getTerms();
 		}
 
 		public IntExpr[][][] evaluteCoefficient() {
@@ -344,6 +382,20 @@ public class Cegis extends Thread{
 			}
 
 			return coeff;
+		}
+
+		public int[][] evaluateTerm() {
+			int[][] terms = new int[t.length][];
+
+			for (int i = 0; i < t.length; i++) {
+				terms[i] = new int[t[i].length];
+				for (int j = 0; j < t[i].length; j++) {
+					Expr termExpr = model.evaluate(t[i][j], true);
+					assert termExpr.isIntNum();
+					terms[i][j] = ((IntNum)termExpr).getInt();
+				}
+			}
+			return terms;
 		}
 
 		public void generateFunction(Map<String, Expr> functions) {
@@ -386,6 +438,22 @@ public class Cegis extends Thread{
 				functions.put(extractor.names.get(j), f[j][0].simplify());
 			}
 
+		}
+
+		public void generateFuncGeneral(Map<String, int[]> generalFunc) {
+			int[][] terms = evaluateTerm();
+			for (int i = 0; i < terms.length; i++) {
+				generalFunc.put(extractor.names.get(i), terms[i]);
+			}
+		}
+
+		public void intepretFunctions(Map<String, int[]> generalFunc, Map<String, Expr> functions) {
+			int i = 0;
+			for (String name: extractor.names) {
+				int[] terms = generalFunc.get(name);
+				functions.put(name, expand.intepretGeneral(i, terms));
+				i++;
+			}
 		}
 
 		/*public void printOutput() {
@@ -452,17 +520,15 @@ public class Cegis extends Thread{
 		if (extractor.isGeneral) {
 			logger.info(Thread.currentThread().getName() + " Started");
 			logger.info("Starting general track CEGIS");
-			assert pdc1D != null;
-			while (results == null && running) {
-				fixedVectorLength = pdc1D.get();
-				logger.info("Started loop with fixedVectorLength = " + fixedVectorLength);
-				for (String name : extractor.names) {
-					IntExpr[] initVec = new IntExpr[fixedVectorLength];
-					for (int i = 0; i < fixedVectorLength; i++) {
-						initVec[i] = ctx.mkInt(0);
-					}
-					generalFuncs.put(name, initVec);
+			// Initialize expand here for max data sharing
+			expand = new Expand(ctx, extractor);
+			if (pdc1D != null) {
+				while (results == null && running) {
+					fixedVectorLength = pdc1D.get();
+					logger.info("Started loop with fixedVectorLength = " + fixedVectorLength);
+					cegisGeneral();
 				}
+			} else {
 				cegisGeneral();
 			}
 			return;
@@ -494,174 +560,122 @@ public class Cegis extends Thread{
 	}
 
 	public void cegisGeneral() {
-
-		//boolean flag = true;
-		//long startTime = System.currentTimeMillis();
-//
-		//int k = 0;	//number of iterations
-//
-		////print out initial examples
-		//logger.info("Initial examples:" + Arrays.deepToString(counterExamples.toArray()));
-//
-		//while(flag && running) {
-//
-		//	k = k + 1;
-//
-		//	logger.info("Start verifying");
-		//	Verifier testVerifier = new Verifier(ctx, extractor, logger);
-//
-		//	Status v = testVerifier.verify(functions);
-//
-		//	if (v == Status.UNSATISFIABLE) {
-		//			results = new DefinedFunc[functions.size()];
-		//			int i = 0;
-		//			for (String name : extractor.rdcdRequests.keySet()) {
-		//				Expr def = functions.get(name);
-		//				if (def.isBool()) {
-		//					def = SygusFormatter.elimITE(this.ctx, def);
-		//				}
-		//				results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def);
-		//				logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
-		//				i = i + 1;
-		//			}
-		//			flag = false;
-		//			if (fixedCond > 0 || fixedHeight > 0) {
-		//				synchronized(condition) {
-		//					condition.notify();
-		//				}
-		//			}
-//
-		//		} else if (v == Status.UNKNOWN) {
-		//			logger.severe("Verifier Error : Unknown");
-		//			flag = false;
-//
-		//		} else if (v == Status.SATISFIABLE) {
-//
-		//			logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
-		//			VerifierDecoder decoder = new VerifierDecoder(ctx, testVerifier.s.getModel(), extractor.vars.values().toArray(new Expr[extractor.vars.size()]));
-//
-		//			Expr[] cntrExmp = decoder.decode();
-		//			counterExamples.add(cntrExmp);
-		//			//print out for debug
-		//			logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(counterExamples.toArray()));
-//
-		//			// if (k >= 10) {
-		//			// 	break;
-		//			// }
-//
-		//			boolean unsat = true;
-//
-		//			while(unsat && flag && running) {
-//
-		//				Synthesizer testSynthesizer = new Synthesizer(ctx, counterExamples, heightBound, extractor, logger);
-		//				//print out for debug
-		//				logger.info("Start synthesizing");
-//
-		//				Status synth = Status.UNKNOWN;
-//
-		//				if (!maxsmtFlag) {
-		//					synth = testSynthesizer.synthesis(condBound);
-		//				} else {
-		//					synth = testSynthesizer.synthesisWithSMT();
-		//				}
-//
-		//				//print out for debug
-		//				logger.info("Synthesis Done");
-//
-		//				if (synth == Status.UNSATISFIABLE) {
-		//					logger.info("Synthesizer : Unsatisfiable");
-		//					if (fixedCond > 0) {
-		//						logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
-		//						return;
-		//					}
-		//					if (condBoundInc > searchRegions) {		//for 2, >5		//for 4, >3	64 	//infinite 5
-		//						if (fixedHeight > 0) {
-		//							logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
-		//							return;
-		//						}
-		//						heightBound = heightBound + 1;
-		//						logger.info("Synthesizer : Increase height bound to " + heightBound);
-		//						condBound = 1;
-		//						if (fixedCond > 0) {
-		//							condBound = fixedCond;
-		//						}
-		//						condBoundInc = 1;
-		//					} else {
-		//						if (condBoundInc == searchRegions) {
-		//							condBound = -1;
-		//							logger.info("Synthesizer : Increase coefficient bound to infinity");
-		//						} else {
-		//							condBound = (int)Math.pow(64, condBoundInc);	//64
-		//							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
-		//						}
-//
-		//						condBoundInc = condBoundInc + 1;
-		//					}
-		//					startTime = System.currentTimeMillis();
-		//					//flag = false;
-		//				} else if (synth == Status.UNKNOWN) {
-		//					logger.severe("Synthesizer Error : Unknown");
-		//					flag = false;
-		//					unsat = false;
-		//				} else if (synth == Status.SATISFIABLE) {
-//
-		//					unsat = false;
-		//					//flag = false;	//for test only
-//
-		//					//logger.info(testSynthesizer.s.getModel());	//for test only
-		//					SynthDecoder synthDecoder = new SynthDecoder(ctx, testSynthesizer.getLastModel(), testSynthesizer.e.getCoefficients(), extractor);
-		//					//print out for debug
-		//					logger.info("Start decoding synthesizer output");
-		//					synthDecoder.generateFunction(functions);
-		//					//print out for debug
-		//					logger.info("Synthesizer output decode done");
-		//					//print out for debug
-		//					for (String name : extractor.names) {
-		//						logger.info(name + " : " + functions.get(name).toString());
-		//					}
-//
-		//					if (condBoundInc > 1) {
-		//						if (condBoundInc <= searchRegions) {
-		//							if (System.currentTimeMillis() - startTime > 60000 * this.minFinite) {
-		//								if (fixedCond > 0) {
-		//									logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
-		//									return;
-		//								}
-		//								if (condBoundInc == searchRegions) {
-		//									condBound = -1;
-		//									logger.info("Synthesizer : Increase coefficient bound to infinity");
-		//								} else {
-		//									condBound = (int)Math.pow(64, condBoundInc);	//64
-		//									logger.info("Synthesizer : Increase coefficient bound to " + condBound);
-		//								}
-		//								condBoundInc = condBoundInc + 1;
-		//								startTime = System.currentTimeMillis();
-		//							}
-		//						} else {
-		//							if (System.currentTimeMillis() - startTime > 60000 * this.minInfinite) {
-		//								if (fixedHeight > 0) {
-		//									logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
-		//									return;
-		//								}
-		//								heightBound = heightBound + 1;
-		//								logger.info("Synthesizer : Increase height bound to " + heightBound);
-		//								condBound = 1;
-		//								if (fixedCond > 0) {
-		//									condBound = fixedCond;
-		//								}
-		//								condBoundInc = 1;
-		//								startTime = System.currentTimeMillis();
-//
-		//							}
-		//						}
-		//					}
-//
-		//				}
-//
-		//			}
-		//		}
-		//	logger.info("Iteration : " + k);
+		int vectorBound = 1;
+		if (fixedVectorLength > 0) {
+			vectorBound = fixedVectorLength;
+		}
+		logger.warning("Condition bound not implemented for general");
+		logger.warning("Using minInfinite as timeout");
+		//int condBound = 1;
+		//if (fixedCond > 0) {
+		//	condBound = fixedCond;
 		//}
+		//int condBoundInc = 1;
+		//int searchRegions = 2;
+		long startTime = System.currentTimeMillis();
+
+		int k = 0;	//number of iterations
+
+		//print out initial examples
+		logger.info("Initial examples:" + Arrays.deepToString(counterExamples.toArray()));
+
+		// Subprocedure classes
+		Verifier testVerifier = new Verifier();
+		Synthesizer testSynthesizer = new Synthesizer();
+		expand.setVectorBound(vectorBound);
+
+		while(running) {
+
+			k = k + 1;
+
+			logger.info("Start synthesizing");
+
+			Status synth = Status.UNKNOWN;
+
+			if (maxsmtFlag) {
+				logger.warning("MaxSMT not implemented for General Synthesis");
+			}
+
+			synth = testSynthesizer.synthesisGeneral();
+
+			//print out for debug
+			logger.info("Synthesis Done");
+
+			if (synth == Status.UNSATISFIABLE) {
+				logger.info("Synthesizer : Unsatisfiable");
+				logger.info(String.format("Exited vectorLength %d due to UNSAT", vectorBound));
+				if (fixedVectorLength > 0) {
+					return;
+				} else {
+					vectorBound++;
+					expand.setVectorBound(vectorBound);
+					startTime = System.currentTimeMillis();
+					continue;
+				}
+			} else if (synth == Status.UNKNOWN) {
+				logger.severe("Synthesizer Error : Unknown");
+				return;
+			} else if (synth == Status.SATISFIABLE) {
+				//logger.info(testSynthesizer.s.getModel());	//for test only
+				SynthDecoder synthDecoder = new SynthDecoder(testSynthesizer.getLastModel());
+				//print out for debug
+				logger.info("Start decoding synthesizer output");
+				synthDecoder.generateFuncGeneral(generalFuncs);
+				synthDecoder.intepretFunctions(generalFuncs, functions);
+				//print out for debug
+				logger.info("Synthesizer output decode done");
+				//print out for debug
+				for (String name : extractor.names) {
+					logger.info(name + " : " + functions.get(name).toString());
+				}
+
+			}
+			logger.info("Start verifying");
+
+			Status v = testVerifier.verify(functions);
+
+			if (v == Status.UNSATISFIABLE) {
+				results = new DefinedFunc[functions.size()];
+				int i = 0;
+				for (String name : extractor.rdcdRequests.keySet()) {
+					Expr def = functions.get(name);
+					results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def);
+					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+					i = i + 1;
+				}
+				if (fixedVectorLength > 0) {
+					synchronized(condition) {
+						condition.notify();
+					}
+				}
+				return;
+
+			} else if (v == Status.UNKNOWN) {
+				logger.severe("Verifier Error : Unknown");
+				return;
+
+			} else if (v == Status.SATISFIABLE) {
+
+				logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
+				VerifierDecoder decoder = new VerifierDecoder(testVerifier.s.getModel());
+
+				Expr[] cntrExmp = decoder.decode();
+				counterExamples.add(cntrExmp);
+				logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(counterExamples.toArray()));
+			}
+
+			if (System.currentTimeMillis() - startTime > 60000 * this.minInfinite) {
+				if (fixedVectorLength > 0) {
+					return;
+				} else {
+					vectorBound++;
+					expand.setVectorBound(vectorBound);
+					startTime = System.currentTimeMillis();
+					continue;
+				}
+			}
+			logger.info("Iteration : " + k);
+		}
 	}
 
 	public void cegis() {

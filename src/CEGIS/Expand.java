@@ -79,11 +79,12 @@ public class Expand {
 	// Prepared grammar rules
 	// Only need to prepare once
 	static class Grammar {
-		SygusExtractor.CFG[] cfgs;
-		List<List<String[]>> ruleTbl;
-		List<Map<String, Integer>> ruleTblRev;
-		List<Map<String, Integer>> subrulePos;
-		List<Map<String, Integer>> subruleLen;
+		public SygusExtractor.CFG[] cfgs;
+		public List<List<String[]>> ruleTbl;
+		public List<Map<String, Integer>> ruleTblRev;
+		public List<Map<String, Integer>> subrulePos;
+		public List<Map<String, Integer>> subruleLen;
+		public List<Integer> ruleOrders;
 	}
 	static Grammar grammar = null;
 
@@ -95,6 +96,7 @@ public class Expand {
 			grammar.ruleTblRev = new ArrayList<Map<String, Integer>>();
 			grammar.subrulePos = new ArrayList<Map<String, Integer>>();
 			grammar.subruleLen = new ArrayList<Map<String, Integer>>();
+			grammar.ruleOrders = new ArrayList<Integer>();
 			int f = 0;
 			for (String funcName: extractor.cfgs.keySet()) {
 				SygusExtractor.CFG cfg = extractor.cfgs.get(funcName);
@@ -104,16 +106,19 @@ public class Expand {
 				grammar.subrulePos.add(new LinkedHashMap<String, Integer>()) ;
 				grammar.subruleLen.add(new LinkedHashMap<String, Integer>()) ;
 				int i = 0;
+				int order = 0;
 				for(String ruleName: cfg.grammarRules.keySet()) {
 					List<String[]> subRules = cfg.grammarRules.get(ruleName);
 					grammar.subrulePos.get(f).put(ruleName, i);
-					grammar.subrulePos.get(f).put(ruleName, subRules.size());
+					grammar.subruleLen.get(f).put(ruleName, subRules.size());
+					order = order + subRules.size();
 					for(String[] ruleArray: subRules) {
 						grammar.ruleTbl.get(f).add(ruleArray);
 						grammar.ruleTblRev.get(f).put(ruleArray[0], i);
 						i++;
 					}
 				}
+				grammar.ruleOrders.add(order);
 				f++;
 			}
 		}
@@ -121,6 +126,10 @@ public class Expand {
 
 	public IntExpr[][][] getCoefficients() {
 		return c;
+	}
+
+	public IntExpr[][] getTerms() {
+		return t;
 	}
 
 	public BoolExpr expandCoefficient(int condBound) {
@@ -168,6 +177,19 @@ public class Expand {
 		}
 
 		return coefficientProp;
+	}
+
+	public BoolExpr expandCoefficientGeneral() {
+		// Currently only has term range restrictions
+		BoolExpr cond = ctx.mkTrue();
+		for (int i = 0; i < numFunc; i++) {
+			int order = grammar.ruleOrders.get(i);
+			for (int j = 0; j < bound; j++) {
+				ArithExpr term = t[i][j];
+				cond = ctx.mkAnd(cond, ctx.mkGe(term, ctx.mkInt(0)), ctx.mkLt(term, ctx.mkInt(order)));
+			}
+		}
+		return cond;
 	}
 
 	public Expr generateEval(int k, int i) {
@@ -238,7 +260,8 @@ public class Expand {
 		}
 	}
 
-	public Expr intepretGeneral(int funcIndex, IntExpr[] terms){
+	public Expr intepretGeneral(int funcIndex){
+		IntExpr[] terms = t[funcIndex];
 		return generateIntepret(funcIndex, terms, "Start");
 	}
 
