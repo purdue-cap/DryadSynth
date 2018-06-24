@@ -117,7 +117,7 @@ public class SygusDispatcher {
                 fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
             }
         } else {
-            fallbackCEGIS[0] = new Cegis(extractor, pdc1d, mainThread, logger, minFinite, minInfinite, maxsmtFlag);
+            fallbackCEGIS[0] = new Cegis(new Context(), extractor, logger, minFinite, minInfinite, maxsmtFlag);
         }
 
         if (this.method == SolveMethod.CEGIS) {
