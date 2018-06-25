@@ -34,12 +34,16 @@ public class Expand {
 		this.numFunc = extractor.names.size();
 	}
 
-	public void setVectorBound(int vectorBound) {
+	public boolean setVectorBound(int vectorBound) {
 		assert extractor.isGeneral;
+		if (!isIntepretableNow(vectorBound)) {
+			return false;
+		}
 		this.bound = vectorBound;
 		t = new IntExpr[numFunc][bound];
 		declareTerms();
 		prepareGrammar();
+		return true;
 	}
 
 	public void setHeightBound(int heightBound) {
@@ -84,6 +88,7 @@ public class Expand {
 		public List<Map<String, Integer>> ruleTblRev;
 		public List<Map<String, Integer>> subrulePos;
 		public List<Map<String, Integer>> subruleLen;
+		public List<Map<Integer, Sort>> ruleTypeLookup;
 		public List<Integer> ruleOrders;
 	}
 	static Grammar grammar = null;
@@ -96,6 +101,7 @@ public class Expand {
 			grammar.ruleTblRev = new ArrayList<Map<String, Integer>>();
 			grammar.subrulePos = new ArrayList<Map<String, Integer>>();
 			grammar.subruleLen = new ArrayList<Map<String, Integer>>();
+			grammar.ruleTypeLookup = new ArrayList<Map<Integer, Sort>>();
 			grammar.ruleOrders = new ArrayList<Integer>();
 			int f = 0;
 			for (String funcName: extractor.cfgs.keySet()) {
@@ -105,16 +111,19 @@ public class Expand {
 				grammar.ruleTblRev.add(new LinkedHashMap<String, Integer>()) ;
 				grammar.subrulePos.add(new LinkedHashMap<String, Integer>()) ;
 				grammar.subruleLen.add(new LinkedHashMap<String, Integer>()) ;
+				grammar.ruleTypeLookup.add(new LinkedHashMap<Integer, Sort>());
 				int i = 0;
 				int order = 0;
 				for(String ruleName: cfg.grammarRules.keySet()) {
 					List<String[]> subRules = cfg.grammarRules.get(ruleName);
+					Sort sort = cfg.grammarSybSort.get(ruleName);
 					grammar.subrulePos.get(f).put(ruleName, i);
 					grammar.subruleLen.get(f).put(ruleName, subRules.size());
 					order = order + subRules.size();
 					for(String[] ruleArray: subRules) {
 						grammar.ruleTbl.get(f).add(ruleArray);
 						grammar.ruleTblRev.get(f).put(ruleArray[0], i);
+						grammar.ruleTypeLookup.get(f).put(i, sort);
 						i++;
 					}
 				}
@@ -228,6 +237,7 @@ public class Expand {
 	}
 
 	public Expr intepretGeneral(int funcIndex, int[] terms) {
+		assert isIntepretable(funcIndex, terms.length);
 		ConcreteIntepreter conInte = new ConcreteIntepreter();
 		return conInte.intepretConcrete(funcIndex, terms, 0);
 	}
@@ -265,10 +275,40 @@ public class Expand {
 		return generateIntepret(funcIndex, terms, "Start");
 	}
 
+	public Expr validPredicate(int funcIndex){
+		IntExpr[] terms = t[funcIndex];
+		return generateValid(funcIndex, terms, "Start");
+	}
+
+	public boolean isIntepretableNow(int funcIndex) {
+		return isIntepretable(funcIndex, bound);
+	}
+
+	Expr getFallback(int funcIndex, int ruleIndex) {
+		Sort sort = grammar.ruleTypeLookup.get(funcIndex).get(ruleIndex);
+		return getFallback(sort);
+	}
+
+	Expr getFallback(int funcIndex, String ruleName) {
+		Sort sort = grammar.cfgs[funcIndex].grammarSybSort.get(ruleName);
+		return getFallback(sort);
+	}
+
+	Expr getFallback(Sort sort) {
+		if (sort.equals(ctx.getIntSort())) {
+			return ctx.mkInt(0);
+		} else if (sort.equals(ctx.getBoolSort())) {
+			return ctx.mkFalse();
+		} else {
+			assert false;
+			return null;
+		}
+	}
+
 	// Intepret generation for expanding vector vars with grammar rule
 	// corresponding to ruleIndex
-	// Will NOT check overall validity, should be caller to do it
 	public Expr generateIntepret(int funcIndex, IntExpr[] vars, int ruleIndex) {
+		assert isIntepretable(funcIndex, vars.length, ruleIndex);
 		String cacheKey = Integer.toString(funcIndex) + "+" + Integer.toString(ruleIndex) + "_" + Integer.toString(vars.length);
 		IntExpr[] ivars = it.subList(0, vars.length).toArray(new IntExpr[vars.length]);
 		if (intepretCache.containsKey(cacheKey)) {
@@ -297,12 +337,13 @@ public class Expand {
 				result = extractor.operationDispatcher(termSyb, new Expr[]{subtermIntepreted}, true);
 			} else {
 				int[][] combinations = combination(termLength, argCount - 1);
-				BoolExpr[] branchGuard = new BoolExpr[combinations.length];
-				Expr[] branches = new Expr[combinations.length];
-				Expr iteExpr = ctx.mkInt(0);
+				List<BoolExpr> branchGuards = new ArrayList<BoolExpr>();
+				List<Expr> branches = new ArrayList<Expr>();
+				Expr iteExpr = getFallback(funcIndex, ruleIndex);
 				int brCount = 0;
 				for (int[] division: combinations) {
 					int start = 1;
+					boolean allIntepretable = true;
 					BoolExpr[] structValids = new BoolExpr[division.length];
 					Expr[] argsIntepreted = new Expr[division.length + 1];
 					for (int i = 0; i <= division.length; i++) {
@@ -316,26 +357,37 @@ public class Expand {
 						String subtermSyb = fullRule[i + 1];
 						SygusExtractor.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
 						assert subtermType == SygusExtractor.SybType.SYMBOL;
+						if (!isIntepretable(funcIndex, subterms.length, subtermSyb)) {
+							allIntepretable = false;
+							break;
+						}
 						argsIntepreted[i] = generateIntepret(funcIndex, subterms, subtermSyb);
 						if (i != division.length) {
 							structValids[i] = generateValid(funcIndex, subterms, subtermSyb);
 						}
 						start = end;
 					}
-					branchGuard[brCount] = ctx.mkAnd(structValids);
-					branches[brCount] = extractor.operationDispatcher(termSyb, argsIntepreted, true);
-					iteExpr = ctx.mkITE(branchGuard[brCount], branches[brCount], iteExpr);
+					if (!allIntepretable) {
+						continue;
+					}
+					BoolExpr branchGuard = ctx.mkAnd(structValids);
+					Expr branch = extractor.operationDispatcher(termSyb, argsIntepreted, true);
+					branchGuards.add(branchGuard);
+					branches.add(branch);
+					iteExpr = ctx.mkITE(branchGuard, branch, iteExpr);
 					brCount++;
 				}
 				result = iteExpr;
 			}
 		}
+		result = result.simplify();
 		intepretCache.put(cacheKey, result);
 		return result.substitute(ivars, vars);
 	}
 
 	// Intepret generation for expanding vector vars to non-terminal ruleName
 	public Expr generateIntepret(int funcIndex, IntExpr[] vars, String ruleName) {
+		assert isIntepretable(funcIndex, vars.length, ruleName);
 		String cacheKey = Integer.toString(funcIndex) + "_" + ruleName + "_" + Integer.toString(vars.length);
 		IntExpr[] ivars = it.subList(0, vars.length).toArray(new IntExpr[vars.length]);
 		if (intepretCache.containsKey(cacheKey)) {
@@ -344,15 +396,20 @@ public class Expand {
 		Expr result;
 		int ruleS = grammar.subrulePos.get(funcIndex).get(ruleName);
 		int ruleE = ruleS + grammar.subruleLen.get(funcIndex).get(ruleName);
-		BoolExpr[] branchGuard = new BoolExpr[ruleE - ruleS];
-		Expr[] branches = new Expr[ruleE - ruleS];
-		Expr iteExpr = ctx.mkInt(0);
+		List<BoolExpr> branchGuards = new ArrayList<BoolExpr>();
+		List<Expr> branches = new ArrayList<Expr>();
+		Expr iteExpr = getFallback(funcIndex, ruleName);
 		for (int type = ruleS; type < ruleE; type++) {
-			branchGuard[type - ruleS] = generateValid(funcIndex, ivars, type);
-			branches[type - ruleS] = generateIntepret(funcIndex, ivars, type);
-			iteExpr = ctx.mkITE(branchGuard[type - ruleS], branches[type - ruleS], iteExpr);
+			if (!isIntepretable(funcIndex, vars.length, type)) {
+				continue;
+			}
+			BoolExpr branchGuard = generateValid(funcIndex, ivars, type);
+			Expr branch = generateIntepret(funcIndex, ivars, type);
+			branchGuards.add(branchGuard);
+			branches.add(branch);
+			iteExpr = ctx.mkITE(branchGuard, branch, iteExpr);
 		}
-		result = iteExpr;
+		result = iteExpr.simplify();
 		intepretCache.put(cacheKey, result);
 		return result.substitute(ivars, vars);
 	}
@@ -366,12 +423,23 @@ public class Expand {
 		if (validCache.containsKey(cacheKey)) {
 			return (BoolExpr)validCache.get(cacheKey).substitute(ivars, vars);
 		}
-		IntExpr typeVar = ivars[0];
-		String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
-		BoolExpr typeCond = ctx.mkEq(typeVar, ctx.mkInt(ruleIndex));
-		int argCount = fullRule.length - 1;
 		int termLength = ivars.length - 1;
+		IntExpr typeVar;
+		String[] fullRule;
+		BoolExpr typeCond;
+		int argCount;
 		BoolExpr result;
+		if (termLength >= 0) {
+			typeVar = ivars[0];
+			fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
+			typeCond = ctx.mkEq(typeVar, ctx.mkInt(ruleIndex));
+			argCount = fullRule.length - 1;
+		} else {
+			typeVar = null;
+			fullRule = null;
+			typeCond = null;
+			argCount = 0;
+		}
 		if (argCount > termLength) {
 			result = ctx.mkFalse();
 		} else if (argCount == 0) {
@@ -412,6 +480,7 @@ public class Expand {
 			}
 			result = ctx.mkAnd(typeCond, ctx.mkOr(candidates));
 		}
+		result = (BoolExpr)result.simplify();
 		validCache.put(cacheKey, result);
 		return (BoolExpr)result.substitute(ivars, vars);
 	}
@@ -433,8 +502,26 @@ public class Expand {
 			conds[type - ruleS] = generateValid(funcIndex, ivars, type);
 		}
 		BoolExpr result = ctx.mkOr(conds);
+		result = (BoolExpr)result.simplify();
 		validCache.put(cacheKey, result);
 		return (BoolExpr)result.substitute(ivars, vars);
+	}
+
+	// Overall intepretability check
+	public boolean isIntepretable(int funcIndex, int varLength, int ruleIndex) {
+		IntExpr[] vars = Arrays.copyOfRange(t[funcIndex], 0, varLength);
+		BoolExpr valid = generateValid(funcIndex, vars, ruleIndex);
+		return !valid.isFalse();
+	}
+
+	public boolean isIntepretable(int funcIndex, int varLength, String ruleName) {
+		IntExpr[] vars = Arrays.copyOfRange(t[funcIndex], 0, varLength);
+		BoolExpr valid = generateValid(funcIndex, vars, ruleName);
+		return !valid.isFalse();
+	}
+
+	public boolean isIntepretable(int funcIndex, int varLength) {
+		return isIntepretable(funcIndex, varLength, "Start");
 	}
 
 	// Combination of choosing number of count numbers
