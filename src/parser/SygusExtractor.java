@@ -155,6 +155,7 @@ public class SygusExtractor extends SygusBaseListener {
         for(String key : this.funcs.keySet()) {
             newExtractor.funcs.put(key, this.funcs.get(key).translate(ctx));
         }
+        // TODO: translate procedures for general track objects
         return newExtractor;
     }
 

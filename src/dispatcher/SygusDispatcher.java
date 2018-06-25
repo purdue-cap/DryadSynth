@@ -67,6 +67,9 @@ public class SygusDispatcher {
         if (checkResult) {
             logger.info("General SyGuS problem detected, using CEGIS.");
             this.method = SolveMethod.CEGIS;
+            // Limite to single thread at this point
+            logger.warning("General is single thread only, setting numCore to 1");
+            this.numCore = 1;
             return;
         }
         logger.info("Checking candidates generated from parsing.");
@@ -117,7 +120,7 @@ public class SygusDispatcher {
                 fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
             }
         } else {
-            fallbackCEGIS[0] = new Cegis(new Context(), extractor, logger, minFinite, minInfinite, maxsmtFlag);
+            fallbackCEGIS[0] = new Cegis(z3ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
         }
 
         if (this.method == SolveMethod.CEGIS) {
