@@ -83,12 +83,12 @@ public class GeneralTest {
         Integer len = new Integer(1);
         for (; len < 9; len ++) {
             ex.setVectorBound(len);
-            if (!ex.isIntepretableNow()){
+            if (!ex.isInterpretableNow()){
                 logger.info("Invalid on length " + len.toString());
                 continue;
             }
             logger.info("Valid-" + len.toString() + ": " + ex.validPredicate(0).toString());
-            logger.info("Intep-" + len.toString() + ": " + ex.intepretGeneral(0).toString());
+            logger.info("Intep-" + len.toString() + ": " + ex.interpretGeneral(0).toString());
         }
 
 		logger.info("Final Constraints:");

@@ -268,7 +268,7 @@ public class Cegis extends Thread{
 				// Currently preprocessing is disabled, using dummy
 				FuncDecl f = extractor.rdcdRequests.get(name);
 				Expr[] var = extractor.requestUsedArgs.get(name);
-				Expr eval = expand.intepretGeneral(k);
+				Expr eval = expand.interpretGeneral(k);
 				DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
 				spec = definedfunc.rewrite(spec, f);
 				k = k + 1;
@@ -447,11 +447,11 @@ public class Cegis extends Thread{
 			}
 		}
 
-		public void intepretFunctions(Map<String, int[]> generalFunc, Map<String, Expr> functions) {
+		public void interpretFunctions(Map<String, int[]> generalFunc, Map<String, Expr> functions) {
 			int i = 0;
 			for (String name: extractor.names) {
 				int[] terms = generalFunc.get(name);
-				functions.put(name, expand.intepretGeneral(i, terms));
+				functions.put(name, expand.interpretGeneral(i, terms));
 				i++;
 			}
 		}
@@ -584,13 +584,13 @@ public class Cegis extends Thread{
 		Synthesizer testSynthesizer = new Synthesizer();
 		expand.setVectorBound(vectorBound);
 		if (fixedVectorLength > 0) {
-			if (!expand.isIntepretableNow()) {
-				logger.info(String.format("vectorLength %d unintepretable, exited", vectorBound));
+			if (!expand.isInterpretableNow()) {
+				logger.info(String.format("vectorLength %d uninterpretable, exited", vectorBound));
 				return;
 			}
 		} else {
-			while(!expand.isIntepretableNow()) {
-				logger.info(String.format("vectorLength %d unintepretable, exited", vectorBound));
+			while(!expand.isInterpretableNow()) {
+				logger.info(String.format("vectorLength %d uninterpretable, exited", vectorBound));
 				vectorBound++;
 				expand.setVectorBound(vectorBound);
 			}
@@ -621,8 +621,8 @@ public class Cegis extends Thread{
 				} else {
 					vectorBound++;
 					expand.setVectorBound(vectorBound);
-					while(!expand.isIntepretableNow()) {
-						logger.info(String.format("vectorLength %d unintepretable, exited", vectorBound));
+					while(!expand.isInterpretableNow()) {
+						logger.info(String.format("vectorLength %d uninterpretable, exited", vectorBound));
 						vectorBound++;
 						expand.setVectorBound(vectorBound);
 					}
@@ -638,7 +638,7 @@ public class Cegis extends Thread{
 				//print out for debug
 				logger.info("Start decoding synthesizer output");
 				synthDecoder.generateFuncGeneral(generalFuncs);
-				synthDecoder.intepretFunctions(generalFuncs, functions);
+				synthDecoder.interpretFunctions(generalFuncs, functions);
 				//print out for debug
 				logger.info("Synthesizer output decode done");
 				//print out for debug
@@ -688,8 +688,8 @@ public class Cegis extends Thread{
 				} else {
 					vectorBound++;
 					expand.setVectorBound(vectorBound);
-					while(!expand.isIntepretableNow()) {
-						logger.info(String.format("vectorLength %d unintepretable, exited", vectorBound));
+					while(!expand.isInterpretableNow()) {
+						logger.info(String.format("vectorLength %d uninterpretable, exited", vectorBound));
 						vectorBound++;
 						expand.setVectorBound(vectorBound);
 					}

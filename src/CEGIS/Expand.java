@@ -25,7 +25,7 @@ public class Expand {
 	private static Map<String, BoolExpr> validCache = new HashMap<String, BoolExpr>();
 	// Key should be funcIndex_ruleName_termLength
 	// Key should be funcIndex+ruleIndex_termLength for a specific rule
-	private static Map<String, Expr> intepretCache = new HashMap<String, Expr>();
+	private static Map<String, Expr> interpretCache = new HashMap<String, Expr>();
 
 
 	public Expand(Context ctx, SygusExtractor extractor) {
@@ -232,22 +232,22 @@ public class Expand {
 		}
 	}
 
-	public Expr intepretGeneral(int funcIndex, int[] terms) {
-		assert isIntepretable(funcIndex, terms.length);
-		ConcreteIntepreter conInte = new ConcreteIntepreter();
-		return conInte.intepretConcrete(funcIndex, terms, 0);
+	public Expr interpretGeneral(int funcIndex, int[] terms) {
+		assert isInterpretable(funcIndex, terms.length);
+		ConcreteInterpreter conInte = new ConcreteInterpreter();
+		return conInte.interpretConcrete(funcIndex, terms, 0);
 	}
 
-	class ConcreteIntepreter {
-		int lastIntepreted = -1;
-		public Expr intepretConcrete(int funcIndex, int[] terms, int start) {
+	class ConcreteInterpreter {
+		int lastInterpreted = -1;
+		public Expr interpretConcrete(int funcIndex, int[] terms, int start) {
 			int ruleIndex = terms[start];
 			String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
 			String termSyb = fullRule[0];
 			int argCount = fullRule.length - 1;
 			SygusExtractor.SybType termType = resolveSyb(funcIndex, termSyb);
 			Expr result;
-			lastIntepreted = start;
+			lastInterpreted = start;
 			if (termType == SygusExtractor.SybType.LITERAL) {
 				result = ctx.mkInt(Integer.parseInt(termSyb));
 			} else if (termType == SygusExtractor.SybType.GLBVAR) {
@@ -258,7 +258,7 @@ public class Expand {
 				assert termType == SygusExtractor.SybType.FUNC;
 				Expr[] args = new Expr[argCount];
 				for (int i = 0; i < argCount; i++) {
-					args[i] = intepretConcrete(funcIndex, terms, lastIntepreted + 1);
+					args[i] = interpretConcrete(funcIndex, terms, lastInterpreted + 1);
 				}
 				result = extractor.operationDispatcher(termSyb, args, true);
 			}
@@ -266,9 +266,9 @@ public class Expand {
 		}
 	}
 
-	public Expr intepretGeneral(int funcIndex){
+	public Expr interpretGeneral(int funcIndex){
 		IntExpr[] terms = t[funcIndex];
-		return generateIntepret(funcIndex, terms, "Start");
+		return generateInterpret(funcIndex, terms, "Start");
 	}
 
 	public Expr validPredicate(int funcIndex){
@@ -276,9 +276,9 @@ public class Expand {
 		return generateValid(funcIndex, terms, "Start");
 	}
 
-	public boolean isIntepretableNow() {
+	public boolean isInterpretableNow() {
 		for (int i = 0; i < numFunc; i++) {
-			if (!isIntepretable(i, bound)) {
+			if (!isInterpretable(i, bound)) {
 				return false;
 			}
 		}
@@ -306,14 +306,14 @@ public class Expand {
 		}
 	}
 
-	// Intepret generation for expanding vector vars with grammar rule
+	// Interpret generation for expanding vector vars with grammar rule
 	// corresponding to ruleIndex
-	public Expr generateIntepret(int funcIndex, IntExpr[] vars, int ruleIndex) {
-		assert isIntepretable(funcIndex, vars.length, ruleIndex);
+	public Expr generateInterpret(int funcIndex, IntExpr[] vars, int ruleIndex) {
+		assert isInterpretable(funcIndex, vars.length, ruleIndex);
 		String cacheKey = Integer.toString(funcIndex) + "+" + Integer.toString(ruleIndex) + "_" + Integer.toString(vars.length);
 		IntExpr[] ivars = it.subList(0, vars.length).toArray(new IntExpr[vars.length]);
-		if (intepretCache.containsKey(cacheKey)) {
-			return intepretCache.get(cacheKey).substitute(ivars, vars);
+		if (interpretCache.containsKey(cacheKey)) {
+			return interpretCache.get(cacheKey).substitute(ivars, vars);
 		}
 		String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
 		String termSyb = fullRule[0];
@@ -334,8 +334,8 @@ public class Expand {
 				String subtermSyb = fullRule[1];
 				SygusExtractor.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
 				assert subtermType == SygusExtractor.SybType.SYMBOL;
-				Expr subtermIntepreted = generateIntepret(funcIndex, subterms, subtermSyb);
-				result = extractor.operationDispatcher(termSyb, new Expr[]{subtermIntepreted}, true);
+				Expr subtermInterpreted = generateInterpret(funcIndex, subterms, subtermSyb);
+				result = extractor.operationDispatcher(termSyb, new Expr[]{subtermInterpreted}, true);
 			} else {
 				int[][] combinations = combination(termLength, argCount - 1);
 				List<BoolExpr> branchGuards = new ArrayList<BoolExpr>();
@@ -344,9 +344,9 @@ public class Expand {
 				int brCount = 0;
 				for (int[] division: combinations) {
 					int start = 1;
-					boolean allIntepretable = true;
+					boolean allInterpretable = true;
 					BoolExpr[] structValids = new BoolExpr[division.length];
-					Expr[] argsIntepreted = new Expr[division.length + 1];
+					Expr[] argsInterpreted = new Expr[division.length + 1];
 					for (int i = 0; i <= division.length; i++) {
 						int end;
 						if (i == division.length) {
@@ -358,21 +358,21 @@ public class Expand {
 						String subtermSyb = fullRule[i + 1];
 						SygusExtractor.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
 						assert subtermType == SygusExtractor.SybType.SYMBOL;
-						if (!isIntepretable(funcIndex, subterms.length, subtermSyb)) {
-							allIntepretable = false;
+						if (!isInterpretable(funcIndex, subterms.length, subtermSyb)) {
+							allInterpretable = false;
 							break;
 						}
-						argsIntepreted[i] = generateIntepret(funcIndex, subterms, subtermSyb);
+						argsInterpreted[i] = generateInterpret(funcIndex, subterms, subtermSyb);
 						if (i != division.length) {
 							structValids[i] = generateValid(funcIndex, subterms, subtermSyb);
 						}
 						start = end;
 					}
-					if (!allIntepretable) {
+					if (!allInterpretable) {
 						continue;
 					}
 					BoolExpr branchGuard = ctx.mkAnd(structValids);
-					Expr branch = extractor.operationDispatcher(termSyb, argsIntepreted, true);
+					Expr branch = extractor.operationDispatcher(termSyb, argsInterpreted, true);
 					branchGuards.add(branchGuard);
 					branches.add(branch);
 					iteExpr = ctx.mkITE(branchGuard, branch, iteExpr);
@@ -382,17 +382,17 @@ public class Expand {
 			}
 		}
 		result = result.simplify();
-		intepretCache.put(cacheKey, result);
+		interpretCache.put(cacheKey, result);
 		return result.substitute(ivars, vars);
 	}
 
-	// Intepret generation for expanding vector vars to non-terminal ruleName
-	public Expr generateIntepret(int funcIndex, IntExpr[] vars, String ruleName) {
-		assert isIntepretable(funcIndex, vars.length, ruleName);
+	// Interpret generation for expanding vector vars to non-terminal ruleName
+	public Expr generateInterpret(int funcIndex, IntExpr[] vars, String ruleName) {
+		assert isInterpretable(funcIndex, vars.length, ruleName);
 		String cacheKey = Integer.toString(funcIndex) + "_" + ruleName + "_" + Integer.toString(vars.length);
 		IntExpr[] ivars = it.subList(0, vars.length).toArray(new IntExpr[vars.length]);
-		if (intepretCache.containsKey(cacheKey)) {
-			return intepretCache.get(cacheKey).substitute(ivars, vars);
+		if (interpretCache.containsKey(cacheKey)) {
+			return interpretCache.get(cacheKey).substitute(ivars, vars);
 		}
 		Expr result;
 		int ruleS = grammar.subrulePos.get(funcIndex).get(ruleName);
@@ -401,17 +401,17 @@ public class Expand {
 		List<Expr> branches = new ArrayList<Expr>();
 		Expr iteExpr = getFallback(funcIndex, ruleName);
 		for (int type = ruleS; type < ruleE; type++) {
-			if (!isIntepretable(funcIndex, vars.length, type)) {
+			if (!isInterpretable(funcIndex, vars.length, type)) {
 				continue;
 			}
 			BoolExpr branchGuard = generateValid(funcIndex, ivars, type);
-			Expr branch = generateIntepret(funcIndex, ivars, type);
+			Expr branch = generateInterpret(funcIndex, ivars, type);
 			branchGuards.add(branchGuard);
 			branches.add(branch);
 			iteExpr = ctx.mkITE(branchGuard, branch, iteExpr);
 		}
 		result = iteExpr.simplify();
-		intepretCache.put(cacheKey, result);
+		interpretCache.put(cacheKey, result);
 		return result.substitute(ivars, vars);
 	}
 
@@ -508,21 +508,21 @@ public class Expand {
 		return (BoolExpr)result.substitute(ivars, vars);
 	}
 
-	// Overall intepretability check
-	public boolean isIntepretable(int funcIndex, int varLength, int ruleIndex) {
+	// Overall interpretability check
+	public boolean isInterpretable(int funcIndex, int varLength, int ruleIndex) {
 		IntExpr[] vars = Arrays.copyOfRange(t[funcIndex], 0, varLength);
 		BoolExpr valid = generateValid(funcIndex, vars, ruleIndex);
 		return !valid.isFalse();
 	}
 
-	public boolean isIntepretable(int funcIndex, int varLength, String ruleName) {
+	public boolean isInterpretable(int funcIndex, int varLength, String ruleName) {
 		IntExpr[] vars = Arrays.copyOfRange(t[funcIndex], 0, varLength);
 		BoolExpr valid = generateValid(funcIndex, vars, ruleName);
 		return !valid.isFalse();
 	}
 
-	public boolean isIntepretable(int funcIndex, int varLength) {
-		return isIntepretable(funcIndex, varLength, "Start");
+	public boolean isInterpretable(int funcIndex, int varLength) {
+		return isInterpretable(funcIndex, varLength, "Start");
 	}
 
 	// Combination of choosing number of count numbers
