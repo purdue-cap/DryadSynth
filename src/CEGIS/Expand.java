@@ -34,16 +34,12 @@ public class Expand {
 		this.numFunc = extractor.names.size();
 	}
 
-	public boolean setVectorBound(int vectorBound) {
+	public void setVectorBound(int vectorBound) {
 		assert extractor.isGeneral;
-		if (!isIntepretableNow(vectorBound)) {
-			return false;
-		}
 		this.bound = vectorBound;
 		t = new IntExpr[numFunc][bound];
 		declareTerms();
 		prepareGrammar();
-		return true;
 	}
 
 	public void setHeightBound(int heightBound) {
@@ -280,8 +276,13 @@ public class Expand {
 		return generateValid(funcIndex, terms, "Start");
 	}
 
-	public boolean isIntepretableNow(int funcIndex) {
-		return isIntepretable(funcIndex, bound);
+	public boolean isIntepretableNow() {
+		for (int i = 0; i < numFunc; i++) {
+			if (!isIntepretable(i, bound)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	Expr getFallback(int funcIndex, int ruleIndex) {

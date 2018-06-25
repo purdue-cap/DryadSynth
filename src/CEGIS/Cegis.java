@@ -582,15 +582,17 @@ public class Cegis extends Thread{
 		// Subprocedure classes
 		Verifier testVerifier = new Verifier();
 		Synthesizer testSynthesizer = new Synthesizer();
+		expand.setVectorBound(vectorBound);
 		if (fixedVectorLength > 0) {
-			if (!expand.setVectorBound(vectorBound)) {
+			if (!expand.isIntepretableNow()) {
 				logger.info(String.format("vectorLength %d unintepretable, exited", vectorBound));
 				return;
 			}
 		} else {
-			while(!expand.setVectorBound(vectorBound)) {
+			while(!expand.isIntepretableNow()) {
 				logger.info(String.format("vectorLength %d unintepretable, exited", vectorBound));
 				vectorBound++;
+				expand.setVectorBound(vectorBound);
 			}
 		}
 
@@ -618,9 +620,11 @@ public class Cegis extends Thread{
 					return;
 				} else {
 					vectorBound++;
-					while(!expand.setVectorBound(vectorBound)) {
+					expand.setVectorBound(vectorBound);
+					while(!expand.isIntepretableNow()) {
 						logger.info(String.format("vectorLength %d unintepretable, exited", vectorBound));
 						vectorBound++;
+						expand.setVectorBound(vectorBound);
 					}
 					startTime = System.currentTimeMillis();
 					continue;
@@ -683,9 +687,11 @@ public class Cegis extends Thread{
 					return;
 				} else {
 					vectorBound++;
-					while(!expand.setVectorBound(vectorBound)) {
+					expand.setVectorBound(vectorBound);
+					while(!expand.isIntepretableNow()) {
 						logger.info(String.format("vectorLength %d unintepretable, exited", vectorBound));
 						vectorBound++;
+						expand.setVectorBound(vectorBound);
 					}
 					startTime = System.currentTimeMillis();
 					continue;
