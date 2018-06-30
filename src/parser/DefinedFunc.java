@@ -9,6 +9,7 @@ public class DefinedFunc {
         this.args = args;
         this.definition = definition;
         this.numArgs = args.length;
+        declareFunc();
     }
 
     DefinedFunc(Context ctx, Expr[] args, Expr definition) {
@@ -19,14 +20,28 @@ public class DefinedFunc {
         this.numArgs = args.length;
     }
 
+    void declareFunc() {
+        Sort[] sorts = new Sort[args.length];
+        for (int i = 0; i < sorts.length; i++) {
+            sorts[i] = args[i].getSort();
+        }
+        Sort rtn = definition.getSort();
+        this.decl = ctx.mkFuncDecl(name, sorts, rtn);
+    }
+
     Context ctx;
     String name;
     Expr [] args;
     Expr definition;
     int numArgs;
+    FuncDecl decl;
 
     public Expr apply(Expr... argList){
         return definition.substitute(args, argList);
+    }
+
+    public Expr applyUninterp(Expr... argList) {
+        return decl.apply(argList);
     }
 
     public DefinedFunc translate(Context ctx) {
@@ -108,6 +123,10 @@ public class DefinedFunc {
         return definition;
     }
 
+    public final FuncDecl getDecl() {
+        return decl;
+    }
+
     // Return a new DefinedFunc with replaced argument list
     public DefinedFunc replaceArgs(Expr[] newArgs) {
         return new DefinedFunc(this.ctx, this.name, newArgs, this.definition);
@@ -119,13 +138,22 @@ public class DefinedFunc {
     }
 
     public String toString() {
+        return toString(false);
+    }
+
+    public String toString(boolean simplify) {
         String str = "(define-fun %s (%s) %s %s)";
         String argStr = "";
         for (Expr expr : args) {
             argStr = argStr + String.format("(%s %s) ", expr.toString(), expr.getSort().toString());
         }
         String typeStr = definition.getSort().toString();
-        Expr def = definition.simplify();
+        Expr def;
+        if (simplify) {
+            def = definition.simplify();
+        } else {
+            def = definition;
+        }
         return String.format(str, name, argStr, typeStr, def.toString());
     }
 

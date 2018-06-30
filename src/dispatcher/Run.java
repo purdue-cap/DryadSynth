@@ -108,7 +108,12 @@ public class Run {
 		ANTLRInputStream resultBuffer;
 		SygusFormatter formatter = new SygusFormatter();
 		for (DefinedFunc df: results) {
-			String rawResult = df.toString();
+			String rawResult;
+			if (extractor.isGeneral) {
+				rawResult = df.toString();
+			} else {
+				rawResult = df.toString(true);
+			}
 			if (rawResult.length() <= 65535) {
 				resultBuffer = new ANTLRInputStream(rawResult);
 				lexer = new SygusLexer(resultBuffer);

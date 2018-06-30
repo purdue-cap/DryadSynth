@@ -447,6 +447,15 @@ public class Cegis extends Thread{
 			}
 		}
 
+		public void expandFunctions(Map<String, int[]> generalFunc, Map<String, Expr> functions) {
+			int i = 0;
+			for (String name: extractor.names) {
+				int[] terms = generalFunc.get(name);
+				functions.put(name, expand.expandGeneral(i, terms));
+				i++;
+			}
+		}
+
 		public void interpretFunctions(Map<String, int[]> generalFunc, Map<String, Expr> functions) {
 			int i = 0;
 			for (String name: extractor.names) {
@@ -653,6 +662,8 @@ public class Cegis extends Thread{
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
+				SynthDecoder synthDecoder = new SynthDecoder(testSynthesizer.getLastModel());
+				synthDecoder.expandFunctions(generalFuncs, functions);
 				results = new DefinedFunc[functions.size()];
 				int i = 0;
 				for (String name : extractor.rdcdRequests.keySet()) {

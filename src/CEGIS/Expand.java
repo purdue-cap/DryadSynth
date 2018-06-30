@@ -238,8 +238,16 @@ public class Expand {
 		return conInte.interpretConcrete(funcIndex, terms, 0);
 	}
 
+	public Expr expandGeneral(int funcIndex, int[] terms) {
+		assert isInterpretable(funcIndex, terms.length);
+		ConcreteInterpreter conInte = new ConcreteInterpreter();
+		conInte.doNotInterpFuncs = true;
+		return conInte.interpretConcrete(funcIndex, terms, 0);
+	}
+
 	class ConcreteInterpreter {
 		int lastInterpreted = -1;
+		boolean doNotInterpFuncs = false;
 		public Expr interpretConcrete(int funcIndex, int[] terms, int start) {
 			int ruleIndex = terms[start];
 			String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
@@ -260,7 +268,7 @@ public class Expand {
 				for (int i = 0; i < argCount; i++) {
 					args[i] = interpretConcrete(funcIndex, terms, lastInterpreted + 1);
 				}
-				result = extractor.operationDispatcher(termSyb, args, true);
+				result = extractor.operationDispatcher(termSyb, args, true, doNotInterpFuncs);
 			}
 			return result;
 		}
@@ -335,7 +343,7 @@ public class Expand {
 				SygusExtractor.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
 				assert subtermType == SygusExtractor.SybType.SYMBOL;
 				Expr subtermInterpreted = generateInterpret(funcIndex, subterms, subtermSyb);
-				result = extractor.operationDispatcher(termSyb, new Expr[]{subtermInterpreted}, true);
+				result = extractor.operationDispatcher(termSyb, new Expr[]{subtermInterpreted}, true, false);
 			} else {
 				int[][] combinations = combination(termLength, argCount - 1);
 				List<BoolExpr> branchGuards = new ArrayList<BoolExpr>();
@@ -372,7 +380,7 @@ public class Expand {
 						continue;
 					}
 					BoolExpr branchGuard = ctx.mkAnd(structValids);
-					Expr branch = extractor.operationDispatcher(termSyb, argsInterpreted, true);
+					Expr branch = extractor.operationDispatcher(termSyb, argsInterpreted, true, false);
 					branchGuards.add(branchGuard);
 					branches.add(branch);
 					iteExpr = ctx.mkITE(branchGuard, branch, iteExpr);

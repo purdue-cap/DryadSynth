@@ -670,10 +670,10 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public Expr operationDispatcher(String name, Expr[] args) {
-        return operationDispatcher(name, args, false);
+        return operationDispatcher(name, args, false, false);
     }
 
-    public Expr operationDispatcher(String name, Expr[] args, boolean definedOnly) {
+    public Expr operationDispatcher(String name, Expr[] args, boolean definedOnly, boolean doNotInterp) {
         if (name.equals("+")) {
             return z3ctx.mkAdd(Arrays.copyOf(args, args.length, ArithExpr[].class));
         }
@@ -718,7 +718,11 @@ public class SygusExtractor extends SygusBaseListener {
         }
         DefinedFunc df = funcs.get(name);
         if (df != null) {
-            return df.apply(args);
+            if (doNotInterp) {
+                return df.applyUninterp(args);
+            } else {
+                return df.apply(args);
+            }
         }
         if (definedOnly) {
             return null;
