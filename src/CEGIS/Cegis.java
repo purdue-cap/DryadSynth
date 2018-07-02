@@ -574,7 +574,7 @@ public class Cegis extends Thread{
 			vectorBound = fixedVectorLength;
 		}
 		logger.warning("Condition bound not implemented for general");
-		logger.warning("Using minInfinite as timeout");
+		logger.warning("Using minFinite + minInfinite as timeout");
 		//int condBound = 1;
 		//if (fixedCond > 0) {
 		//	condBound = fixedCond;
@@ -693,7 +693,7 @@ public class Cegis extends Thread{
 				logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(counterExamples.toArray()));
 			}
 
-			if (System.currentTimeMillis() - startTime > 60000 * this.minInfinite) {
+			if (System.currentTimeMillis() - startTime > 60000 * (this.minInfinite + this.minFinite)) {
 				if (fixedVectorLength > 0) {
 					return;
 				} else {

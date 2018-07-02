@@ -262,6 +262,16 @@ public class Expand {
 				result = extractor.vars.get(termSyb);
 			} else if (termType == SygusExtractor.SybType.LCLARG) {
 				result = grammar.cfgs[funcIndex].localArgs.get(termSyb);
+			} else if (termType == SygusExtractor.SybType.CSTINT) {
+				result = ctx.mkInt(terms[start + 1]);
+				lastInterpreted = start + 1;
+			} else if (termType == SygusExtractor.SybType.CSTBOL) {
+				if (terms[start + 1] == 0) {
+					result = ctx.mkFalse();
+				} else {
+					result = ctx.mkTrue();
+				}
+				lastInterpreted = start + 1;
 			} else {
 				assert termType == SygusExtractor.SybType.FUNC;
 				Expr[] args = new Expr[argCount];
@@ -333,6 +343,14 @@ public class Expand {
 			result = extractor.vars.get(termSyb);
 		} else if (termType == SygusExtractor.SybType.LCLARG) {
 			result = grammar.cfgs[funcIndex].localArgs.get(termSyb);
+		} else if (termType == SygusExtractor.SybType.CSTINT) {
+			result = ivars[1];
+		} else if (termType == SygusExtractor.SybType.CSTBOL) {
+			result = ctx.mkITE(
+			ctx.mkEq(ivars[1], ctx.mkInt(0)),
+			ctx.mkFalse(),
+			ctx.mkTrue()
+			);
 		} else {
 			assert termType == SygusExtractor.SybType.FUNC;
 			int termLength = ivars.length - 1;
@@ -449,7 +467,21 @@ public class Expand {
 			typeCond = null;
 			argCount = 0;
 		}
-		if (argCount > termLength) {
+		if (fullRule != null && fullRule[0].equals("ConstantInt")) {
+			if (termLength == 1) {
+				result = typeCond;
+			} else {
+				result = ctx.mkFalse();
+			}
+		} else if (fullRule != null && fullRule[0].equals("ConstantBool")) {
+			if (termLength == 1) {
+				IntExpr valueVar = ivars[1];
+				result = ctx.mkAnd(typeCond, ctx.mkOr(ctx.mkEq(valueVar, ctx.mkInt(0)), ctx.mkEq(valueVar, ctx.mkInt(1))));
+			} else {
+				result = ctx.mkFalse();
+			}
+
+		} else if (argCount > termLength) {
 			result = ctx.mkFalse();
 		} else if (argCount == 0) {
 			if (termLength == 0) {

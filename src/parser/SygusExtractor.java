@@ -47,7 +47,7 @@ public class SygusExtractor extends SygusBaseListener {
 
     // For grammar parsing
     enum SybType {
-        LITERAL, GLBVAR, FUNC, SYMBOL, LCLARG
+        LITERAL, GLBVAR, FUNC, SYMBOL, LCLARG, CSTINT, CSTBOL
     }
     // Inner grammar class
     static class CFG {
@@ -59,10 +59,11 @@ public class SygusExtractor extends SygusBaseListener {
     }
     String currentSymbol;
     boolean inGrammarArgs = false;
+    boolean inLetTerms = false;
     List<String> grammarArgs = new ArrayList<String>();
     // Internal expressions that might be used in grammars
     public static final String[] internalOpsArray = new String[] {
-        "+","-","*","/","and","or","not","<",">","=","<=",">=","=>","ite"
+        "+","-","*","/","and","or","not","<",">","=","<=",">=","=>","ite", "div", "mod"
     };
     public static final Set<String> internalOps = new HashSet<String>(Arrays.asList(internalOpsArray));
 
@@ -556,18 +557,40 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void enterGTerm(SygusParser.GTermContext ctx) {
+        // Currently skipping let terms
+        if (ctx.letGTerm() != null) {
+            inLetTerms = true;
+        }
         if (ctx.gTermStar() != null) {
             inGrammarArgs = true;
         }
     }
 
     public void exitGTerm(SygusParser.GTermContext ctx) {
+        if (ctx.letGTerm() != null) {
+            // Currently skipping let terms
+            inLetTerms = false;
+            return;
+        }
+        if (inLetTerms) {
+            return;
+        }
         String currentTerm;
         if (ctx.symbol() != null){
             currentTerm = ctx.symbol().getText();
         } else if (ctx.literal() != null) {
             currentTerm = ctx.literal().getText();
             glbSybTypeTbl.put(currentTerm, SybType.LITERAL);
+        } else if (ctx.getChild(1) != null && ctx.getChild(1).getText().equals("Constant")) {
+            if (ctx.sortExpr().getText().equals("Int")) {
+                currentTerm = "ConstantInt";
+                glbSybTypeTbl.put(currentTerm, SybType.CSTINT);
+            } else if (ctx.sortExpr().getText().equals("Bool")) {
+                currentTerm = "ConstantBool";
+                glbSybTypeTbl.put(currentTerm, SybType.CSTBOL);
+            } else {
+                currentTerm = null;
+            }
         } else {
             currentTerm = null;
         }
@@ -715,6 +738,12 @@ public class SygusExtractor extends SygusBaseListener {
         }
         if (name.equals("ite")) {
             return z3ctx.mkITE((BoolExpr)args[0], args[1], args[2]);
+        }
+        if (name.equals("div")) {
+            return z3ctx.mkDiv((ArithExpr)args[0], (ArithExpr)args[1]);
+        }
+        if (name.equals("mod")) {
+            return z3ctx.mkMod((IntExpr)args[0], (IntExpr)args[1]);
         }
         DefinedFunc df = funcs.get(name);
         if (df != null) {
