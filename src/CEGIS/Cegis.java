@@ -23,6 +23,7 @@ public class Cegis extends Thread{
 	private boolean isGeneral = false;
 
 	public Map<String, int[]> generalFuncs;
+	public Map<String, ASTGeneral> ASTs;
 
 	public Map<String, Expr> functions;
 	public Set<Expr[]> counterExamples;
@@ -60,6 +61,7 @@ public class Cegis extends Thread{
 		this.finalConstraint = extractor.finalConstraint;
 
 		this.generalFuncs = new LinkedHashMap<String, int[]>();
+		this.ASTs = new LinkedHashMap<String, ASTGeneral>();
 		this.functions = new LinkedHashMap<String, Expr>();
 
 		if (!extractor.isGeneral) {
@@ -447,11 +449,11 @@ public class Cegis extends Thread{
 			}
 		}
 
-		public void expandFunctions(Map<String, int[]> generalFunc, Map<String, Expr> functions) {
+		public void expandFunctions(Map<String, int[]> generalFunc, Map<String, ASTGeneral> ASTs) {
 			int i = 0;
 			for (String name: extractor.names) {
 				int[] terms = generalFunc.get(name);
-				functions.put(name, expand.expandGeneral(i, terms));
+				ASTs.put(name, expand.expandGeneral(i, terms));
 				i++;
 			}
 		}
@@ -663,12 +665,13 @@ public class Cegis extends Thread{
 
 			if (v == Status.UNSATISFIABLE) {
 				SynthDecoder synthDecoder = new SynthDecoder(testSynthesizer.getLastModel());
-				synthDecoder.expandFunctions(generalFuncs, functions);
+				synthDecoder.expandFunctions(generalFuncs, ASTs);
 				results = new DefinedFunc[functions.size()];
 				int i = 0;
 				for (String name : extractor.rdcdRequests.keySet()) {
 					Expr def = functions.get(name);
-					results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def);
+					ASTGeneral ast = ASTs.get(name);
+					results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def, ast);
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
 					i = i + 1;
 				}

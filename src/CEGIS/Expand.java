@@ -226,9 +226,10 @@ public class Expand {
 	SygusExtractor.SybType resolveSyb(int funcIndex, String syb) {
 		if (grammar.cfgs[funcIndex].sybTypeTbl.containsKey(syb)){
 			return grammar.cfgs[funcIndex].sybTypeTbl.get(syb);
-		} else {
-			assert extractor.glbSybTypeTbl.containsKey(syb);
+		} else if (extractor.glbSybTypeTbl.containsKey(syb)){
 			return extractor.glbSybTypeTbl.get(syb);
+		} else {
+			return null;
 		}
 	}
 
@@ -238,11 +239,47 @@ public class Expand {
 		return conInte.interpretConcrete(funcIndex, terms, 0);
 	}
 
-	public Expr expandGeneral(int funcIndex, int[] terms) {
+	public ASTGeneral expandGeneral(int funcIndex, int[] terms) {
 		assert isInterpretable(funcIndex, terms.length);
-		ConcreteInterpreter conInte = new ConcreteInterpreter();
-		conInte.doNotInterpFuncs = true;
-		return conInte.interpretConcrete(funcIndex, terms, 0);
+		ASTBuilder astBuilder = new ASTBuilder();
+		return astBuilder.buildAST(funcIndex, terms, 0);
+	}
+
+	class ASTBuilder {
+		int lastInterpreted = -1;
+		public ASTGeneral buildAST(int funcIndex, int[] terms, int start) {
+			int ruleIndex = terms[start];
+			String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
+			String termSyb = fullRule[0];
+			int argCount = fullRule.length - 1;
+			ASTGeneral result = new ASTGeneral();
+			SygusExtractor.SybType termType = resolveSyb(funcIndex, termSyb);
+			lastInterpreted = start;
+			if (termType == SygusExtractor.SybType.LITERAL) {
+				result.node = termSyb;
+			} else if (termType == SygusExtractor.SybType.GLBVAR) {
+				result.node = termSyb;
+			} else if (termType == SygusExtractor.SybType.LCLARG) {
+				result.node = termSyb;
+			} else if (termType == SygusExtractor.SybType.CSTINT) {
+				result.node = Integer.toString(terms[start + 1]);
+				lastInterpreted = start + 1;
+			} else if (termType == SygusExtractor.SybType.CSTBOL) {
+				if (terms[start + 1] == 0) {
+					result.node = "false";
+				} else {
+					result.node = "true";
+				}
+				lastInterpreted = start + 1;
+			} else {
+				assert termType == SygusExtractor.SybType.FUNC;
+				result.node = termSyb;
+				for (int i = 0; i < argCount; i++) {
+					result.children.add(buildAST(funcIndex, terms, lastInterpreted + 1));
+				}
+			}
+			return result;
+		}
 	}
 
 	class ConcreteInterpreter {
@@ -455,19 +492,25 @@ public class Expand {
 		String[] fullRule;
 		BoolExpr typeCond;
 		int argCount;
+		SygusExtractor.SybType sybType;
 		BoolExpr result;
 		if (termLength >= 0) {
 			typeVar = ivars[0];
 			fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
 			typeCond = ctx.mkEq(typeVar, ctx.mkInt(ruleIndex));
 			argCount = fullRule.length - 1;
+			sybType = resolveSyb(funcIndex, fullRule[0]);
 		} else {
 			typeVar = null;
 			fullRule = null;
 			typeCond = null;
 			argCount = 0;
+			sybType = null;
 		}
-		if (fullRule != null && fullRule[0].equals("ConstantInt")) {
+		if (sybType == null) {
+			result = ctx.mkFalse();
+		}
+		else if (fullRule != null && fullRule[0].equals("ConstantInt")) {
 			if (termLength == 1) {
 				result = typeCond;
 			} else {

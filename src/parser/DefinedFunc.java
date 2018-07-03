@@ -3,6 +3,16 @@ import com.microsoft.z3.*;
 
 public class DefinedFunc {
 
+    DefinedFunc (Context ctx, String name, Expr[] args, Expr definition, ASTGeneral ASTDef) {
+        this.ctx = ctx;
+        this.name = name;
+        this.args = args;
+        this.definition = definition;
+        this.numArgs = args.length;
+        declareFunc();
+        this.ASTDef = ASTDef;
+    }
+
     DefinedFunc(Context ctx, String name, Expr[] args, Expr definition) {
         this.ctx = ctx;
         this.name = name;
@@ -35,6 +45,7 @@ public class DefinedFunc {
     Expr definition;
     int numArgs;
     FuncDecl decl;
+    ASTGeneral ASTDef = null;
 
     public Expr apply(Expr... argList){
         return definition.substitute(args, argList);
@@ -148,13 +159,17 @@ public class DefinedFunc {
             argStr = argStr + String.format("(%s %s) ", expr.toString(), expr.getSort().toString());
         }
         String typeStr = definition.getSort().toString();
-        Expr def;
-        if (simplify) {
-            def = definition.simplify();
+        String def;
+        if (ASTDef == null) {
+            if (simplify) {
+                def = definition.simplify().toString();
+            } else {
+                def = definition.toString();
+            }
         } else {
-            def = definition;
+            def = ASTDef.toString();
         }
-        return String.format(str, name, argStr, typeStr, def.toString());
+        return String.format(str, name, argStr, typeStr, def);
     }
 
     public int getNumArgs() {
