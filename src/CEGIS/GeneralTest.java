@@ -81,7 +81,7 @@ public class GeneralTest {
 
         Expand ex = new Expand(ctx, extractor);
         Integer len = new Integer(1);
-        for (; len < 9; len ++) {
+        for (; len < 4; len ++) {
             ex.setVectorBound(len);
             if (!ex.isInterpretableNow()){
                 logger.info("Invalid on length " + len.toString());
