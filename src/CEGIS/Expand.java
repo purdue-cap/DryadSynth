@@ -185,10 +185,11 @@ public class Expand {
 	}
 
 	public BoolExpr expandCoefficientGeneral() {
-		// Currently only has term range restrictions
+		// Currently only has term range restrictions and general valid
 		BoolExpr cond = ctx.mkTrue();
 		for (int i = 0; i < numFunc; i++) {
 			int order = grammar.ruleOrders.get(i);
+			cond = ctx.mkAnd(cond, validPredicate(i));
 			for (int j = 0; j < bound; j++) {
 				ArithExpr term = t[i][j];
 				cond = ctx.mkAnd(cond, ctx.mkGe(term, ctx.mkInt(0)), ctx.mkLt(term, ctx.mkInt(order)));
@@ -326,7 +327,7 @@ public class Expand {
 		return generateInterpret(funcIndex, terms, "Start");
 	}
 
-	public Expr validPredicate(int funcIndex){
+	public BoolExpr validPredicate(int funcIndex){
 		IntExpr[] terms = t[funcIndex];
 		return generateValid(funcIndex, terms, "Start");
 	}

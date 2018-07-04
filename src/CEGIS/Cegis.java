@@ -261,7 +261,7 @@ public class Cegis extends Thread{
 			Expr spec = extractor.finalConstraint;
 
 			// CondBound not implemented for general yet
-			// Currently expandCoefficientGeneral only applies term range restrictions
+			// Currently expandCoefficientGeneral only applies term range restrictions and overall valid
 			BoolExpr q = expand.expandCoefficientGeneral();
 			//BoolExpr q = expand.expandCoefficient(condBound);
 
