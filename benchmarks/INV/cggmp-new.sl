@@ -1,20 +1,20 @@
 (set-logic LIA)
 
-(synth-inv inv-f ((i Int) (j Int)))
+(synth-inv InvF ((i Int) (j Int)))
 
 (declare-primed-var i Int)
 (declare-primed-var j Int)
 
-(define-fun pre-f ((i Int) (j Int)) Bool
+(define-fun PreF ((i Int) (j Int)) Bool
 (and (= i 1)  
 (= j 20)))
 
-(define-fun trans-f ((i Int) (j Int) (i! Int) (j! Int)) Bool
+(define-fun TransF ((i Int) (j Int) (i! Int) (j! Int)) Bool
 (and (and (>= j i) (= i! (+ i 2))) (= j! (- j 1))))
 
-(define-fun post-f ((i Int) (j Int)) Bool
+(define-fun PostF ((i Int) (j Int)) Bool
 (not (and (< j i) (not (= j 13)))))
 
-(inv-constraint inv-f pre-f trans-f post-f)
+(inv-constraint InvF PreF TransF PostF)
 
 (check-synth)
