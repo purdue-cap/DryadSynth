@@ -207,7 +207,7 @@ public class SygusDispatcher {
         		}
             } else {
                 fallbackCEGIS[0].run();
-                results = ((Cegis)threads[0]).results;
+                results = ((Cegis)fallbackCEGIS[0]).results;
             }
         }
         return results;
