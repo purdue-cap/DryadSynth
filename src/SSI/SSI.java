@@ -112,7 +112,7 @@ public class SSI extends Thread {
             FuncDecl decl = extractor.rdcdRequests.get(funcName);
             rewritten = func.rewrite(rewritten, decl);
         }
-        return killNonCurrent(rewritten);
+        return killNonCurrent(rewritten).simplify();
     }
 
     private Expr killNonCurrent(Expr orig) throws SSIException{
