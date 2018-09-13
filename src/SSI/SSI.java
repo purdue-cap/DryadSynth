@@ -61,6 +61,7 @@ public class SSI extends Thread {
 
         logger.info("Constructing result...");
         Expr def = this.constructITE().simplify();
+        logger.info("Constructed result for " + name + " :" + def.toString());
 
         return def;
     }
@@ -247,7 +248,7 @@ public class SSI extends Thread {
         if (pushInNotsCache.containsKey(expr)) {
             return pushInNotsCache.get(expr);
         }
-        if (expr.isConst()) {
+        if (expr.isConst() || expr.isIntNum() || expr.isTrue() || expr.isFalse()) {
             pushInNotsCache.put(expr, expr);
             return expr;
         }
