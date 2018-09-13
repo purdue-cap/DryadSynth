@@ -20,7 +20,7 @@ public class SygusDispatcher {
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
-    boolean hasFunc = false;
+    Set<String> funcCalled = null;
 
     AT preparedAT;
     Thread [] fallbackCEGIS = null;
@@ -254,6 +254,7 @@ public class SygusDispatcher {
         }
         Expr spec = z3ctx.mkAnd(remainingConstrs.toArray(new BoolExpr[remainingConstrs.size()]));
         this.callCache = new HashMap<String, Expr[]>();
+        this.funcCalled = new HashSet<String>();
         return isSSI(spec);
     }
 
@@ -263,6 +264,7 @@ public class SygusDispatcher {
         }
         Expr spec = extractor.finalConstraint;
         this.callCache = new HashMap<String, Expr[]>();
+        this.funcCalled = new HashSet<String>();
         return isSSI(spec);
     }
 
@@ -298,8 +300,8 @@ public class SygusDispatcher {
             String funcName = exprFunc.getName().toString();
             if (extractor.names.contains(funcName) &&
                 exprFunc.equals(extractor.rdcdRequests.get(funcName)))  {
-                // For SSI, one atomic expression should have only one function
-                if (hasFunc) {
+                // For SSI, one atomic expression should have only one particular function
+                if (funcCalled.contains(funcName)) {
                     return false;
                 }
                 if (!z3ctx.getIntSort().equals(exprFunc.getRange())) {
@@ -312,14 +314,14 @@ public class SygusDispatcher {
                 } else {
                     this.callCache.put(funcName, args);
                 }
-                hasFunc = true;
+                funcCalled.add(funcName);
             }
             for (Expr arg: args) {
                 result = result && isSSI(arg);
             }
-            // After atomic expression evalutation, reset the hasFunc flag
+            // After atomic expression evalutation, reset the funcCalled set
             if (expr.isGE() || expr.isLT()|| expr.isGT() || expr.isLE() || expr.isEq()) {
-                hasFunc = false;
+                funcCalled.clear();
             }
         }
         return result;
