@@ -344,6 +344,19 @@ public class SygusExtractor extends SygusBaseListener {
             requestUsedArgs.put(name, usedList.toArray(new Expr[usedList.size()]));
         }
 
+        // Avoid functions with completely empty arglist, which may cause CEGIS
+        // algorithm to behave badly
+        for (String name: requestUsedArgs.keySet()) {
+            if (requestUsedArgs.get(name).length == 0) {
+                requestUsedArgs.put(name, requestArgs.get(name));
+            }
+        }
+        for (String name: requestSyntaxUsedArgs.keySet()) {
+            if (requestSyntaxUsedArgs.get(name).length == 0) {
+                requestSyntaxUsedArgs.put(name, requestArgs.get(name));
+            }
+        }
+
         // Generate reduced function declarations and final constraints
         finalConstraint = z3ctx.mkAnd(nomCombinedConstraint, invCombinedConstraint);
         for (String name : names) {
