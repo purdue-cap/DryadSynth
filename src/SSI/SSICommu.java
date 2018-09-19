@@ -36,8 +36,16 @@ public class SSICommu extends SSI {
                 (BoolExpr)sideConstrt
                 );
         logger.info("Onesided constraint:" + sideConstrt.toString());
-        
-        extractor.finalConstraint = (BoolExpr)sideConstrt;
+
+        logger.info("Pushing in Nots in the constraint");
+        try {
+            this.pushedConstr = pushInNots(sideConstrt);
+        } catch(SSIException e) {
+            this.results = null;
+            return;
+        }
+        logger.info("Pushed constraint: " + this.pushedConstr.toString());
+
         Expr onesideDef;
         try {
             onesideDef = this.getDef();

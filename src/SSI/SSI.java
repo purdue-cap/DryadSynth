@@ -10,7 +10,7 @@ public class SSI extends Thread {
     // Current name that is being worked on
     protected String name;
     // Partial constraint that have only current function calls
-    private Expr pushedConstr;
+    protected Expr pushedConstr;
     private Expr partConstr;
     private Expr[] callCache;
     private Expr funcExpr;
@@ -244,7 +244,7 @@ public class SSI extends Thread {
     // Cache for pushInNots' DP algorithm
     private Map<Expr, Expr> pushInNotsCache = new HashMap<Expr, Expr>();
     // This function pushes in not expressions to completely elminate them.
-    private Expr pushInNots(Expr expr) throws SSIException {
+    protected Expr pushInNots(Expr expr) throws SSIException {
         if (pushInNotsCache.containsKey(expr)) {
             return pushInNotsCache.get(expr);
         }
