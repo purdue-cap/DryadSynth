@@ -328,6 +328,10 @@ public class Transf {
             List<Expr> nonConds = new ArrayList<Expr>();
             Region[] regions = r.fromConj(conj, nonConds, ctx);
 
+            if (regions == null) {
+                return null;
+            }
+
             int size = vars.size();
             int[] deltas = new int[size];
             Map<Expr, Integer> delta_map = new LinkedHashMap<Expr, Integer>();
