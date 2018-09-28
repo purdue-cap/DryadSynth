@@ -364,6 +364,218 @@ public class Transf {
         return t;
     }
 
+    // Implement convertion from any formula to DNF
+    // First convert the formula to NNF
+    // To convert fomula to NNF, first eliminate -> & <-> and ite, then push negations in
+    // Then convert NNF to DNF
+    public Expr eliminateImpEq(Expr expr) {
+        // First eliminate ->
+        if (expr.isImplies()) {
+            Expr[] args = expr.getArgs();
+            return z3ctx.mkOr(z3ctx.mkNot((BoolExpr)eliminateImpEq(args[0])), (BoolExpr)eliminateImpEq(args[1]));
+        }
+        // Then eliminate <->
+        if (expr.isEq()) {
+            Expr[] args = expr.getArgs();
+            // Equality between arithmetic exprs should be preserved
+            // Only eliminate equality between booleans
+            if (args[0].isBool() && args[1].isBool()) {
+                BoolExpr e1 = (BoolExpr)eliminateImpEq(args[0]);
+                BoolExpr e2 = (BoolExpr)eliminateImpEq(args[1]);
+                return z3ctx.mkOr(z3ctx.mkAnd(e1, e2), z3ctx.mkAnd(z3ctx.mkNot(e1), z3ctx.mkNot(e2)));
+            }
+        }
+        // Also need to eliminate ITE
+        if (expr.isITE()) {
+            Expr[] args = expr.getArgs();
+            BoolExpr e1 = (BoolExpr)eliminateImpEq(args[0]);
+            BoolExpr e2 = (BoolExpr)eliminateImpEq(args[1]);
+            BoolExpr e3 = (BoolExpr)eliminateImpEq(args[2]);
+            return z3ctx.mkOr(z3ctx.mkAnd(z3ctx.mkNot(e1), e3), z3ctx.mkAnd(e1, e2));
+        }
+        // Other kind of expression should do the elimination recursively
+        if (expr.isNot()) {
+            Expr[] args = expr.getArgs();
+            return z3ctx.mkNot((BoolExpr)eliminateImpEq(args[0]));
+        }
+        if (expr.isAnd()) {
+            List<Expr> argList = new ArrayList<Expr>();
+            for (Expr e: expr.getArgs()) {
+                argList.add(eliminateImpEq((BoolExpr)e));
+            }
+            return z3ctx.mkAnd(argList.toArray(new BoolExpr[argList.size()]));
+        }
+        if (expr.isOr()) {
+            List<Expr> argList = new ArrayList<Expr>();
+            for (Expr e: expr.getArgs()) {
+                argList.add(eliminateImpEq((BoolExpr)e));
+            }
+            return z3ctx.mkOr(argList.toArray(new BoolExpr[argList.size()]));
+        }
+        if (Region.isAtom(expr)) {
+            return expr;
+        }
+        // Anything reaches here is not valid, generating an error using null
+        return null;
+    }
+
+    // Already eliminate -> <-> and ite
+    // "Push negations in" using DeMorgan's Law
+    // \neg (f1 /\ f2) -> (\neg f1) \/ (\neg f2)
+    // \neg (f1 \/ f2) -> (\neg f1) /\ (\neg f2)
+    public Expr pushNegIn(Expr expr) {
+        // Check for (not (not ...)), (not (and ...)), (not (or ...)) forms
+        if (expr.isNot()) {
+            Expr arg = expr.getArgs()[0];
+            if (arg.isNot()) {
+                return pushNegIn(arg.getArgs()[0]);
+            }
+            if (arg.isAnd()) {
+                List<Expr> argList = new ArrayList<Expr>();
+                for (Expr e: arg.getArgs()) {
+                    argList.add(pushNegIn(z3ctx.mkNot((BoolExpr)e)));
+                }
+                return z3ctx.mkOr(argList.toArray(new BoolExpr[argList.size()]));
+            }
+            if (arg.isOr()) {
+                List<Expr> argList = new ArrayList<Expr>();
+                for (Expr e: arg.getArgs()) {
+                    argList.add(pushNegIn(z3ctx.mkNot((BoolExpr)e)));
+                }
+                return z3ctx.mkAnd(argList.toArray(new BoolExpr[argList.size()]));
+            }
+            // Should be (not ...atomic...) here
+            return z3ctx.mkNot((BoolExpr)pushNegIn(arg));
+        }
+        if (expr.isAnd()) {
+            List<Expr> argList = new ArrayList<Expr>();
+            for (Expr e: expr.getArgs()) {
+                argList.add(pushNegIn((BoolExpr)e));
+            }
+            return z3ctx.mkAnd(argList.toArray(new BoolExpr[argList.size()]));
+        }
+        if (expr.isOr()) {
+            List<Expr> argList = new ArrayList<Expr>();
+            for (Expr e: expr.getArgs()) {
+                argList.add(pushNegIn((BoolExpr)e));
+            }
+            return z3ctx.mkOr(argList.toArray(new BoolExpr[argList.size()]));
+        }
+        if (Region.isAtom(expr)) {
+            return expr;
+        }
+        // Anything reaches here is not valid, generating an error using null
+        return null;
+    }
+
+    // Convert NNF to DNF
+    // Distribute /\ over \/
+    // (f1 \/ f2) /\ f3 -> (f1 /\ f3) \/ (f2 /\ f3)
+    public Expr convertNNFToDNF(Expr expr) {
+        if (Region.isAtom(expr)) {
+            return expr;
+        }
+        if (expr.isOr()) {
+            List<Expr> argList = new ArrayList<Expr>();
+            for (Expr e: expr.getArgs()) {
+                argList.add(convertNNFToDNF((BoolExpr)e));
+            }
+            return z3ctx.mkOr(argList.toArray(new BoolExpr[argList.size()]));
+        }
+        if (expr.isAnd()) {
+            List<Expr> orList = new ArrayList<Expr>();
+            List<Expr> otherList = new ArrayList<Expr>();
+            for (Expr e: expr.getArgs()) {
+                // First convert all the subformulae to DNF format
+                e = convertNNFToDNF(e);
+                // Store "or" subformula and other (including "and" and "not") subformula into different list
+                if (e.isOr()) {
+                    orList.add(e);
+                } else {
+                    otherList.add(e);
+                }
+            }
+            // All the other formula (other than "or") can be combined together
+            Expr andExpr;
+            if (otherList.size() == 0) {
+                // Eliminate redundant (and ...) if there is no "other" expr
+                andExpr = null;
+            } else if (otherList.size() == 1) {
+                // Eliminate redundant (and ...) if there is only one "other" expr
+                andExpr = otherList.get(0);
+            } else {
+                andExpr = z3ctx.mkAnd(otherList.toArray(new BoolExpr[otherList.size()]));
+            }
+            if (orList.size() == 0) {
+                // If there is no "or" subformula inside, then simply return all the other subformula
+                return andExpr;
+            }
+            // distribute /\ over \/
+            Expr result = z3ctx.mkFalse();
+            for (Expr orExpr: orList) {
+                result = distributeAnd(result, orExpr, andExpr);
+            }
+            return result;
+        }
+        // Anything reaches here is not valid, generating an error using null
+        return null;
+    }
+
+    // distribute and over over
+    // assume or1.isOr() /\ or2.isOr()
+    // assume or1 and or2 are connected by /\ in the original formula
+    public Expr distributeAnd(Expr or1, Expr or2, Expr and) {
+        Expr[] or1Args = or1.getArgs();
+        Expr[] or2Args = or2.getArgs();
+        Expr ret = z3ctx.mkFalse();
+        // Anything "or" with False should node change the validity of that formula
+        if (or1.isFalse()) {
+            // Consider the case where or1 is False in the first iteration
+            List<Expr> ors = new ArrayList<Expr>();
+            for (Expr e2: or2Args) {
+                if (and == null) {
+                    // If "and" is null, then no need to conjuct "and" with subformula of "or"
+                    // Simply return the original subformula to eliminate redundant (and ...)
+                    ors.add(e2);
+                } else {
+                    ors.add(z3ctx.mkAnd((BoolExpr)e2, (BoolExpr)and));
+                }
+            }
+            return z3ctx.mkOr(ors.toArray(new BoolExpr[ors.size()]));
+        }
+        if (and == null) {
+            // If "and" is null, do not conjunct "and"
+            for (Expr e1: or1Args) {
+                for (Expr e2: or2Args) {
+                    if (ret.isFalse()) {
+                        // Consider the case where ret is False in the first iteration
+                        ret = z3ctx.mkAnd((BoolExpr)e1, (BoolExpr)e2);
+                    } else {
+                        ret = z3ctx.mkOr((BoolExpr)ret, z3ctx.mkAnd((BoolExpr)e1, (BoolExpr)e2));
+                    }
+                }
+            }
+        } else {
+            for (Expr e1: or1Args) {
+                for (Expr e2: or2Args) {
+                    if (ret.isFalse()) {
+                        ret = z3ctx.mkAnd((BoolExpr)e1, (BoolExpr)e2, (BoolExpr)and);
+                    } else {
+                        ret = z3ctx.mkOr((BoolExpr)ret, z3ctx.mkAnd((BoolExpr)e1, (BoolExpr)e2, (BoolExpr)and));
+                    }
+                }
+            }
+        }
+        return ret;
+    }
+
+    public Expr convertAnyToDNF(Expr expr) {
+        Expr ret = eliminateImpEq(expr);
+        ret = pushNegIn(ret);
+        ret = convertNNFToDNF(ret);
+        return ret;
+    }
+
     // Reimplementation of converting any formula to DNF format
     // The version in SinInv uses single invocation assumption
     // Should be modified
