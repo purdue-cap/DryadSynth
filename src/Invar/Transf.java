@@ -299,13 +299,30 @@ public class Transf {
         return true;
     }
 
+    
+    public static Expr mkAlt(Expr v, Context ctx) {
+        return ctx.mkIntConst(v.toString() + "!alt");
+    }
+    public static Expr mkAlt(Expr e, List<Expr> v, Context ctx) {
+        Expr result = e;
+        for (Expr c : v) {
+            Expr alt = mkAlt(c, ctx);
+            result = result.substitute(c, alt);
+        }
+        return result;
+    }
+
     public static boolean getDeltaBySMT(List<Expr>nonConds, Map<String, Expr> vars, Map<Expr, Integer> deltas, Context ctx) {
 
+        List<Expr> allVars = new ArrayList<Expr>();
         Map<String, Expr> pVars = new HashMap<String, Expr>();
         Map<String, Expr> cVars = new HashMap<String, Expr>();
         for (String name : vars.keySet()) {
             pVars.put(name, ctx.mkIntConst(name + "!"));
             cVars.put(name, ctx.mkIntConst("delta_" + name));
+            allVars.add(vars.get(name));
+            allVars.add(pVars.get(name));
+            allVars.add(cVars.get(name));
         }
         Map<String, Expr> rExprs = new HashMap<String, Expr>();
 
@@ -313,17 +330,40 @@ public class Transf {
         for (Expr e: nonConds) {
             s.add((BoolExpr)e);
         }
+        // Save state
         s.push();
-        // Try to get a set of delta value first
+        
+        // Add the delta expressions
         BoolExpr base = ctx.mkTrue();
         for (String name : vars.keySet()) {
             base = ctx.mkAnd(base, ctx.mkEq(pVars.get(name), ctx.mkAdd((ArithExpr)vars.get(name), (ArithExpr)cVars.get(name))));
         }
         s.add(base);
+
+        // Save state
+        s.push();
+        
+        // Check if unique solution exists
+        for (Expr e: nonConds) {
+            s.add((BoolExpr)mkAlt(e, allVars, ctx));
+        }
+        s.add((BoolExpr)mkAlt(base, allVars, ctx));
+        for (String name : cVars.keySet()) {
+            s.add(ctx.mkNot(ctx.mkEq(cVars.get(name), mkAlt(cVars.get(name), ctx))));
+        }
+
         Status sts = s.check();
+        if (sts != Status.UNSATISFIABLE){
+            return false;
+        }
+
+        s.pop();
+        // Solve the deltas
+        sts = s.check();
         if (sts != Status.SATISFIABLE){
             return false;
         }
+
         Model m = s.getModel();
         for (String name : vars.keySet()) {
             Expr dExpr = cVars.get(name);
@@ -336,7 +376,7 @@ public class Transf {
         s.pop();
 
         s.push();
-        // Now check if they are the only possible deltas
+        // Now check if they are constants 
         base = ctx.mkTrue();
         for (String name : vars.keySet()) {
             base = ctx.mkAnd(base, ctx.mkEq(pVars.get(name), ctx.mkAdd((ArithExpr)vars.get(name), (ArithExpr)rExprs.get(name))));

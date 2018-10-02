@@ -2,8 +2,20 @@ import java.util.*;
 import com.microsoft.z3.*;
 
 public class LSTest {
+    public static Context ctx;
+    public static Expr alter(Expr v) {
+        return ctx.mkIntConst(v.toString() + "!alt");
+    }
+    public static Expr alter(Expr e, Expr[] v) {
+        Expr result = e;
+        for (Expr c : v) {
+            Expr alt = alter(c);
+            result = result.substitute(c, alt);
+        }
+        return result;
+    }
     public static void main(String[] args) {
-        Context ctx = new Context();
+        ctx = new Context();
         ArithExpr x = ctx.mkIntConst("x");
         ArithExpr xp = ctx.mkIntConst("x'");
         ArithExpr y = ctx.mkIntConst("y");
@@ -18,15 +30,21 @@ public class LSTest {
         System.out.println("Eq1:" + eq1.toString());
         System.out.println("Eq2:" + eq2.toString());
 
-        Tactic t = ctx.mkTactic("solve-eqs");
-        Goal g = ctx.mkGoal(false, false, false);
-        g.add(eq1);
-        g.add(eq2);
-        g.add(ast1);
-        g.add(ast2);
-        System.out.println(t.apply(g).toString());
-
         Solver s = ctx.mkSolver();
+        s.push();
+        s.add(eq1);
+        s.add(eq2);
+        s.add(ast1);
+        s.add(ast2);
+        s.add((BoolExpr)alter(eq1, new Expr[]{x, y, xp, yp, cx, cy}));
+        s.add((BoolExpr)alter(eq2, new Expr[]{x, y, xp, yp, cx, cy}));
+        s.add((BoolExpr)alter(ast1, new Expr[]{x, y, xp, yp, cx, cy}));
+        s.add((BoolExpr)alter(ast2, new Expr[]{x, y, xp, yp, cx, cy}));
+        s.add(ctx.mkNot(ctx.mkEq(cx, alter(cx))));
+        s.add(ctx.mkNot(ctx.mkEq(cy, alter(cy))));
+        System.out.println(s.check().toString());
+        s.pop();
+
         s.push();
         s.add(eq1);
         s.add(eq2);
@@ -52,13 +70,19 @@ public class LSTest {
         System.out.println("Eq1:" + eq1.toString());
         System.out.println("Eq2:" + eq2.toString());
 
-        t = ctx.mkTactic("solve-eqs");
-        g = ctx.mkGoal(false, false, false);
-        g.add(eq1);
-        g.add(eq2);
-        g.add(ast1);
-        g.add(ast2);
-        System.out.println(t.apply(g).toString());
+        s.push();
+        s.add(eq1);
+        s.add(eq2);
+        s.add(ast1);
+        s.add(ast2);
+        s.add((BoolExpr)alter(eq1, new Expr[]{x, y, xp, yp, cx, cy}));
+        s.add((BoolExpr)alter(eq2, new Expr[]{x, y, xp, yp, cx, cy}));
+        s.add((BoolExpr)alter(ast1, new Expr[]{x, y, xp, yp, cx, cy}));
+        s.add((BoolExpr)alter(ast2, new Expr[]{x, y, xp, yp, cx, cy}));
+        s.add(ctx.mkNot(ctx.mkEq(cx, alter(cx))));
+        s.add(ctx.mkNot(ctx.mkEq(cy, alter(cy))));
+        System.out.println(s.check().toString());
+        s.pop();
 
         s.push();
         s.add(eq1);
