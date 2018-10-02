@@ -91,7 +91,7 @@ public class Transf {
     public Transf(Map<String, Expr> vars, Context ctx, boolean simplify) {
         this.vars = vars;
         this.z3ctx = ctx;
-        
+
         // Build the necessary tactics here
         this.qe = z3ctx.mkTactic("qe");
         if (simplify) {
@@ -300,12 +300,14 @@ public class Transf {
     }
 
     public static Transf fromTransfFormula(Expr formula, Map<String, Expr> vars, Context ctx) {
-        // NOT IMPLEMENTED
-        // We assume that the input format is DNF at this point
-        // Later we should use convertToDNF to do the conversion
         Transf t = new Transf(vars, ctx);
+        // Convert input formula to DNF format
+        Expr dnf = t.convertToDNF(formula);
+        if (dnf == null) {
+            return null;
+        }
 
-        // We enforced may assumptions here, later they need be changed to 
+        // We enforced may assumptions here, later they need be changed to
         // validation/conversion codes so that these conditions would be ensured
         // for any possible input. These assumptions include but are not limited
         // to these below:
@@ -573,106 +575,11 @@ public class Transf {
         return ret;
     }
 
-    public Expr convertAnyToDNF(Expr expr) {
+    public Expr convertToDNF(Expr expr) {
         Expr ret = eliminateImpEq(expr);
         ret = pushNegIn(ret);
         ret = convertNNFToDNF(ret);
         return ret;
     }
 
-    // Reimplementation of converting any formula to DNF format
-    // The version in SinInv uses single invocation assumption
-    // Should be modified
-    // Currently not tested and not used yet
-    public List<Expr> convertToDNF(Expr expr) {
-        // Check for (not (not ...)), (not (and ...)), (not (or ...)) forms 
-        // before anything else
-        if (expr.isNot()) {
-            Expr arg = expr.getArgs()[0];
-            if (arg.isNot()) {
-                return convertToDNF(arg.getArgs()[0]);
-            }
-            if (arg.isAnd()) {
-                List<Expr> argList = new ArrayList<Expr>();
-                for (Expr e: arg.getArgs()) {
-                    argList.add(z3ctx.mkNot((BoolExpr)e));
-                }
-                return convertToDNF(z3ctx.mkOr(argList.toArray(new BoolExpr[argList.size()])));
-            }
-            if (arg.isOr()) {
-                List<Expr> argList = new ArrayList<Expr>();
-                for (Expr e: arg.getArgs()) {
-                    argList.add(z3ctx.mkNot((BoolExpr)e));
-                }
-                return convertToDNF(z3ctx.mkAnd(argList.toArray(new BoolExpr[argList.size()])));
-            }
-        }
-        // Check for atomic formulas
-        if (Region.isAtom(expr)) {
-            List<Expr> list = new ArrayList<Expr>();
-            list.add(expr);
-            return list;
-        }
-        // Check for any (not ...) expressions that are neither atomic nor
-        // (not or) (not and), should be passed through and passed back
-        if (expr.isNot()) {
-            List<Expr> innerDNF = convertToDNF(expr.getArgs()[0]);
-            return convertToDNF(z3ctx.mkNot(
-                        z3ctx.mkOr(innerDNF.toArray(new BoolExpr[innerDNF.size()]))
-                        ));
-        }
-        // (or ..) could be combined directly
-        if (expr.isOr()) {
-            List<Expr> list = new ArrayList<Expr>();
-            for (Expr atom: expr.getArgs()) {
-                list.addAll(convertToDNF(atom));
-            }
-            return list;
-        }
-        // (and ..) should be combined distributively
-        if (expr.isAnd()) {
-            List<List<Expr>> list = new ArrayList<List<Expr>>();
-            for (Expr atom: expr.getArgs()) {
-                list.add(convertToDNF(atom));
-            }
-            return combineDNF(list);
-        }
-        // Implies should be converted to basic logical format
-        if (expr.isImplies()) {
-            Expr[] args = expr.getArgs();
-            return convertToDNF(z3ctx.mkOr(z3ctx.mkNot((BoolExpr)args[0]), (BoolExpr)args[1]));
-        }
-        // ITEs should be converted to basic logical format
-        if (expr.isITE()) {
-            Expr[] args = expr.getArgs();
-            return convertToDNF(z3ctx.mkAnd(z3ctx.mkOr(z3ctx.mkNot((BoolExpr)args[0]), (BoolExpr)args[1]), z3ctx.mkOr((BoolExpr)args[0], (BoolExpr)args[2])));
-        }
-        // Anything reaches here is not valid, generating an error using null
-        return null;
-    }
-    // Combining DNFs connected using (and ...) distributively
-    public List<Expr> combineDNF(List<List<Expr>> DNFs) {
-        List<Expr> result = new ArrayList<Expr>();
-        for (List<Expr> dnf: DNFs) {
-            result = combine2DNF(result, dnf);
-        }
-        return result;
-    }
-    // Combining (and DNF DNF)
-    public List<Expr> combine2DNF(List<Expr>DNF1, List<Expr>DNF2) {
-        List<Expr> result = new ArrayList<Expr>();
-        for (Expr term1: DNF1) {
-            for (Expr term2: DNF2) {
-                result.add(joinConj(term1, term2));
-            }
-        }
-        return result;
-    }
-    // Join 2 conjuctions into 1 conjunction
-    public Expr joinConj(Expr conj1, Expr conj2) {
-        List<Expr> terms = new ArrayList<Expr>();
-        terms.addAll(Arrays.asList(conj1));
-        terms.addAll(Arrays.asList(conj2));
-        return z3ctx.mkAnd(terms.toArray(new BoolExpr[terms.size()]));
-    }
 }
