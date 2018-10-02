@@ -248,7 +248,7 @@ public class Transf {
         }
     }
 
-    public static boolean getDelta(Expr nonCond, Map<String, Expr> vars, Map<Expr, Integer> deltas) {
+    public static boolean getDeltaBySyntax(Expr nonCond, Map<String, Expr> vars, Map<Expr, Integer> deltas) {
 
         // assume nonCond only have the form x! = x + c
         // and x! = x
@@ -299,6 +299,61 @@ public class Transf {
         return true;
     }
 
+    public static boolean getDeltaBySMT(List<Expr>nonConds, Map<String, Expr> vars, Map<Expr, Integer> deltas, Context ctx) {
+
+        Map<String, Expr> pVars = new HashMap<String, Expr>();
+        Map<String, Expr> cVars = new HashMap<String, Expr>();
+        for (String name : vars.keySet()) {
+            pVars.put(name, ctx.mkIntConst(name + "!"));
+            cVars.put(name, ctx.mkIntConst("delta_" + name));
+        }
+        Map<String, Expr> rExprs = new HashMap<String, Expr>();
+
+        Solver s = ctx.mkSolver();
+        for (Expr e: nonConds) {
+            s.add((BoolExpr)e);
+        }
+        s.push();
+        // Try to get a set of delta value first
+        BoolExpr base = ctx.mkTrue();
+        for (String name : vars.keySet()) {
+            base = ctx.mkAnd(base, ctx.mkEq(pVars.get(name), ctx.mkAdd((ArithExpr)vars.get(name), (ArithExpr)cVars.get(name))));
+        }
+        s.add(base);
+        Status sts = s.check();
+        if (sts != Status.SATISFIABLE){
+            return false;
+        }
+        Model m = s.getModel();
+        for (String name : vars.keySet()) {
+            Expr dExpr = cVars.get(name);
+            Expr result = m.eval(dExpr, false);
+            if (!result.isIntNum()) {
+                return false;
+            }
+            rExprs.put(name, result);
+        }
+        s.pop();
+
+        s.push();
+        // Now check if they are the only possible deltas
+        base = ctx.mkTrue();
+        for (String name : vars.keySet()) {
+            base = ctx.mkAnd(base, ctx.mkEq(pVars.get(name), ctx.mkAdd((ArithExpr)vars.get(name), (ArithExpr)rExprs.get(name))));
+        }
+        s.add(ctx.mkNot(base));
+        sts = s.check();
+        if (sts != Status.UNSATISFIABLE) {
+            return false;
+        }
+
+        // Put results in delta_map
+        for (String name : vars.keySet()) {
+            deltas.put(vars.get(name), Integer.valueOf(rExprs.get(name).toString()));
+        }
+        return true;
+    }
+
     public static Transf fromTransfFormula(Expr formula, Map<String, Expr> vars, Context ctx) {
         Transf t = new Transf(vars, ctx);
         // Convert input formula to DNF format
@@ -339,10 +394,19 @@ public class Transf {
             Map<Expr, Integer> delta_map = new LinkedHashMap<Expr, Integer>();
 
 
+            boolean done = true;
             for(Expr nonCond : nonConds) {
-                if (!getDelta(nonCond, vars, delta_map)) {
-                    return null;
-                }
+                done = done && getDeltaBySyntax(nonCond, vars, delta_map);
+            }
+
+            if (!done) {
+                // Syntax extraction failed, falling back to SMT extraction
+                done = getDeltaBySMT(nonConds, vars, delta_map, ctx);
+            }
+
+            if (!done) {
+                // Giving up
+                return null;
             }
 
             int i = 0;

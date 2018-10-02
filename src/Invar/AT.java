@@ -61,7 +61,7 @@ public class AT extends Thread {
             logger.info("Parsed tranf:" + this.transfunc.toString());
         }
     }
-    
+
     public void run () {
         this.evaluate(transfunc, pre, post, vars, argParas);
     }
@@ -128,7 +128,7 @@ public class AT extends Thread {
         }
         return cache.get(orig);
     }
-    
+
     public void evaluate(Transf t, Expr pre, Expr post, Map<String, Expr> vars, Expr[] argParas) {
         logger.info("Running algorithm on: ");
         logger.info("Transf expr:");
