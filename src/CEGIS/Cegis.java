@@ -638,6 +638,7 @@ public class Cegis extends Thread{
 						expand.setVectorBound(vectorBound);
 					}
 					startTime = System.currentTimeMillis();
+                    logger.info("Iteration : " + k);
 					continue;
 				}
 			} else if (synth == Status.UNKNOWN) {
@@ -673,6 +674,7 @@ public class Cegis extends Thread{
 					ASTGeneral ast = ASTs.get(name);
 					results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def, ast);
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+                    logger.info(String.format("Total iteration count: %d", k));
 					i = i + 1;
 				}
 				if (fixedVectorLength > 0) {
@@ -708,6 +710,7 @@ public class Cegis extends Thread{
 						expand.setVectorBound(vectorBound);
 					}
 					startTime = System.currentTimeMillis();
+                    logger.info("Iteration : " + k);
 					continue;
 				}
 			}
@@ -759,6 +762,7 @@ public class Cegis extends Thread{
 						}
 						results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def);
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+                        logger.info(String.format("Total iteration count: %d", k));
 						i = i + 1;
 					}
 					flag = false;
