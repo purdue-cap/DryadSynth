@@ -51,7 +51,7 @@ public class DNFTest {
         System.out.println(eliminate);
         System.out.println("After pushing:");
         System.out.println(pushneg);
-        Expr dnf = trans.convertAnyToDNF(e);
+        Expr dnf = trans.convertToDNF(e);
         System.out.println("After converting:");
         System.out.println(dnf);
 
