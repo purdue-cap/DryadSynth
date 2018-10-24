@@ -5,22 +5,22 @@ import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 public class Cegis extends Thread{
 
-	private Context ctx;
-	private SygusExtractor extractor;
-	private BoolExpr finalConstraint;
-	private Logger logger;
-	private int minFinite;
-	private int minInfinite;
-	private boolean maxsmtFlag;
-	private int fixedHeight = -1;
-	private int fixedCond = -1;
-	private int fixedVectorLength = -1;
-	private Producer1D pdc1D = null;
-	private Producer2D pdc2D = null;
-	private Object condition = null;
-	private Expand expand = null;
+	protected Context ctx;
+	protected SygusExtractor extractor;
+	protected BoolExpr finalConstraint;
+	protected Logger logger;
+	protected int minFinite;
+	protected int minInfinite;
+	protected boolean maxsmtFlag;
+	protected int fixedHeight = -1;
+	protected int fixedCond = -1;
+	protected int fixedVectorLength = -1;
+	protected Producer1D pdc1D = null;
+	protected Producer2D pdc2D = null;
+	protected Object condition = null;
+	protected Expand expand = null;
 
-	private boolean isGeneral = false;
+	protected boolean isGeneral = false;
 
 	public Map<String, int[]> generalFuncs;
 	public Map<String, ASTGeneral> ASTs;
@@ -229,7 +229,7 @@ public class Cegis extends Thread{
 			for (String name : extractor.names) {
 				FuncDecl f = extractor.rdcdRequests.get(name);
 				Expr[] var = extractor.requestUsedArgs.get(name);
-				Expr eval = expand.generateEval(k, 0);
+				Expr eval = this.getEval(k);
 				DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
 				spec = definedfunc.rewrite(spec, f);
 				k = k + 1;
@@ -242,21 +242,6 @@ public class Cegis extends Thread{
 
 			s.add(q);
 
-			/*try {
-			PrintWriter writer2 = new PrintWriter("s.smt2", "UTF-8");
-			writer2.println("(set-logic QF_UFLIA)");
-			writer2.println("(set-option :produce-models true)");
-			writer2.println(s);
-			writer2.println("(check-sat)");
-			writer2.println("(get-model)");
-			writer2.close();
-			} catch (IOException e) {
-	   			System.out.println("Print out error");
-			}*/
-
-			//System.out.println("Synthesizing... Formula: ");
-			//System.out.println(s);
-
 			Status sts = s.check();
 
 			if (sts == Status.SATISFIABLE) {
@@ -266,6 +251,10 @@ public class Cegis extends Thread{
 			s.pop();
 			return sts;
 
+		}
+
+		protected Expr getEval(int funcIndex) {
+			return expand.generateEval(funcIndex, 0);
 		}
 
 		public Status synthesisGeneral() {
@@ -377,10 +366,10 @@ public class Cegis extends Thread{
 	// Previously SynthDecoder.java
 	public class SynthDecoder {
 
-		private Synthesizer synth;
-		private Model model;
-		private IntExpr[][][] c;
-		private IntExpr[][] t;
+		protected Synthesizer synth;
+		protected Model model;
+		protected IntExpr[][][] c;
+		protected IntExpr[][] t;
 
 		public SynthDecoder(Synthesizer synth) {
 			this.synth = synth;
