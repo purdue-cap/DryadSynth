@@ -17,6 +17,7 @@ public class SygusDispatcher {
     int minInfinite = 5;
     boolean maxsmtFlag = false;
     boolean enforceCEGIS = false;
+    boolean enableITCEGIS = false;
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
@@ -55,6 +56,10 @@ public class SygusDispatcher {
 
     public void setEnforceCEGIS(boolean enforce) {
         this.enforceCEGIS = enforce;
+    }
+
+    public void setEnableITCEGIS(boolean enable) {
+        this.enableITCEGIS = enable;
     }
 
     public void prescreen() {
@@ -117,10 +122,18 @@ public class SygusDispatcher {
                 FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
                 threadHandler.setFormatter(new SimpleFormatter());
                 threadLogger.addHandler(threadHandler);
-                fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
+                if (enableITCEGIS) {
+                    fallbackCEGIS[i] = new ITCegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
+                } else {
+                    fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
+                }
             }
         } else {
-            fallbackCEGIS[0] = new Cegis(z3ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
+            if (enableITCEGIS) {
+                fallbackCEGIS[0] = new ITCegis(z3ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
+            } else {
+                fallbackCEGIS[0] = new Cegis(z3ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
+            }
         }
 
         if (this.method == SolveMethod.CEGIS) {
