@@ -154,6 +154,10 @@ public class Cegis extends Thread{
 
 		}
 
+		public Model getLastModel() {
+			return this.s.getModel();
+		}
+
 	}
 
 	protected Verifier createVerifier() {
@@ -162,12 +166,14 @@ public class Cegis extends Thread{
 
 	// Previously VerifierDecoder.java
 	public class VerifierDecoder {
+		private Verifier vrfr;
 		private Model model;
 		private Expr[] vars;
 		private int numVar;
 
-		public VerifierDecoder(Model model) {
-			this.model = model;
+		public VerifierDecoder(Verifier vrfr) {
+			this.vrfr = vrfr;
+			this.model = vrfr.getLastModel();
 			this.numVar = extractor.vars.size();
 			this.vars = extractor.vars.values().toArray(new Expr[numVar]);
 		}
@@ -190,8 +196,8 @@ public class Cegis extends Thread{
 		}
 	}
 
-	protected VerifierDecoder createVerifierDecoder(Model model) {
-		return new VerifierDecoder(model);
+	protected VerifierDecoder createVerifierDecoder(Verifier vrfr) {
+		return new VerifierDecoder(vrfr);
 	}
 
 	// Previously Synthesizer.java
@@ -371,12 +377,14 @@ public class Cegis extends Thread{
 	// Previously SynthDecoder.java
 	public class SynthDecoder {
 
+		private Synthesizer synth;
 		private Model model;
 		private IntExpr[][][] c;
 		private IntExpr[][] t;
 
-		public SynthDecoder(Model model) {
-			this.model = model;
+		public SynthDecoder(Synthesizer synth) {
+			this.synth = synth;
+			this.model = synth.getLastModel();
 			this.c = expand.getCoefficients();
 			this.t = expand.getTerms();
 		}
@@ -506,8 +514,8 @@ public class Cegis extends Thread{
 
 	}
 
-	protected SynthDecoder createSynthDecoder(Model m) {
-		return new SynthDecoder(m);
+	protected SynthDecoder createSynthDecoder(Synthesizer s) {
+		return new SynthDecoder(s);
 	}
 
 	public IntExpr[][] addSimpleExamplesRecursive(int nv) {
@@ -662,7 +670,7 @@ public class Cegis extends Thread{
 				return;
 			} else if (synth == Status.SATISFIABLE) {
 				//logger.info(testSynthesizer.s.getModel());	//for test only
-				SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer.getLastModel());
+				SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
 				//print out for debug
 				logger.info("Start decoding synthesizer output");
 				synthDecoder.generateFuncGeneral(generalFuncs);
@@ -681,7 +689,7 @@ public class Cegis extends Thread{
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
-				SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer.getLastModel());
+				SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
 				synthDecoder.expandFunctions(generalFuncs, ASTs);
 				results = new DefinedFunc[functions.size()];
 				int i = 0;
@@ -707,7 +715,7 @@ public class Cegis extends Thread{
 			} else if (v == Status.SATISFIABLE) {
 
 				logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
-				VerifierDecoder decoder = this.createVerifierDecoder(testVerifier.s.getModel());
+				VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
 
 				Expr[] cntrExmp = decoder.decode();
 				counterExamples.add(cntrExmp);
@@ -795,7 +803,7 @@ public class Cegis extends Thread{
 				} else if (v == Status.SATISFIABLE) {
 
 					logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
-					VerifierDecoder decoder = this.createVerifierDecoder(testVerifier.s.getModel());
+					VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
 
 					Expr[] cntrExmp = decoder.decode();
 					counterExamples.add(cntrExmp);
@@ -866,7 +874,7 @@ public class Cegis extends Thread{
 							//flag = false;	//for test only
 
 							//logger.info(testSynthesizer.s.getModel());	//for test only
-							SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer.getLastModel());
+							SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
 							//print out for debug
 							logger.info("Start decoding synthesizer output");
 							synthDecoder.generateFunction(functions);
