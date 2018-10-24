@@ -47,10 +47,9 @@ public class ITCegis extends Cegis {
 			BoolExpr predToCheck = ctx.mkImplies(extractor.finalConstraint,
 									(BoolExpr)newTmplt.rewrite(extractor.finalConstraint, f));
 			logger.info("Running SAT check");
-			s.push();
-			s.add(ctx.mkNot(predToCheck));
-			Status sts = s.check();
-			s.pop();
+            Solver svr = ctx.mkSolver();
+			svr.add(ctx.mkNot(predToCheck));
+			Status sts = svr.check();
 			logger.info("Result:" + sts.toString());
 			return sts == Status.UNSATISFIABLE;
 		}

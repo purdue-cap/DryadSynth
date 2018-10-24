@@ -19,6 +19,8 @@ public class Run {
         oParser.acceptsAll(Arrays.asList("h", "?", "help"), "Print help");
         oParser.acceptsAll(Arrays.asList("t", "threads"), "Numbers of parallel threads to use")
             .withRequiredArg().ofType(Integer.class).defaultsTo(Runtime.getRuntime().availableProcessors());
+        oParser.acceptsAll(Arrays.asList("l", "iterLimit"), "Limit of iterations per thread for CEGIS algorithm (0 means no limit)")
+            .withRequiredArg().ofType(Integer.class).defaultsTo(0);
         oParser.acceptsAll(Arrays.asList("f", "minFinite"), "Timeout of finite region search, in minutes")
             .withRequiredArg().ofType(Integer.class).defaultsTo(20);
         oParser.acceptsAll(Arrays.asList("i", "minInfinite"), "Timeout of infinite region search, in minutes")
@@ -37,6 +39,7 @@ public class Run {
         }
 
 		int numCore = (Integer)options.valuesOf("t").get(0);
+		int iterLimit = (Integer)options.valuesOf("l").get(0);
 		int minFinite = (Integer)options.valuesOf("f").get(0);
 		int minInfinite = (Integer)options.valuesOf("i").get(0);
 		int formattingBound = (Integer)options.valuesOf("b").get(0);
@@ -92,6 +95,7 @@ public class Run {
 
 		SygusDispatcher dispatcher = new SygusDispatcher(ctx, extractor);
 		dispatcher.setNumCore(numCore);
+		dispatcher.setIterLimit(iterLimit);
 		dispatcher.setMinFinite(minFinite);
 		dispatcher.setMinInfinite(minInfinite);
 		dispatcher.setMaxSMTFlag(maxsmtFlag);
@@ -104,6 +108,9 @@ public class Run {
         }
 		dispatcher.initAlgorithm();
 		DefinedFunc[] results = dispatcher.runAlgorithm();
+        if (results == null) {
+            System.exit(1);
+        }
 
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only

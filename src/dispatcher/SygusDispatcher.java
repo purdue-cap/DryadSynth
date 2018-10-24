@@ -13,6 +13,7 @@ public class SygusDispatcher {
     SygusExtractor extractor;
     Logger logger;
     int numCore;
+    int iterLimit = 0;
     int minFinite = 20;
     int minInfinite = 5;
     boolean maxsmtFlag = false;
@@ -36,6 +37,10 @@ public class SygusDispatcher {
 
     public void setNumCore(int cores) {
         this.numCore = cores;
+    }
+
+    public void setIterLimit(int iterLimit) {
+        this.iterLimit = iterLimit;
     }
 
     public void setMinFinite(int min) {
@@ -127,6 +132,7 @@ public class SygusDispatcher {
                 } else {
                     fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
                 }
+                ((Cegis)fallbackCEGIS[i]).iterLimit = this.iterLimit;
             }
         } else {
             if (enableITCEGIS) {
@@ -134,6 +140,7 @@ public class SygusDispatcher {
             } else {
                 fallbackCEGIS[0] = new Cegis(z3ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
             }
+            ((Cegis)fallbackCEGIS[0]).iterLimit = this.iterLimit;
         }
 
         if (this.method == SolveMethod.CEGIS) {

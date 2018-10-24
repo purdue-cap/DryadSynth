@@ -22,6 +22,7 @@ public class Cegis extends Thread{
 
 	protected boolean isGeneral = false;
 
+    public int iterLimit = 0;
 	public Map<String, int[]> generalFuncs;
 	public Map<String, ASTGeneral> ASTs;
 
@@ -76,7 +77,7 @@ public class Cegis extends Thread{
 			}
 		}
 
-		counterExamples = new HashSet<Expr[]>();
+		counterExamples = new LinkedHashSet<Expr[]>();
 
 		//addRandomInitialExamples();
 		//addSimpleExamples();
@@ -624,6 +625,12 @@ public class Cegis extends Thread{
 
 			k = k + 1;
 
+            if (this.iterLimit > 0 && k > this.iterLimit) {
+                logger.info("Iteration Limit Hit, returning without a result.");
+                this.results = null;
+                return;
+            }
+
 			logger.info("Start synthesizing");
 
 			Status synth = Status.UNKNOWN;
@@ -760,6 +767,12 @@ public class Cegis extends Thread{
 		while(flag && running) {
 
 			k = k + 1;
+
+            if (this.iterLimit > 0 && k > this.iterLimit) {
+                logger.info("Iteration Limit Hit, returning without a result.");
+                this.results = null;
+                return;
+            }
 
 			logger.info("Start verifying");
 
