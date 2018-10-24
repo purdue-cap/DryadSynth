@@ -111,7 +111,7 @@ public class Cegis extends Thread{
 
 	// Subclasses for subprocedures
 	// Previously Verifier.java
-	class Verifier {
+	public class Verifier {
 		public Solver s;
 
 		public Verifier() {
@@ -156,8 +156,12 @@ public class Cegis extends Thread{
 
 	}
 
+	protected Verifier createVerifier() {
+		return new Verifier();
+	}
+
 	// Previously VerifierDecoder.java
-	class VerifierDecoder {
+	public class VerifierDecoder {
 		private Model model;
 		private Expr[] vars;
 		private int numVar;
@@ -186,8 +190,12 @@ public class Cegis extends Thread{
 		}
 	}
 
+	protected VerifierDecoder createVerifierDecoder(Model model) {
+		return new VerifierDecoder(model);
+	}
+
 	// Previously Synthesizer.java
-	class Synthesizer {
+	public class Synthesizer {
 
 		public Solver s;
 		public Optimize optimize;
@@ -356,8 +364,12 @@ public class Cegis extends Thread{
 		}
 	}
 
+	protected Synthesizer createSynthesizer() {
+		return new Synthesizer();
+	}
+
 	// Previously SynthDecoder.java
-	class SynthDecoder {
+	public class SynthDecoder {
 
 		private Model model;
 		private IntExpr[][][] c;
@@ -494,6 +506,10 @@ public class Cegis extends Thread{
 
 	}
 
+	protected SynthDecoder createSynthDecoder(Model m) {
+		return new SynthDecoder(m);
+	}
+
 	public IntExpr[][] addSimpleExamplesRecursive(int nv) {
 		int numVar = extractor.vars.size();
 		IntExpr[][] examples = new IntExpr[(int)Math.pow(3, nv)][numVar];
@@ -591,8 +607,8 @@ public class Cegis extends Thread{
 		logger.info("Initial examples:" + Arrays.deepToString(counterExamples.toArray()));
 
 		// Subprocedure classes
-		Verifier testVerifier = new Verifier();
-		Synthesizer testSynthesizer = new Synthesizer();
+		Verifier testVerifier = this.createVerifier();
+		Synthesizer testSynthesizer = this.createSynthesizer();
 		expand.setVectorBound(vectorBound);
 		if (fixedVectorLength > 0) {
 			if (!expand.isInterpretableNow()) {
@@ -646,7 +662,7 @@ public class Cegis extends Thread{
 				return;
 			} else if (synth == Status.SATISFIABLE) {
 				//logger.info(testSynthesizer.s.getModel());	//for test only
-				SynthDecoder synthDecoder = new SynthDecoder(testSynthesizer.getLastModel());
+				SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer.getLastModel());
 				//print out for debug
 				logger.info("Start decoding synthesizer output");
 				synthDecoder.generateFuncGeneral(generalFuncs);
@@ -665,7 +681,7 @@ public class Cegis extends Thread{
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
-				SynthDecoder synthDecoder = new SynthDecoder(testSynthesizer.getLastModel());
+				SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer.getLastModel());
 				synthDecoder.expandFunctions(generalFuncs, ASTs);
 				results = new DefinedFunc[functions.size()];
 				int i = 0;
@@ -691,7 +707,7 @@ public class Cegis extends Thread{
 			} else if (v == Status.SATISFIABLE) {
 
 				logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
-				VerifierDecoder decoder = new VerifierDecoder(testVerifier.s.getModel());
+				VerifierDecoder decoder = this.createVerifierDecoder(testVerifier.s.getModel());
 
 				Expr[] cntrExmp = decoder.decode();
 				counterExamples.add(cntrExmp);
@@ -739,8 +755,8 @@ public class Cegis extends Thread{
 		logger.info("Initial examples:" + Arrays.deepToString(counterExamples.toArray()));
 
 		// Subprocedure classes
-		Verifier testVerifier = new Verifier();
-		Synthesizer testSynthesizer = new Synthesizer();
+		Verifier testVerifier = this.createVerifier();
+		Synthesizer testSynthesizer = this.createSynthesizer();
 		expand = new Expand(ctx, extractor);
 		expand.setHeightBound(heightBound);
 
@@ -779,7 +795,7 @@ public class Cegis extends Thread{
 				} else if (v == Status.SATISFIABLE) {
 
 					logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
-					VerifierDecoder decoder = new VerifierDecoder(testVerifier.s.getModel());
+					VerifierDecoder decoder = this.createVerifierDecoder(testVerifier.s.getModel());
 
 					Expr[] cntrExmp = decoder.decode();
 					counterExamples.add(cntrExmp);
@@ -850,7 +866,7 @@ public class Cegis extends Thread{
 							//flag = false;	//for test only
 
 							//logger.info(testSynthesizer.s.getModel());	//for test only
-							SynthDecoder synthDecoder = new SynthDecoder(testSynthesizer.getLastModel());
+							SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer.getLastModel());
 							//print out for debug
 							logger.info("Start decoding synthesizer output");
 							synthDecoder.generateFunction(functions);
