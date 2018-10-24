@@ -175,6 +175,7 @@ public class ITCegis extends Cegis {
 			int k = 0;
 			for (String name : extractor.names) {
 				Expr tree = functions.get(name);
+                tree = tree.simplify();
 				if (synthIT.lastTmplts == null || synthIT.lastTmplts[k] == null){
 					synthIT.lastCands[k] = tree;
 					k++;
@@ -185,6 +186,7 @@ public class ITCegis extends Cegis {
 				Expr fapp = f.apply(vars);
 				Expr tmplt = synthIT.lastTmplts[k].getDef();
 				Expr newCand = tmplt.substitute(fapp, tree);
+                newCand = newCand.simplify();
 				functions.put(name, newCand);
 				synthIT.lastCands[k] = newCand;
 				k++;
