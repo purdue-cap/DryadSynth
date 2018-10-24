@@ -171,8 +171,8 @@ public class Expand {
 				if (j < ((bound - 1)/2)) {
 					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
 				} else {
-					boolean isINV = extractor.requests.get(extractor.names.get(i)).getRange().toString().equals("Bool");
-					if (isINV) {
+					boolean isBool = extractor.requests.get(extractor.names.get(i)).getRange().toString().equals("Bool");
+					if (isBool) {
 						coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkOr(coeffEqualOneOrMinusOne, cProp));
 					}
 					coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf);
@@ -213,8 +213,8 @@ public class Expand {
 		if (i < ((bound - 1)/2)) {
 			return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), generateEval(k, 2*i + 1), generateEval(k, 2*i + 2));
 		} else {
-			boolean isINV = extractor.requests.get(name).getRange().toString().equals("Bool");
-			if (isINV) {
+			boolean isBool = extractor.requests.get(name).getRange().toString().equals("Bool");
+			if (isBool) {
 				return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), ctx.mkTrue(), ctx.mkFalse());
 			} else {
 				return poly;
