@@ -18,10 +18,6 @@ public class ITCegis extends Cegis {
         super(extractor, pdc1D, condition, logger, minFinite, minInfinite, maxsmtFlag);
 	}
 
-	public ITCegis(SygusExtractor extractor, Producer2D pdc2D, Object condition, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
-        super(extractor, pdc2D, condition, logger, minFinite, minInfinite, maxsmtFlag);
-	}
-
 	public ITCegis(Context ctx, SygusExtractor extractor, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
         super(ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
 	}
