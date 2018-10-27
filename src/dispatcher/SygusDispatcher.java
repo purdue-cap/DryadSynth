@@ -128,7 +128,8 @@ public class SygusDispatcher {
                 threadHandler.setFormatter(new SimpleFormatter());
                 threadLogger.addHandler(threadHandler);
                 if (enableITCEGIS) {
-                    fallbackCEGIS[i] = new ITCegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
+                    System.err.println("Multithreading for ITCEGIS does not make sense now");
+                    System.exit(2);
                 } else {
                     fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
                 }

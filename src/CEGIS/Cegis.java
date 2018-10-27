@@ -20,6 +20,12 @@ public class Cegis extends Thread{
 	protected Object condition = null;
 	protected Expand expand = null;
 
+	protected int heightBound = 1;
+	protected int condBound = 1;
+	protected int condBoundInc = 1;
+	protected int searchRegions = 2;
+	protected int vectorBound = 1;
+
 	protected boolean isGeneral = false;
 
     public int iterLimit = 0;
@@ -585,7 +591,6 @@ public class Cegis extends Thread{
 	}
 
 	public void cegisGeneral() {
-		int vectorBound = 1;
 		if (fixedVectorLength > 0) {
 			vectorBound = fixedVectorLength;
 		}
@@ -741,16 +746,12 @@ public class Cegis extends Thread{
 	public void cegis() {
 
 		boolean flag = true;
-		int heightBound = 1;
 		if (fixedHeight > 0) {
 			heightBound = fixedHeight;
 		}
-		int condBound = 1;
 		if (fixedCond > 0) {
 			condBound = fixedCond;
 		}
-		int condBoundInc = 1;
-		int searchRegions = 2;
 		long startTime = System.currentTimeMillis();
 
 		int k = 0;	//number of iterations

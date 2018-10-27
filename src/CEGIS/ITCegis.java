@@ -14,10 +14,6 @@ public class ITCegis extends Cegis {
         super(extractor, fixedHeight, fixedCond, logger, minFinite, minInfinite, maxsmtFlag);
 	}
 
-	public ITCegis(SygusExtractor extractor, Producer1D pdc1D, Object condition, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
-        super(extractor, pdc1D, condition, logger, minFinite, minInfinite, maxsmtFlag);
-	}
-
 	public ITCegis(Context ctx, SygusExtractor extractor, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
         super(ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
 	}
@@ -105,11 +101,11 @@ public class ITCegis extends Cegis {
 
 		// lastTmplts filled here
 		@Override
-		public Status synthesis(int condBound) {
+		public Status synthesis(int cB) {
 			if (lastCands == null) {
 				logger.info("No candidate present, calling normal synthesis");
 				lastTmplts = null;
-				return super.synthesis(condBound);
+				return super.synthesis(cB);
 			}
 			if (lastTmplts == null) {
 				lastTmplts = new DefinedFunc[extractor.names.size()];
@@ -118,14 +114,25 @@ public class ITCegis extends Cegis {
 				}
 			}
 			int k = 0;
+			boolean tmpltUpdated = false;
 			for (String name : extractor.names) {
 				DefinedFunc tmplt = findExtension(k);
 				if (tmplt != null) {
 					lastTmplts[k] = tmplt;
+					tmpltUpdated = true;
 				}
 				k++;
 			}
-			return super.synthesis(condBound);
+			// Reset all bounds here
+			if (tmpltUpdated) {
+				heightBound = 1;
+				expand.setHeightBound(heightBound);
+				condBound = 1;
+				condBoundInc = 1;
+				counterExamples.clear();
+				cB = 1;
+			}
+			return super.synthesis(cB);
 		}
 
 		@Override
