@@ -129,7 +129,7 @@ public class ITCegis extends Cegis {
 				expand.setHeightBound(heightBound);
 				condBound = 1;
 				condBoundInc = 1;
-				counterExamples.clear();
+				//counterExamples.clear();
 				cB = 1;
 			}
 			return super.synthesis(cB);
