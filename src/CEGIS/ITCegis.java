@@ -9,13 +9,13 @@ public class ITCegis extends Cegis {
 		MAX,
 		MIN;
 	}
-    // Constructors
-	public ITCegis(SygusExtractor extractor, int fixedHeight, int fixedCond, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
-        super(extractor, fixedHeight, fixedCond, logger, minFinite, minInfinite, maxsmtFlag);
+
+	public ITCegis(CEGISEnv env, Logger logger) {
+		super(env, logger);
 	}
 
-	public ITCegis(Context ctx, SygusExtractor extractor, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
-        super(ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
+	public ITCegis(Context ctx, CEGISEnv env, Logger logger){
+		super(ctx, env, logger);
 	}
 
 	// Overriding Synthesizer class and its factory function

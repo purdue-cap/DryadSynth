@@ -118,7 +118,13 @@ public class SygusDispatcher {
         }
 
         logger.info("Initializing CEGIS algorithm as prepared fallback.");
-        Producer1D pdc1d = new Producer1D();
+        CEGISEnv env = new CEGISEnv();
+        env.extractor = extractor;
+        env.pdc1D = new Producer1D();
+        env.minFinite = minFinite;
+        env.minInfinite = minInfinite;
+        env.maxsmtFlag = maxsmtFlag;
+        env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
         fallbackCEGIS = new Thread[numCore];
         if (numCore > 1) {
             for (int i = 0; i < numCore; i++) {
@@ -131,15 +137,15 @@ public class SygusDispatcher {
                     System.err.println("Multithreading for ITCEGIS does not make sense now");
                     System.exit(2);
                 } else {
-                    fallbackCEGIS[i] = new Cegis(extractor, pdc1d, mainThread, threadLogger, minFinite, minInfinite, maxsmtFlag);
+                    fallbackCEGIS[i] = new Cegis(env, threadLogger);
                 }
                 ((Cegis)fallbackCEGIS[i]).iterLimit = this.iterLimit;
             }
         } else {
             if (enableITCEGIS) {
-                fallbackCEGIS[0] = new ITCegis(z3ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
+                fallbackCEGIS[0] = new ITCegis(z3ctx, env, logger);
             } else {
-                fallbackCEGIS[0] = new Cegis(z3ctx, extractor, logger, minFinite, minInfinite, maxsmtFlag);
+                fallbackCEGIS[0] = new Cegis(z3ctx, env, logger);
             }
             ((Cegis)fallbackCEGIS[0]).iterLimit = this.iterLimit;
         }

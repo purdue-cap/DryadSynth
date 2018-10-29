@@ -1,7 +1,7 @@
 import java.util.*;
 
 public class Producer1D {
-    protected int height = 1;
+    int height = 1;
     public int get() {
         int i;
         synchronized(this) {
@@ -9,5 +9,10 @@ public class Producer1D {
             height++;
         }
         return i;
+    }
+    public void reset() {
+        synchronized(this){
+            height = 1;
+        }
     }
 }

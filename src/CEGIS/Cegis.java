@@ -15,10 +15,10 @@ public class Cegis extends Thread{
 	protected int fixedHeight = -1;
 	protected int fixedCond = -1;
 	protected int fixedVectorLength = -1;
-	protected Producer1D pdc1D = null;
-	protected Producer2D pdc2D = null;
-	protected Object condition = null;
+    protected Producer1D pdc1D = null;
+    protected Producer2D pdc2D = null;
 	protected Expand expand = null;
+	protected CEGISEnv env = null;
 
 	protected int heightBound = 1;
 	protected int condBound = 1;
@@ -33,35 +33,34 @@ public class Cegis extends Thread{
 	public Map<String, ASTGeneral> ASTs;
 
 	public Map<String, Expr> functions;
-	public Set<Expr[]> counterExamples;
 	public volatile DefinedFunc[] results = null;
 	public volatile boolean running = true;
 
-	public Cegis(SygusExtractor extractor, int fixedHeight, int fixedCond, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
-		this(new Context(), extractor, logger, minFinite, minInfinite, maxsmtFlag);
-		this.fixedHeight = fixedHeight;
-		this.fixedCond = fixedCond;
+	public Cegis(CEGISEnv env, Logger logger) {
+		this(new Context(), env, logger);
 	}
 
-	public Cegis(SygusExtractor extractor, Producer1D pdc1D, Object condition, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
-		this(new Context(), extractor, logger, minFinite, minInfinite, maxsmtFlag);
-		this.pdc1D = pdc1D;
-		this.condition = condition;
-	}
-
-	public Cegis(SygusExtractor extractor, Producer2D pdc2D, Object condition, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
-		this(new Context(), extractor, logger, minFinite, minInfinite, maxsmtFlag);
-		this.pdc2D = pdc2D;
-		this.condition = condition;
-	}
-
-	public Cegis(Context ctx, SygusExtractor extractor, Logger logger, int minFinite, int minInfinite, boolean maxsmtFlag) {
+	public Cegis(Context ctx, CEGISEnv env, Logger logger){
 		this.ctx = ctx;
-		this.extractor = extractor.translate(ctx);
+		this.extractor = env.extractor.translate(ctx);
 		this.logger = logger;
-		this.minFinite = minFinite;
-		this.minInfinite = minInfinite;
-		this.maxsmtFlag = maxsmtFlag;
+		this.minFinite = env.minFinite;
+		this.minInfinite = env.minInfinite;
+		this.maxsmtFlag = env.maxsmtFlag;
+
+		switch (env.feedType) {
+			case FIXED:
+				this.fixedHeight = env.fixedHeight;
+				this.fixedCond = env.fixedCond;
+				this.fixedVectorLength = env.fixedVectorLength;
+				break;
+			case HEIGHTONLY:
+				this.pdc1D = env.pdc1D;
+				break;
+			case HEIGHTANDCOND:
+				this.pdc2D = env.pdc2D;
+				break;
+		}
 
 		this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
@@ -82,8 +81,6 @@ public class Cegis extends Thread{
 				}
 			}
 		}
-
-		counterExamples = new LinkedHashSet<Expr[]>();
 
 		//addRandomInitialExamples();
 		//addSimpleExamples();
@@ -111,7 +108,9 @@ public class Cegis extends Thread{
 				}
 				randomExample[j] = ctx.mkInt(n);
 			}
-			counterExamples.add(randomExample);
+			synchronized(env.counterExamples) {
+				env.counterExamples.add(randomExample);
+			}
 		}
 
 	}
@@ -242,9 +241,11 @@ public class Cegis extends Thread{
 				k = k + 1;
 			}
 
-			for (Expr[] params : counterExamples) {
-				BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
-				q = ctx.mkAnd(q, expandSpec);
+			synchronized(env.counterExamples) {
+				for (Expr[] params : env.counterExamples) {
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
+					q = ctx.mkAnd(q, expandSpec);
+				}
 			}
 
 			s.add(q);
@@ -286,9 +287,11 @@ public class Cegis extends Thread{
 				k = k + 1;
 			}
 
-			for (Expr[] params : counterExamples) {
-				BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
-				q = ctx.mkAnd(q, expandSpec);
+			synchronized (env.counterExamples) {
+				for (Expr[] params : env.counterExamples) {
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
+					q = ctx.mkAnd(q, expandSpec);
+				}
 			}
 
 			s.add(q);
@@ -330,9 +333,11 @@ public class Cegis extends Thread{
 				k = k + 1;
 			}
 
-			for (Expr[] params : counterExamples) {
-				BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
-				q = ctx.mkAnd(q, expandSpec);
+			synchronized(env.counterExamples) {
+				for (Expr[] params : env.counterExamples) {
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
+					q = ctx.mkAnd(q, expandSpec);
+				}
 			}
 
 			optimize.Add(q);
@@ -542,8 +547,10 @@ public class Cegis extends Thread{
 	public void addSimpleExamples() {
 		int numVar = extractor.vars.size();
 		IntExpr[][] examples = addSimpleExamplesRecursive(numVar);
-		for (int j = 0; j < examples.length; j++) {
-			counterExamples.add(examples[j]);
+		synchronized(env.counterExamples) {
+			for (int j = 0; j < examples.length; j++) {
+				env.counterExamples.add(examples[j]);
+			}
 		}
 	}
 
@@ -607,7 +614,9 @@ public class Cegis extends Thread{
 		int k = 0;	//number of iterations
 
 		//print out initial examples
-		logger.info("Initial examples:" + Arrays.deepToString(counterExamples.toArray()));
+		synchronized(env.counterExamples) {
+			logger.info("Initial examples:" + Arrays.deepToString(env.counterExamples.toArray()));
+		}
 
 		// Subprocedure classes
 		Verifier testVerifier = this.createVerifier();
@@ -703,8 +712,8 @@ public class Cegis extends Thread{
 					i = i + 1;
 				}
 				if (fixedVectorLength > 0) {
-					synchronized(condition) {
-						condition.notify();
+					synchronized(env) {
+						env.notify();
 					}
 				}
 				return;
@@ -719,8 +728,10 @@ public class Cegis extends Thread{
 				VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
 
 				Expr[] cntrExmp = decoder.decode();
-				counterExamples.add(cntrExmp);
-				logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(counterExamples.toArray()));
+				synchronized(env.counterExamples) {
+					env.counterExamples.add(cntrExmp);
+					logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(env.counterExamples.toArray()));
+				}
 			}
 
 			if (System.currentTimeMillis() - startTime > 60000 * (this.minInfinite + this.minFinite)) {
@@ -757,7 +768,9 @@ public class Cegis extends Thread{
 		int k = 0;	//number of iterations
 
 		//print out initial examples
-		logger.info("Initial examples:" + Arrays.deepToString(counterExamples.toArray()));
+		synchronized(env.counterExamples) {
+			logger.info("Initial examples:" + Arrays.deepToString(env.counterExamples.toArray()));
+		}
 
 		// Subprocedure classes
 		Verifier testVerifier = this.createVerifier();
@@ -794,8 +807,8 @@ public class Cegis extends Thread{
 					}
 					flag = false;
 					if (fixedCond > 0 || fixedHeight > 0) {
-						synchronized(condition) {
-							condition.notify();
+						synchronized(env) {
+							env.notify();
 						}
 					}
 
@@ -809,9 +822,11 @@ public class Cegis extends Thread{
 					VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
 
 					Expr[] cntrExmp = decoder.decode();
-					counterExamples.add(cntrExmp);
-					//print out for debug
-					logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(counterExamples.toArray()));
+					synchronized(env.counterExamples) {
+						env.counterExamples.add(cntrExmp);
+						//print out for debug
+						logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(env.counterExamples.toArray()));
+					}
 
 					// if (k >= 10) {
 					// 	break;
