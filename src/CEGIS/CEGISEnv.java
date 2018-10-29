@@ -13,8 +13,13 @@ public class CEGISEnv {
     public boolean maxsmtFlag = false;
 
     public enum FeedType {
-        FIXED, HEIGHTONLY, HEIGHTANDCOND;
+        ALLINONE, FIXED, HEIGHTONLY, HEIGHTANDCOND;
     }
     public FeedType feedType = null;
 	public Set<Expr[]> counterExamples = new LinkedHashSet<Expr[]>();
+
+    public class Tmplts {
+        public DefinedFunc[] array = null;
+    }
+    Tmplts lastTmplts = new Tmplts();
 }

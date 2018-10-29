@@ -23,6 +23,7 @@ public class SygusDispatcher {
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
     Set<String> funcCalled = null;
+    CEGISEnv env = null;
 
     AT preparedAT;
     Thread [] fallbackCEGIS = null;
@@ -118,15 +119,15 @@ public class SygusDispatcher {
         }
 
         logger.info("Initializing CEGIS algorithm as prepared fallback.");
-        CEGISEnv env = new CEGISEnv();
+        env = new CEGISEnv();
         env.extractor = extractor;
-        env.pdc1D = new Producer1D();
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
         env.maxsmtFlag = maxsmtFlag;
-        env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
         fallbackCEGIS = new Thread[numCore];
         if (numCore > 1) {
+            env.pdc1D = new Producer1D();
+            env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
             for (int i = 0; i < numCore; i++) {
                 Logger threadLogger = Logger.getLogger("main.thread" + i);
                 threadLogger.setUseParentHandlers(false);
@@ -134,14 +135,14 @@ public class SygusDispatcher {
                 threadHandler.setFormatter(new SimpleFormatter());
                 threadLogger.addHandler(threadHandler);
                 if (enableITCEGIS) {
-                    System.err.println("Multithreading for ITCEGIS does not make sense now");
-                    System.exit(2);
+                    fallbackCEGIS[i] = new ITCegis(env, threadLogger);
                 } else {
                     fallbackCEGIS[i] = new Cegis(env, threadLogger);
                 }
                 ((Cegis)fallbackCEGIS[i]).iterLimit = this.iterLimit;
             }
         } else {
+            env.feedType = CEGISEnv.FeedType.ALLINONE;
             if (enableITCEGIS) {
                 fallbackCEGIS[0] = new ITCegis(z3ctx, env, logger);
             } else {
@@ -222,9 +223,9 @@ public class SygusDispatcher {
                     fallbackCEGIS[i].start();
                 }
         		while (results == null) {
-        			synchronized(mainThread) {
-        				mainThread.wait();
-        			}
+                    synchronized(env) {
+                        env.wait();
+                    }
         			for (Thread thread : fallbackCEGIS) {
                         Cegis cegis = (Cegis)thread;
         				if (cegis.results != null) {

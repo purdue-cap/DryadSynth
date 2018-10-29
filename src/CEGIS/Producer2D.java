@@ -7,4 +7,6 @@ public class Producer2D {
     public int[] get() {
         return new int[]{1, 1};
     }
+    public void reset() {
+    }
 }

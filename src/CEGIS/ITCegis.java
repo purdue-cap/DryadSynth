@@ -102,35 +102,52 @@ public class ITCegis extends Cegis {
 		// lastTmplts filled here
 		@Override
 		public Status synthesis(int cB) {
+			synchronized(env.lastTmplts) {
+				if (lastTmplts == null) {
+					lastTmplts = env.lastTmplts.array;
+				}
+				if (lastTmplts != env.lastTmplts.array) {
+					// Reset bounds here
+					lastTmplts = env.lastTmplts.array;
+					resetBounds();
+					lastCands = null;
+					this.lastFailReason = "new template presented by another thread";
+					return null;
+				}
+			}
 			if (lastCands == null) {
-				logger.info("No candidate present, calling normal synthesis");
+				logger.info("No candidate present, skipping checking templates");
 				lastTmplts = null;
 				return super.synthesis(cB);
-			}
-			if (lastTmplts == null) {
-				lastTmplts = new DefinedFunc[extractor.names.size()];
-				for (int i = 0; i < lastTmplts.length; i++) {
-					lastTmplts[i] = null;
-				}
 			}
 			int k = 0;
 			boolean tmpltUpdated = false;
 			for (String name : extractor.names) {
 				DefinedFunc tmplt = findExtension(k);
 				if (tmplt != null) {
+					if (lastTmplts == null) {
+						lastTmplts = new DefinedFunc[extractor.names.size()];
+						for (int i = 0; i < lastTmplts.length; i++) {
+							lastTmplts[i] = null;
+						}
+					}
 					lastTmplts[k] = tmplt;
 					tmpltUpdated = true;
 				}
 				k++;
 			}
-			// Reset all bounds here
+			// If updated, change global templates, and reset self
 			if (tmpltUpdated) {
-				heightBound = 1;
-				expand.setHeightBound(heightBound);
-				condBound = 1;
-				condBoundInc = 1;
-				//counterExamples.clear();
-				cB = 1;
+				logger.info("New templates found.");
+				synchronized(env.lastTmplts) {
+					env.lastTmplts.array = lastTmplts;
+				}
+				resetBounds();
+				lastCands = null;
+				this.lastFailReason = "new template presented by self";
+				return null;
+			} else {
+				logger.info("No new templates found.");
 			}
 			return super.synthesis(cB);
 		}
@@ -148,7 +165,7 @@ public class ITCegis extends Cegis {
 			FuncDecl f = extractor.rdcdRequests.get(name);
 			Expr[] vars = extractor.requestUsedArgs.get(name);
 			Expr fapp = f.apply(vars);
-			DefinedFunc tmplt = lastTmplts[funcIndex];
+			DefinedFunc tmplt = lastTmplts[funcIndex].translate(ctx);
 			return tmplt.getDef().substitute(fapp, pureEval);
 		}
 	}
@@ -187,7 +204,7 @@ public class ITCegis extends Cegis {
 				FuncDecl f = extractor.rdcdRequests.get(name);
 				Expr[] vars = extractor.requestUsedArgs.get(name);
 				Expr fapp = f.apply(vars);
-				Expr tmplt = synthIT.lastTmplts[k].getDef();
+				Expr tmplt = synthIT.lastTmplts[k].translate(ctx).getDef();
 				Expr newCand = tmplt.substitute(fapp, tree);
                 newCand = newCand.simplify();
 				functions.put(name, newCand);

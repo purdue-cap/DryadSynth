@@ -42,6 +42,7 @@ public class Cegis extends Thread{
 
 	public Cegis(Context ctx, CEGISEnv env, Logger logger){
 		this.ctx = ctx;
+		this.env = env;
 		this.extractor = env.extractor.translate(ctx);
 		this.logger = logger;
 		this.minFinite = env.minFinite;
@@ -244,7 +245,11 @@ public class Cegis extends Thread{
 
 			synchronized(env.counterExamples) {
 				for (Expr[] params : env.counterExamples) {
-					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
+					Expr[] newParas = new Expr[params.length];
+					for (int i = 0; i < params.length; i++) {
+						newParas[i] = params[i].translate(ctx);
+					}
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), newParas);
 					q = ctx.mkAnd(q, expandSpec);
 				}
 			}
@@ -290,7 +295,11 @@ public class Cegis extends Thread{
 
 			synchronized (env.counterExamples) {
 				for (Expr[] params : env.counterExamples) {
-					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
+					Expr[] newParas = new Expr[params.length];
+					for (int i = 0; i < params.length; i++) {
+						newParas[i] = params[i].translate(ctx);
+					}
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), newParas);
 					q = ctx.mkAnd(q, expandSpec);
 				}
 			}
@@ -336,7 +345,11 @@ public class Cegis extends Thread{
 
 			synchronized(env.counterExamples) {
 				for (Expr[] params : env.counterExamples) {
-					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), params);
+					Expr[] newParas = new Expr[params.length];
+					for (int i = 0; i < params.length; i++) {
+						newParas[i] = params[i].translate(ctx);
+					}
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), newParas);
 					q = ctx.mkAnd(q, expandSpec);
 				}
 			}
@@ -659,14 +672,20 @@ public class Cegis extends Thread{
 			//print out for debug
 			logger.info("Synthesis Done");
 
-			if (synth == Status.UNSATISFIABLE || synth == null) {
-				if (synth == null) {
-					logger.info("Synthesizer actively exited synthesis");
+			if (synth == null) {
+				logger.info("Synthesizer actively exited synthesis due to " + testSynthesizer.lastFailReason);
+				if (fixedVectorLength > 0){
 					logger.info(String.format("Exited vectorLength %d due to ", vectorBound) + testSynthesizer.lastFailReason);
+					return;
 				} else {
-					logger.info("Synthesizer : Unsatisfiable");
-					logger.info(String.format("Exited vectorLength %d due to UNSAT", vectorBound));
+                    logger.info("Iteration : " + k);
+					continue;
 				}
+			}
+
+			if (synth == Status.UNSATISFIABLE) {
+				logger.info("Synthesizer : Unsatisfiable");
+				logger.info(String.format("Exited vectorLength %d due to UNSAT", vectorBound));
 				if (fixedVectorLength > 0) {
 					return;
 				} else {
@@ -760,6 +779,37 @@ public class Cegis extends Thread{
 		}
 	}
 
+	public void resetBounds() {
+		switch(env.feedType) {
+			case ALLINONE:
+				logger.info("Resetting all bounds to 1");
+				heightBound = 1;
+				expand.setHeightBound(heightBound);
+				condBound = 1;
+				condBoundInc = 1;
+				break;
+			case HEIGHTONLY:
+				logger.info("Resetting 1D Producer");
+				pdc1D.reset();
+				break;
+		}
+	}
+
+	public void resetBoundsGeneral() {
+		switch(env.feedType) {
+			case ALLINONE:
+				logger.info("Resetting all bounds to 1");
+				vectorBound = 1;
+				expand.setVectorBound(vectorBound);
+				break;
+			case HEIGHTONLY:
+				logger.info("Resetting 1D Producer");
+				pdc1D.reset();
+				break;
+		}
+
+	}
+
 	public void cegis() {
 
 		boolean flag = true;
@@ -785,14 +835,6 @@ public class Cegis extends Thread{
 		expand.setHeightBound(heightBound);
 
 		while(flag && running) {
-
-			k = k + 1;
-
-            if (this.iterLimit > 0 && k > this.iterLimit) {
-                logger.info("Iteration Limit Hit, returning without a result.");
-                this.results = null;
-                return;
-            }
 
 			logger.info("Start verifying");
 
@@ -842,6 +884,13 @@ public class Cegis extends Thread{
 
 					while(unsat && flag && running) {
 
+						k = k + 1;
+
+			            if (this.iterLimit > 0 && k > this.iterLimit) {
+			                logger.info("Iteration Limit Hit, returning without a result.");
+			                this.results = null;
+			                return;
+			            }
 						//print out for debug
 						logger.info("Start synthesizing");
 
@@ -856,22 +905,25 @@ public class Cegis extends Thread{
 						//print out for debug
 						logger.info("Synthesis Done");
 
-						if (synth == Status.UNSATISFIABLE || synth == null) {
-							String reason;
-							if (synth == null) {
-								logger.info("Synthesizer actively exited synthesis");
-								reason = testSynthesizer.lastFailReason;
+						if (synth == null) {
+							logger.info("Synthesizer actively exited synthesis due to " + testSynthesizer.lastFailReason);
+							if (fixedCond > 0 || fixedHeight > 0) {
+								logger.info(String.format("Exited height %d, cond %d due to ", fixedHeight, fixedCond) + testSynthesizer.lastFailReason);
+								return;
 							} else {
-								logger.info("Synthesizer : Unsatisfiable");
-								reason = "UNSAT";
+								continue;
 							}
+						}
+
+						if (synth == Status.UNSATISFIABLE) {
+							logger.info("Synthesizer : Unsatisfiable");
 							if (fixedCond > 0) {
-								logger.info(String.format("Exited height %d, cond %d due to ", fixedHeight, fixedCond) + reason);
+								logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
 								return;
 							}
 							if (condBoundInc > searchRegions) {		//for 2, >5		//for 4, >3	64 	//infinite 5
 								if (fixedHeight > 0) {
-									logger.info(String.format("Exited height %d due to ", fixedHeight) + reason);
+									logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
 									return;
 								}
 								heightBound = heightBound + 1;
@@ -955,9 +1007,9 @@ public class Cegis extends Thread{
 
 						}
 
+					logger.info("Iteration : " + k);
 					}
 				}
-			logger.info("Iteration : " + k);
 		}
 	}
 }
