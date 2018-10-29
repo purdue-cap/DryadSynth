@@ -213,6 +213,7 @@ public class Cegis extends Thread{
 		public Optimize optimize;
 
 		public Model m = null;
+		public String lastFailReason;
 
 		public Synthesizer() {
 			this.s = ctx.mkSolver();
@@ -658,9 +659,14 @@ public class Cegis extends Thread{
 			//print out for debug
 			logger.info("Synthesis Done");
 
-			if (synth == Status.UNSATISFIABLE) {
-				logger.info("Synthesizer : Unsatisfiable");
-				logger.info(String.format("Exited vectorLength %d due to UNSAT", vectorBound));
+			if (synth == Status.UNSATISFIABLE || synth == null) {
+				if (synth == null) {
+					logger.info("Synthesizer actively exited synthesis");
+					logger.info(String.format("Exited vectorLength %d due to ", vectorBound) + testSynthesizer.lastFailReason);
+				} else {
+					logger.info("Synthesizer : Unsatisfiable");
+					logger.info(String.format("Exited vectorLength %d due to UNSAT", vectorBound));
+				}
 				if (fixedVectorLength > 0) {
 					return;
 				} else {
@@ -850,15 +856,22 @@ public class Cegis extends Thread{
 						//print out for debug
 						logger.info("Synthesis Done");
 
-						if (synth == Status.UNSATISFIABLE) {
-							logger.info("Synthesizer : Unsatisfiable");
+						if (synth == Status.UNSATISFIABLE || synth == null) {
+							String reason;
+							if (synth == null) {
+								logger.info("Synthesizer actively exited synthesis");
+								reason = testSynthesizer.lastFailReason;
+							} else {
+								logger.info("Synthesizer : Unsatisfiable");
+								reason = "UNSAT";
+							}
 							if (fixedCond > 0) {
-								logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
+								logger.info(String.format("Exited height %d, cond %d due to ", fixedHeight, fixedCond) + reason);
 								return;
 							}
 							if (condBoundInc > searchRegions) {		//for 2, >5		//for 4, >3	64 	//infinite 5
 								if (fixedHeight > 0) {
-									logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
+									logger.info(String.format("Exited height %d due to ", fixedHeight) + reason);
 									return;
 								}
 								heightBound = heightBound + 1;
