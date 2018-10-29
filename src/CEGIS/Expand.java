@@ -19,13 +19,13 @@ public class Expand {
 	// General track essentials
 	// Internal term expression, for use in dynamic programming
 	// Should be static, so shared amongst different calls to Expand
-	private List<IntExpr> it = new ArrayList<IntExpr>();
+	private static List<IntExpr> it = new ArrayList<IntExpr>();
 	// Key should be funcIndex_ruleName_termLength for generic Valid
 	// Key should be funcIndex+ruleIndex_termLength for a specific rule
-	private Map<String, BoolExpr> validCache = new HashMap<String, BoolExpr>();
+	private static Map<String, BoolExpr> validCache = new HashMap<String, BoolExpr>();
 	// Key should be funcIndex_ruleName_termLength
 	// Key should be funcIndex+ruleIndex_termLength for a specific rule
-	private Map<String, Expr> interpretCache = new HashMap<String, Expr>();
+	private static Map<String, Expr> interpretCache = new HashMap<String, Expr>();
 
 
 	public Expand(Context ctx, SygusExtractor extractor) {
@@ -78,7 +78,7 @@ public class Expand {
 
 	// Prepared grammar rules
 	// Only need to prepare once
-	class Grammar {
+	static class Grammar {
 		public SygusExtractor.CFG[] cfgs;
 		public List<List<String[]>> ruleTbl;
 		public List<Map<String, Integer>> ruleTblRev;
@@ -87,7 +87,7 @@ public class Expand {
 		public List<Map<Integer, Sort>> ruleTypeLookup;
 		public List<Integer> ruleOrders;
 	}
-	Grammar grammar = null;
+	static Grammar grammar = null;
 
 	public void prepareGrammar() {
 		if (grammar == null) {

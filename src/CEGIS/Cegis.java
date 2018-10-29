@@ -127,60 +127,35 @@ public class Cegis extends Thread{
 
 		public Status verify(Map<String, Expr> functions) {
 
-			if(extractor.problemType == SygusExtractor.ProbType.INV){
-				// System.out.println("inv dnc");
-			// 	s.push();
-			// 	DefinedFunc[] funcs = extractor.invConstraints.get("InvF");
-			// 	System.out.println(funcs[1].getArgs()[2].getSort());
-			// 	// FuncDecl f = extractor.rdcdRequests.get(extractor.names.get(0));
-			// 	// System.out.println(f);
-			// 	String name = extractor.names.get(0);
-			// 	FuncDecl f = extractor.rdcdRequests.get(name);
-			// 	System.out.println(f);
-			// 	Expr[] args = extractor.requestUsedArgs.get(name);
-			// 	Expr def = functions.get(name);
-			// 	DefinedFunc df = new DefinedFunc(ctx, args, def);
-			// 	Expr spec = ctx.mkOr((BoolExpr)ctx.mkApp(f,args), ctx.mkNot((BoolExpr)funcs[0].getDef()));
-			// 	spec = df.rewrite(spec, f);
-			// 	s.add(ctx.mkNot((BoolExpr)spec));
-			// 	System.out.println("1 "+spec);
-			// 	spec = ctx.mkOr((BoolExpr)ctx.mkApp(f,args), ctx.mkNot((BoolExpr)ctx.mkAnd((BoolExpr)funcs[1].getDef(), (BoolExpr)ctx.mkApp(f,args))));
-			// 	spec = df.rewrite(spec, f);
-			// 	s.add(ctx.mkNot((BoolExpr)spec));
-			// 	spec = ctx.mkOr((ctx.mkNot((BoolExpr)ctx.mkApp(f,args))), (BoolExpr)funcs[2].getDef());
-			// 	spec = df.rewrite(spec, f);
-			// 	s.add(ctx.mkNot((BoolExpr)spec));
+			Expr spec = extractor.finalConstraint;
 
-
-			// }else{
-
-				Expr spec = extractor.finalConstraint;
-				// System.out.println("2 "+spec);
-				for (String name : extractor.names) {
-					FuncDecl f = extractor.rdcdRequests.get(name);
-					Expr[] args = extractor.requestUsedArgs.get(name);
-					Expr def = functions.get(name);
-					DefinedFunc df = new DefinedFunc(ctx, args, def);
-					spec = df.rewrite(spec, f);
-				}
-				// System.out.println("3 "+spec);
-				// int j = 0;
-				// for(Expr expr: extractor.vars.values()) {
-				// 	spec = 	spec.substitute(expr, var[j]);
-				// 	j = j + 1;
-				// }
-
-				//BoolExpr spec = max2Prop(functions);
-				//BoolExpr spec = max3Prop(functions);
-
-				s.push();
-				s.add(ctx.mkNot((BoolExpr)spec));
-				//System.out.println("Verifying... Formula: ");
-				//System.out.println(s);
+			for (String name : extractor.names) {
+				FuncDecl f = extractor.rdcdRequests.get(name);
+				Expr[] args = extractor.requestUsedArgs.get(name);
+				Expr def = functions.get(name);
+				DefinedFunc df = new DefinedFunc(ctx, args, def);
+				spec = df.rewrite(spec, f);
 			}
+
+			// int j = 0;
+			// for(Expr expr: extractor.vars.values()) {
+			// 	spec = 	spec.substitute(expr, var[j]);
+			// 	j = j + 1;
+			// }
+
+			//System.out.println("Specification : ");
+			//System.out.println(ctx.mkNot((BoolExpr)spec));
+
+			//BoolExpr spec = max2Prop(functions);
+			//BoolExpr spec = max3Prop(functions);
+
+			s.push();
+			s.add(ctx.mkNot((BoolExpr)spec));
+			//System.out.println("Verifying... Formula: ");
+			//System.out.println(s);
+
 			Status status = s.check();
 			s.pop();
-			
 			return status;
 			//return Status.UNSATISFIABLE;
 
