@@ -6,7 +6,7 @@ import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 public class Cegis extends Thread{
 
 	protected Context ctx;
-	protected SygusExtractor extractor;
+	protected SygusProblem problem;
 	protected BoolExpr finalConstraint;
 	protected Logger logger;
 	protected int minFinite;
@@ -43,7 +43,7 @@ public class Cegis extends Thread{
 	public Cegis(Context ctx, CEGISEnv env, Logger logger){
 		this.ctx = ctx;
 		this.env = env;
-		this.extractor = env.extractor.translate(ctx);
+		this.problem = env.problem.translate(ctx);
 		this.logger = logger;
 		this.minFinite = env.minFinite;
 		this.minInfinite = env.minInfinite;
@@ -65,15 +65,15 @@ public class Cegis extends Thread{
 
 		this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
-		this.finalConstraint = extractor.finalConstraint;
+		this.finalConstraint = problem.finalConstraint;
 
 		this.generalFuncs = new LinkedHashMap<String, int[]>();
 		this.ASTs = new LinkedHashMap<String, ASTGeneral>();
 		this.functions = new LinkedHashMap<String, Expr>();
 
-		if (!extractor.isGeneral) {
-			for(String name : extractor.names) {
-				FuncDecl func = extractor.rdcdRequests.get(name);
+		if (!problem.isGeneral) {
+			for(String name : problem.names) {
+				FuncDecl func = problem.rdcdRequests.get(name);
 
 				if (func.getRange().toString().equals("Bool")) {
 					functions.put(name, ctx.mkTrue());
@@ -88,7 +88,7 @@ public class Cegis extends Thread{
 	}
 
 	public void addRandomInitialExamples() {
-		int numVar = extractor.vars.size();
+		int numVar = problem.vars.size();
 		//int numExamples = (int)Math.pow(4, numVar) + 1;
 		int numExamples = (int)Math.pow(numVar, 3) + 1;
 		//int numExamples = (int)Math.pow(2, numVar) + 1;
@@ -127,18 +127,18 @@ public class Cegis extends Thread{
 
 		public Status verify(Map<String, Expr> functions) {
 
-			Expr spec = extractor.finalConstraint;
+			Expr spec = problem.finalConstraint;
 
-			for (String name : extractor.names) {
-				FuncDecl f = extractor.rdcdRequests.get(name);
-				Expr[] args = extractor.requestUsedArgs.get(name);
+			for (String name : problem.names) {
+				FuncDecl f = problem.rdcdRequests.get(name);
+				Expr[] args = problem.requestUsedArgs.get(name);
 				Expr def = functions.get(name);
 				DefinedFunc df = new DefinedFunc(ctx, args, def);
 				spec = df.rewrite(spec, f);
 			}
 
 			// int j = 0;
-			// for(Expr expr: extractor.vars.values()) {
+			// for(Expr expr: problem.vars.values()) {
 			// 	spec = 	spec.substitute(expr, var[j]);
 			// 	j = j + 1;
 			// }
@@ -181,8 +181,8 @@ public class Cegis extends Thread{
 		public VerifierDecoder(Verifier vrfr) {
 			this.vrfr = vrfr;
 			this.model = vrfr.getLastModel();
-			this.numVar = extractor.vars.size();
-			this.vars = extractor.vars.values().toArray(new Expr[numVar]);
+			this.numVar = problem.vars.size();
+			this.vars = problem.vars.values().toArray(new Expr[numVar]);
 		}
 
 		public Expr[] decode() {
@@ -229,14 +229,14 @@ public class Cegis extends Thread{
 
 			s.push();
 
-			Expr spec = extractor.finalConstraint;
+			Expr spec = problem.finalConstraint;
 
 			BoolExpr q = expand.expandCoefficient(condBound);
 
 			int k = 0;
-			for (String name : extractor.names) {
-				FuncDecl f = extractor.rdcdRequests.get(name);
-				Expr[] var = extractor.requestUsedArgs.get(name);
+			for (String name : problem.names) {
+				FuncDecl f = problem.rdcdRequests.get(name);
+				Expr[] var = problem.requestUsedArgs.get(name);
 				Expr eval = this.getEval(k);
 				DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
 				spec = definedfunc.rewrite(spec, f);
@@ -249,7 +249,7 @@ public class Cegis extends Thread{
 					for (int i = 0; i < params.length; i++) {
 						newParas[i] = params[i].translate(ctx);
 					}
-					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), newParas);
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(problem.vars.values().toArray(new Expr[problem.vars.size()]), newParas);
 					q = ctx.mkAnd(q, expandSpec);
 				}
 			}
@@ -275,7 +275,7 @@ public class Cegis extends Thread{
 
 			s.push();
 
-			Expr spec = extractor.finalConstraint;
+			Expr spec = problem.finalConstraint;
 
 			// CondBound not implemented for general yet
 			// Currently expandCoefficientGeneral only applies term range restrictions and overall valid
@@ -283,10 +283,10 @@ public class Cegis extends Thread{
 			//BoolExpr q = expand.expandCoefficient(condBound);
 
 			int k = 0;
-			for (String name : extractor.names) {
+			for (String name : problem.names) {
 				// Currently preprocessing is disabled, using dummy
-				FuncDecl f = extractor.rdcdRequests.get(name);
-				Expr[] var = extractor.requestUsedArgs.get(name);
+				FuncDecl f = problem.rdcdRequests.get(name);
+				Expr[] var = problem.requestUsedArgs.get(name);
 				Expr eval = expand.interpretGeneral(k);
 				DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
 				spec = definedfunc.rewrite(spec, f);
@@ -299,7 +299,7 @@ public class Cegis extends Thread{
 					for (int i = 0; i < params.length; i++) {
 						newParas[i] = params[i].translate(ctx);
 					}
-					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), newParas);
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(problem.vars.values().toArray(new Expr[problem.vars.size()]), newParas);
 					q = ctx.mkAnd(q, expandSpec);
 				}
 			}
@@ -329,14 +329,14 @@ public class Cegis extends Thread{
 		public Status synthesisWithSMT() {
 			optimize.Push();
 
-			Expr spec = extractor.finalConstraint;
+			Expr spec = problem.finalConstraint;
 
 			BoolExpr q = ctx.mkTrue();
 
 			int k = 0;
-			for (String name : extractor.names) {
-				FuncDecl f = extractor.rdcdRequests.get(name);
-				Expr[] var = extractor.requestUsedArgs.get(name);
+			for (String name : problem.names) {
+				FuncDecl f = problem.rdcdRequests.get(name);
+				Expr[] var = problem.requestUsedArgs.get(name);
 				Expr eval = expand.generateEval(k, 0);
 				DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
 				spec = definedfunc.rewrite(spec, f);
@@ -349,22 +349,22 @@ public class Cegis extends Thread{
 					for (int i = 0; i < params.length; i++) {
 						newParas[i] = params[i].translate(ctx);
 					}
-					BoolExpr expandSpec = (BoolExpr) spec.substitute(extractor.vars.values().toArray(new Expr[extractor.vars.size()]), newParas);
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(problem.vars.values().toArray(new Expr[problem.vars.size()]), newParas);
 					q = ctx.mkAnd(q, expandSpec);
 				}
 			}
 
 			optimize.Add(q);
 
-			int numFunc = extractor.names.size();
+			int numFunc = problem.names.size();
 			int bound = expand.bound;
 			IntExpr[][][] c = expand.getCoefficients();
 			IntExpr[][][] absolute = new IntExpr[numFunc][bound][0];
 
 			for (int l = 0; l < numFunc; l++) {
 				for (int j = 0; j < bound; j++) {
-					String name = extractor.names.get(l);
-					int argCount = extractor.requestUsedArgs.get(name).length;
+					String name = problem.names.get(l);
+					int argCount = problem.requestUsedArgs.get(name).length;
 					absolute[l][j] = new IntExpr[argCount + 1];
 					for (int i = 0; i < argCount + 1; i++) {
 						absolute[l][j][i] = ctx.mkIntConst("f" + l + "_absolute_c" + j + "_" + i);
@@ -446,7 +446,7 @@ public class Cegis extends Thread{
 				for (int i = 0; i < coeff[k].length; i++) {
 					p[k][i] = coeff[k][i][0];
 
-					Expr[] args = extractor.requestUsedArgs.get(extractor.names.get(k));
+					Expr[] args = problem.requestUsedArgs.get(problem.names.get(k));
 					for (int j = 1; j < coeff[k][i].length; j++) {
 						p[k][i] = ctx.mkAdd(p[k][i], ctx.mkMul(coeff[k][i][j], (ArithExpr)args[j - 1]));
 					}
@@ -463,7 +463,7 @@ public class Cegis extends Thread{
 						f[j][i] = ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
 
 					} else {
-						boolean isINV = extractor.requests.get(extractor.names.get(j)).getRange().toString().equals("Bool");
+						boolean isINV = problem.requests.get(problem.names.get(j)).getRange().toString().equals("Bool");
 						if (isINV) {
 							f[j][i] = ctx.mkITE(cond, ctx.mkTrue(), ctx.mkFalse());
 						} else {
@@ -472,7 +472,7 @@ public class Cegis extends Thread{
 
 					}
 				}
-				functions.put(extractor.names.get(j), f[j][0].simplify());
+				functions.put(problem.names.get(j), f[j][0].simplify());
 			}
 
 		}
@@ -480,13 +480,13 @@ public class Cegis extends Thread{
 		public void generateFuncGeneral(Map<String, int[]> generalFunc) {
 			int[][] terms = evaluateTerm();
 			for (int i = 0; i < terms.length; i++) {
-				generalFunc.put(extractor.names.get(i), terms[i]);
+				generalFunc.put(problem.names.get(i), terms[i]);
 			}
 		}
 
 		public void expandFunctions(Map<String, int[]> generalFunc, Map<String, ASTGeneral> ASTs) {
 			int i = 0;
-			for (String name: extractor.names) {
+			for (String name: problem.names) {
 				int[] terms = generalFunc.get(name);
 				ASTs.put(name, expand.expandGeneral(i, terms));
 				i++;
@@ -495,7 +495,7 @@ public class Cegis extends Thread{
 
 		public void interpretFunctions(Map<String, int[]> generalFunc, Map<String, Expr> functions) {
 			int i = 0;
-			for (String name: extractor.names) {
+			for (String name: problem.names) {
 				int[] terms = generalFunc.get(name);
 				functions.put(name, expand.interpretGeneral(i, terms));
 				i++;
@@ -534,7 +534,7 @@ public class Cegis extends Thread{
 	}
 
 	public IntExpr[][] addSimpleExamplesRecursive(int nv) {
-		int numVar = extractor.vars.size();
+		int numVar = problem.vars.size();
 		IntExpr[][] examples = new IntExpr[(int)Math.pow(3, nv)][numVar];
 
 		if (nv == 0) return examples;
@@ -559,7 +559,7 @@ public class Cegis extends Thread{
 	}
 
 	public void addSimpleExamples() {
-		int numVar = extractor.vars.size();
+		int numVar = problem.vars.size();
 		IntExpr[][] examples = addSimpleExamplesRecursive(numVar);
 		synchronized(env.counterExamples) {
 			for (int j = 0; j < examples.length; j++) {
@@ -569,11 +569,11 @@ public class Cegis extends Thread{
 	}
 
 	public void run() {
-		if (extractor.isGeneral) {
+		if (problem.isGeneral) {
 			logger.info(Thread.currentThread().getName() + " Started");
 			logger.info("Starting general track CEGIS");
 			// Initialize expand here for max data sharing
-			expand = new Expand(ctx, extractor);
+			expand = new Expand(ctx, problem);
 			if (pdc1D != null) {
 				while (results == null && running) {
 					fixedVectorLength = pdc1D.get();
@@ -586,8 +586,8 @@ public class Cegis extends Thread{
 			return;
 		}
 		logger.info("Check for possible candidates from parser.");
-		for (String name : extractor.candidate.keySet()) {
-			DefinedFunc df = extractor.candidate.get(name);
+		for (String name : problem.candidate.keySet()) {
+			DefinedFunc df = problem.candidate.get(name);
 			logger.info(String.format("Candidate for %s : %s", name, df.getDef()));
 			functions.put(name, df.getDef());
 		}
@@ -713,7 +713,7 @@ public class Cegis extends Thread{
 				//print out for debug
 				logger.info("Synthesizer output decode done");
 				//print out for debug
-				for (String name : extractor.names) {
+				for (String name : problem.names) {
 					logger.info(name + " = " + Arrays.toString(generalFuncs.get(name)));
 					logger.info(name + " : " + functions.get(name).toString());
 				}
@@ -728,10 +728,10 @@ public class Cegis extends Thread{
 				synthDecoder.expandFunctions(generalFuncs, ASTs);
 				results = new DefinedFunc[functions.size()];
 				int i = 0;
-				for (String name : extractor.rdcdRequests.keySet()) {
+				for (String name : problem.rdcdRequests.keySet()) {
 					Expr def = functions.get(name);
 					ASTGeneral ast = ASTs.get(name);
-					results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def, ast);
+					results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def, ast);
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
                     logger.info(String.format("Total iteration count: %d", k));
 					i = i + 1;
@@ -831,7 +831,7 @@ public class Cegis extends Thread{
 		// Subprocedure classes
 		Verifier testVerifier = this.createVerifier();
 		Synthesizer testSynthesizer = this.createSynthesizer();
-		expand = new Expand(ctx, extractor);
+		expand = new Expand(ctx, problem);
 		expand.setHeightBound(heightBound);
 
 		while(flag && running) {
@@ -843,12 +843,12 @@ public class Cegis extends Thread{
 			if (v == Status.UNSATISFIABLE) {
 					results = new DefinedFunc[functions.size()];
 					int i = 0;
-					for (String name : extractor.rdcdRequests.keySet()) {
+					for (String name : problem.rdcdRequests.keySet()) {
 						Expr def = functions.get(name);
 						if (def.isBool()) {
 							def = SygusFormatter.elimITE(this.ctx, def);
 						}
-						results[i] = new DefinedFunc(ctx, name, extractor.requestArgs.get(name), def);
+						results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
                         logger.info(String.format("Total iteration count: %d", k));
 						i = i + 1;
@@ -964,7 +964,7 @@ public class Cegis extends Thread{
 							//print out for debug
 							logger.info("Synthesizer output decode done");
 							//print out for debug
-							for (String name : extractor.names) {
+							for (String name : problem.names) {
 								logger.info(name + " : " + functions.get(name).toString());
 							}
 

@@ -13,7 +13,7 @@ public class Expand {
 	public int bound;
 
 	private Context ctx;
-	private SygusExtractor extractor;
+	private SygusProblem problem;
 	private int numFunc;
 
 	// General track essentials
@@ -28,14 +28,14 @@ public class Expand {
 	private static Map<String, Expr> interpretCache = new HashMap<String, Expr>();
 
 
-	public Expand(Context ctx, SygusExtractor extractor) {
+	public Expand(Context ctx, SygusProblem problem) {
 		this.ctx = ctx;
-		this.extractor = extractor;
-		this.numFunc = extractor.names.size();
+		this.problem = problem;
+		this.numFunc = problem.names.size();
 	}
 
 	public void setVectorBound(int vectorBound) {
-		assert extractor.isGeneral;
+		assert problem.isGeneral;
 		this.bound = vectorBound;
 		t = new IntExpr[numFunc][bound];
 		declareTerms();
@@ -43,7 +43,7 @@ public class Expand {
 	}
 
 	public void setHeightBound(int heightBound) {
-		assert !extractor.isGeneral;
+		assert !problem.isGeneral;
 		this.bound = (int)Math.pow(2, heightBound) - 1;
 		c = new IntExpr[numFunc][bound][0];
 		declareConstants();
@@ -52,8 +52,8 @@ public class Expand {
 	public void declareConstants() {
 		for (int k = 0; k < numFunc; k++) {
 			for (int j = 0; j < bound; j++) {
-				String name = extractor.names.get(k);
-				int argCount = extractor.requestUsedArgs.get(name).length;
+				String name = problem.names.get(k);
+				int argCount = problem.requestUsedArgs.get(name).length;
 				c[k][j] = new IntExpr[argCount + 1];
 				for (int i = 0; i < argCount + 1; i++) {
 					c[k][j][i] = ctx.mkIntConst("f" + k + "_c" + j + "_" + i);
@@ -79,7 +79,7 @@ public class Expand {
 	// Prepared grammar rules
 	// Only need to prepare once
 	static class Grammar {
-		public SygusExtractor.CFG[] cfgs;
+		public SygusProblem.CFG[] cfgs;
 		public List<List<String[]>> ruleTbl;
 		public List<Map<String, Integer>> ruleTblRev;
 		public List<Map<String, Integer>> subrulePos;
@@ -92,7 +92,7 @@ public class Expand {
 	public void prepareGrammar() {
 		if (grammar == null) {
 			grammar = new Grammar();
-			grammar.cfgs = new SygusExtractor.CFG[numFunc];
+			grammar.cfgs = new SygusProblem.CFG[numFunc];
 			grammar.ruleTbl = new ArrayList<List<String[]>>();
 			grammar.ruleTblRev = new ArrayList<Map<String, Integer>>();
 			grammar.subrulePos = new ArrayList<Map<String, Integer>>();
@@ -100,8 +100,8 @@ public class Expand {
 			grammar.ruleTypeLookup = new ArrayList<Map<Integer, Sort>>();
 			grammar.ruleOrders = new ArrayList<Integer>();
 			int f = 0;
-			for (String funcName: extractor.cfgs.keySet()) {
-				SygusExtractor.CFG cfg = extractor.cfgs.get(funcName);
+			for (String funcName: problem.cfgs.keySet()) {
+				SygusProblem.CFG cfg = problem.cfgs.get(funcName);
 				grammar.cfgs[f] = cfg;
 				grammar.ruleTbl.add(new ArrayList<String[]>());
 				grammar.ruleTblRev.add(new LinkedHashMap<String, Integer>()) ;
@@ -171,7 +171,7 @@ public class Expand {
 				if (j < ((bound - 1)/2)) {
 					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
 				} else {
-					boolean isBool = extractor.requests.get(extractor.names.get(i)).getRange().toString().equals("Bool");
+					boolean isBool = problem.requests.get(problem.names.get(i)).getRange().toString().equals("Bool");
 					if (isBool) {
 						coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkOr(coeffEqualOneOrMinusOne, cProp));
 					}
@@ -200,8 +200,8 @@ public class Expand {
 
 	public Expr generateEval(int k, int i) {
 
-		String name = extractor.names.get(k);
-		Expr[] var = extractor.requestUsedArgs.get(name);
+		String name = problem.names.get(k);
+		Expr[] var = problem.requestUsedArgs.get(name);
 
 
 		ArithExpr poly = c[k][i][0];
@@ -213,7 +213,7 @@ public class Expand {
 		if (i < ((bound - 1)/2)) {
 			return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), generateEval(k, 2*i + 1), generateEval(k, 2*i + 2));
 		} else {
-			boolean isBool = extractor.requests.get(name).getRange().toString().equals("Bool");
+			boolean isBool = problem.requests.get(name).getRange().toString().equals("Bool");
 			if (isBool) {
 				return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), ctx.mkTrue(), ctx.mkFalse());
 			} else {
@@ -224,11 +224,11 @@ public class Expand {
 
 	}
 
-	SygusExtractor.SybType resolveSyb(int funcIndex, String syb) {
+	SygusProblem.SybType resolveSyb(int funcIndex, String syb) {
 		if (grammar.cfgs[funcIndex].sybTypeTbl.containsKey(syb)){
 			return grammar.cfgs[funcIndex].sybTypeTbl.get(syb);
-		} else if (extractor.glbSybTypeTbl.containsKey(syb)){
-			return extractor.glbSybTypeTbl.get(syb);
+		} else if (problem.glbSybTypeTbl.containsKey(syb)){
+			return problem.glbSybTypeTbl.get(syb);
 		} else {
 			return null;
 		}
@@ -254,18 +254,18 @@ public class Expand {
 			String termSyb = fullRule[0];
 			int argCount = fullRule.length - 1;
 			ASTGeneral result = new ASTGeneral();
-			SygusExtractor.SybType termType = resolveSyb(funcIndex, termSyb);
+			SygusProblem.SybType termType = resolveSyb(funcIndex, termSyb);
 			lastInterpreted = start;
-			if (termType == SygusExtractor.SybType.LITERAL) {
+			if (termType == SygusProblem.SybType.LITERAL) {
 				result.node = termSyb;
-			} else if (termType == SygusExtractor.SybType.GLBVAR) {
+			} else if (termType == SygusProblem.SybType.GLBVAR) {
 				result.node = termSyb;
-			} else if (termType == SygusExtractor.SybType.LCLARG) {
+			} else if (termType == SygusProblem.SybType.LCLARG) {
 				result.node = termSyb;
-			} else if (termType == SygusExtractor.SybType.CSTINT) {
+			} else if (termType == SygusProblem.SybType.CSTINT) {
 				result.node = Integer.toString(terms[start + 1]);
 				lastInterpreted = start + 1;
-			} else if (termType == SygusExtractor.SybType.CSTBOL) {
+			} else if (termType == SygusProblem.SybType.CSTBOL) {
 				if (terms[start + 1] == 0) {
 					result.node = "false";
 				} else {
@@ -273,7 +273,7 @@ public class Expand {
 				}
 				lastInterpreted = start + 1;
 			} else {
-				assert termType == SygusExtractor.SybType.FUNC;
+				assert termType == SygusProblem.SybType.FUNC;
 				result.node = termSyb;
 				for (int i = 0; i < argCount; i++) {
 					result.children.add(buildAST(funcIndex, terms, lastInterpreted + 1));
@@ -291,19 +291,19 @@ public class Expand {
 			String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
 			String termSyb = fullRule[0];
 			int argCount = fullRule.length - 1;
-			SygusExtractor.SybType termType = resolveSyb(funcIndex, termSyb);
+			SygusProblem.SybType termType = resolveSyb(funcIndex, termSyb);
 			Expr result;
 			lastInterpreted = start;
-			if (termType == SygusExtractor.SybType.LITERAL) {
+			if (termType == SygusProblem.SybType.LITERAL) {
 				result = ctx.mkInt(Integer.parseInt(termSyb));
-			} else if (termType == SygusExtractor.SybType.GLBVAR) {
-				result = extractor.vars.get(termSyb);
-			} else if (termType == SygusExtractor.SybType.LCLARG) {
+			} else if (termType == SygusProblem.SybType.GLBVAR) {
+				result = problem.vars.get(termSyb);
+			} else if (termType == SygusProblem.SybType.LCLARG) {
 				result = grammar.cfgs[funcIndex].localArgs.get(termSyb);
-			} else if (termType == SygusExtractor.SybType.CSTINT) {
+			} else if (termType == SygusProblem.SybType.CSTINT) {
 				result = ctx.mkInt(terms[start + 1]);
 				lastInterpreted = start + 1;
-			} else if (termType == SygusExtractor.SybType.CSTBOL) {
+			} else if (termType == SygusProblem.SybType.CSTBOL) {
 				if (terms[start + 1] == 0) {
 					result = ctx.mkFalse();
 				} else {
@@ -311,12 +311,12 @@ public class Expand {
 				}
 				lastInterpreted = start + 1;
 			} else {
-				assert termType == SygusExtractor.SybType.FUNC;
+				assert termType == SygusProblem.SybType.FUNC;
 				Expr[] args = new Expr[argCount];
 				for (int i = 0; i < argCount; i++) {
 					args[i] = interpretConcrete(funcIndex, terms, lastInterpreted + 1);
 				}
-				result = extractor.operationDispatcher(termSyb, args, true, doNotInterpFuncs);
+				result = problem.opDis.dispatch(termSyb, args, true, doNotInterpFuncs);
 			}
 			return result;
 		}
@@ -374,32 +374,32 @@ public class Expand {
 		String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
 		String termSyb = fullRule[0];
 		Expr result;
-		SygusExtractor.SybType termType = resolveSyb(funcIndex, termSyb);
-		if (termType == SygusExtractor.SybType.LITERAL) {
+		SygusProblem.SybType termType = resolveSyb(funcIndex, termSyb);
+		if (termType == SygusProblem.SybType.LITERAL) {
 			result = ctx.mkInt(Integer.parseInt(termSyb));
-		} else if (termType == SygusExtractor.SybType.GLBVAR) {
-			result = extractor.vars.get(termSyb);
-		} else if (termType == SygusExtractor.SybType.LCLARG) {
+		} else if (termType == SygusProblem.SybType.GLBVAR) {
+			result = problem.vars.get(termSyb);
+		} else if (termType == SygusProblem.SybType.LCLARG) {
 			result = grammar.cfgs[funcIndex].localArgs.get(termSyb);
-		} else if (termType == SygusExtractor.SybType.CSTINT) {
+		} else if (termType == SygusProblem.SybType.CSTINT) {
 			result = ivars[1];
-		} else if (termType == SygusExtractor.SybType.CSTBOL) {
+		} else if (termType == SygusProblem.SybType.CSTBOL) {
 			result = ctx.mkITE(
 			ctx.mkEq(ivars[1], ctx.mkInt(0)),
 			ctx.mkFalse(),
 			ctx.mkTrue()
 			);
 		} else {
-			assert termType == SygusExtractor.SybType.FUNC;
+			assert termType == SygusProblem.SybType.FUNC;
 			int termLength = ivars.length - 1;
 			int argCount = fullRule.length - 1;
 			if (argCount == 1) {
 				IntExpr[] subterms = Arrays.copyOfRange(ivars, 1, ivars.length);
 				String subtermSyb = fullRule[1];
-				SygusExtractor.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
-				assert subtermType == SygusExtractor.SybType.SYMBOL;
+				SygusProblem.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
+				assert subtermType == SygusProblem.SybType.SYMBOL;
 				Expr subtermInterpreted = generateInterpret(funcIndex, subterms, subtermSyb);
-				result = extractor.operationDispatcher(termSyb, new Expr[]{subtermInterpreted}, true, false);
+				result = problem.opDis.dispatch(termSyb, new Expr[]{subtermInterpreted}, true, false);
 			} else {
 				int[][] combinations = combination(termLength, argCount - 1);
 				List<BoolExpr> branchGuards = new ArrayList<BoolExpr>();
@@ -420,8 +420,8 @@ public class Expand {
 						}
 						IntExpr[] subterms = Arrays.copyOfRange(ivars, start, end);
 						String subtermSyb = fullRule[i + 1];
-						SygusExtractor.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
-						assert subtermType == SygusExtractor.SybType.SYMBOL;
+						SygusProblem.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
+						assert subtermType == SygusProblem.SybType.SYMBOL;
 						if (!isInterpretable(funcIndex, subterms.length, subtermSyb)) {
 							allInterpretable = false;
 							break;
@@ -436,7 +436,7 @@ public class Expand {
 						continue;
 					}
 					BoolExpr branchGuard = ctx.mkAnd(structValids);
-					Expr branch = extractor.operationDispatcher(termSyb, argsInterpreted, true, false);
+					Expr branch = problem.opDis.dispatch(termSyb, argsInterpreted, true, false);
 					branchGuards.add(branchGuard);
 					branches.add(branch);
 					iteExpr = ctx.mkITE(branchGuard, branch, iteExpr);
@@ -493,7 +493,7 @@ public class Expand {
 		String[] fullRule;
 		BoolExpr typeCond;
 		int argCount;
-		SygusExtractor.SybType sybType;
+		SygusProblem.SybType sybType;
 		BoolExpr result;
 		if (termLength >= 0) {
 			typeVar = ivars[0];
@@ -536,8 +536,8 @@ public class Expand {
 		} else if (argCount == 1) {
 			IntExpr[] subterms = Arrays.copyOfRange(ivars, 1, ivars.length);
 			String subtermSyb = fullRule[1];
-			SygusExtractor.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
-			assert subtermType == SygusExtractor.SybType.SYMBOL;
+			SygusProblem.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
+			assert subtermType == SygusProblem.SybType.SYMBOL;
 			result = ctx.mkAnd(typeCond, generateValid(funcIndex, subterms, subtermSyb));
 		} else {
 			int[][] combinations = combination(termLength, argCount - 1);
@@ -555,8 +555,8 @@ public class Expand {
 					}
 					IntExpr[] subterms = Arrays.copyOfRange(ivars, start, end);
 					String subtermSyb = fullRule[i + 1];
-					SygusExtractor.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
-					assert subtermType == SygusExtractor.SybType.SYMBOL;
+					SygusProblem.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
+					assert subtermType == SygusProblem.SybType.SYMBOL;
 					subValids[i] = generateValid(funcIndex, subterms, subtermSyb);
 					start = end;
 				}

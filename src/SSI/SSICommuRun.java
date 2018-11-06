@@ -49,17 +49,18 @@ public class SSICommuRun {
         ParseTreeWalker walker = new ParseTreeWalker();
         SygusExtractor extractor = new SygusExtractor(ctx);
         walker.walk(extractor, tree);
+        SygusProblem problem = extractor.createProblem();
 
         logger.info("Final Constraints:");
-        logger.info(extractor.finalConstraint.toString());
+        logger.info(problem.finalConstraint.toString());
 
-        for (String name : extractor.names) {
+        for (String name : problem.names) {
             logger.info(name);
         }
 
 
 
-        SSICommu ssi = new SSICommu(ctx, extractor, logger, numCore);
+        SSICommu ssi = new SSICommu(ctx, problem, logger, numCore);
         ssi.run();
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only

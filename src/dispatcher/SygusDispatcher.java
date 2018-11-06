@@ -11,6 +11,8 @@ public class SygusDispatcher {
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
     SygusExtractor extractor;
+    SygusProblem problem;
+
     Logger logger;
     int numCore;
     int iterLimit = 0;
@@ -31,6 +33,7 @@ public class SygusDispatcher {
     SygusDispatcher(Context z3ctx, SygusExtractor extractor) {
         this.z3ctx = z3ctx;
         this.extractor = extractor;
+        this.problem = extractor.createProblem();
         this.logger = Logger.getLogger("main");
         this.numCore = Runtime.getRuntime().availableProcessors();
         this.mainThread = Thread.currentThread();
@@ -120,7 +123,7 @@ public class SygusDispatcher {
 
         logger.info("Initializing CEGIS algorithm as prepared fallback.");
         env = new CEGISEnv();
-        env.extractor = extractor;
+        env.problem = problem;
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
         env.maxsmtFlag = maxsmtFlag;
@@ -165,7 +168,7 @@ public class SygusDispatcher {
             logger.info("Initializing SSI-Commu algorithms.");
             // Single thread only algorithm, ignoring numCore settings.
             threads = new Thread[1];
-            threads[0] = new SSICommu(z3ctx, extractor, logger, numCore);
+            threads[0] = new SSICommu(z3ctx, problem, logger, numCore);
             return;
         }
 
@@ -173,7 +176,7 @@ public class SygusDispatcher {
             logger.info("Initializing SSI algorithms.");
             // Single thread only algorithm, ignoring numCore settings.
             threads = new Thread[1];
-            threads[0] = new SSI(z3ctx, extractor, logger, numCore);
+            threads[0] = new SSI(z3ctx, problem, logger, numCore);
             return;
         }
 
@@ -191,8 +194,8 @@ public class SygusDispatcher {
         if (this.method == SolveMethod.PRESCREENED) {
             logger.info("Outputing parsed candidates as results.");
             List<DefinedFunc> resList = new ArrayList<DefinedFunc>();
-            for (String name : extractor.candidate.keySet()) {
-                resList.add(extractor.candidate.get(name).replaceName(name));
+            for (String name : problem.candidate.keySet()) {
+                resList.add(problem.candidate.get(name).replaceName(name));
             }
             return resList.toArray(new DefinedFunc[resList.size()]);
         }
@@ -243,16 +246,16 @@ public class SygusDispatcher {
     }
 
     boolean checkGeneral() {
-        return extractor.isGeneral;
+        return problem.isGeneral;
     }
 
     boolean validateCandidates() {
         Solver solver = z3ctx.mkSolver();
-        Expr spec = extractor.finalConstraint;
-        for (String name : extractor.candidate.keySet()) {
-			FuncDecl f = extractor.rdcdRequests.get(name);
-			Expr[] args = extractor.requestUsedArgs.get(name);
-			DefinedFunc df = extractor.candidate.get(name).replaceArgs(args);
+        Expr spec = problem.finalConstraint;
+        for (String name : problem.candidate.keySet()) {
+			FuncDecl f = problem.rdcdRequests.get(name);
+			Expr[] args = problem.requestUsedArgs.get(name);
+			DefinedFunc df = problem.candidate.get(name).replaceArgs(args);
 			spec = df.rewrite(spec, f);
         }
         solver.push();
@@ -265,12 +268,12 @@ public class SygusDispatcher {
     }
 
     boolean checkSSIComm() {
-        if (extractor.problemType != SygusExtractor.ProbType.CLIA) {
+        if (problem.problemType != SygusProblem.ProbType.CLIA) {
             return false;
         }
         boolean flag = false;
         List<BoolExpr> remainingConstrs = new ArrayList<BoolExpr>();
-        for (Expr constr: extractor.constraints) {
+        for (Expr constr: problem.constraints) {
             if (isCommConstr(constr)) {
                 flag = true;
             } else {
@@ -287,10 +290,10 @@ public class SygusDispatcher {
     }
 
     boolean checkSSI(){
-        if (extractor.problemType != SygusExtractor.ProbType.CLIA) {
+        if (problem.problemType != SygusProblem.ProbType.CLIA) {
             return false;
         }
-        Expr spec = extractor.finalConstraint;
+        Expr spec = problem.finalConstraint;
         this.callCache = new HashMap<String, Expr[]>();
         this.funcCalled = new HashSet<String>();
         return isSSI(spec);
@@ -326,8 +329,8 @@ public class SygusDispatcher {
             Expr[] args = expr.getArgs();
             FuncDecl exprFunc = expr.getFuncDecl();
             String funcName = exprFunc.getName().toString();
-            if (extractor.names.contains(funcName) &&
-                exprFunc.equals(extractor.rdcdRequests.get(funcName)))  {
+            if (problem.names.contains(funcName) &&
+                exprFunc.equals(problem.rdcdRequests.get(funcName)))  {
                 // For SSI, one atomic expression should have only one particular function
                 if (funcCalled.contains(funcName)) {
                     return false;
@@ -356,10 +359,10 @@ public class SygusDispatcher {
     }
 
     boolean checkAT() {
-        if (extractor.problemType != SygusExtractor.ProbType.INV) {
+        if (problem.problemType != SygusProblem.ProbType.INV) {
             return false;
         }
-        this.preparedAT = new AT(z3ctx, extractor, logger);
+        this.preparedAT = new AT(z3ctx, problem, logger);
         this.preparedAT.init();
         if (this.preparedAT.transfunc != null) {
             Set<Region> regions = this.preparedAT.transfunc.getRegions();

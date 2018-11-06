@@ -39,19 +39,20 @@ public class GeneralTest {
 		ParseTreeWalker walker = new ParseTreeWalker();
 		SygusExtractor extractor = new SygusExtractor(ctx);
 		walker.walk(extractor, tree);
+        SygusProblem problem = extractor.createProblem();
 
-		if (extractor.problemType == SygusExtractor.ProbType.GENERAL) {
+		if (problem.problemType == SygusProblem.ProbType.GENERAL) {
 			String out = new String("Global symbol types:\n");
-			for (String name: extractor.glbSybTypeTbl.keySet()) {
-				out += (name + "  " + extractor.glbSybTypeTbl.get(name).toString() + "\n");
+			for (String name: problem.glbSybTypeTbl.keySet()) {
+				out += (name + "  " + problem.glbSybTypeTbl.get(name).toString() + "\n");
 			}
             logger.info(out);
 		}
 		logger.info("Synth requests:");
-		for(String name : extractor.requests.keySet()) {
-			if (extractor.problemType == SygusExtractor.ProbType.GENERAL) {
+		for(String name : problem.requests.keySet()) {
+			if (problem.problemType == SygusProblem.ProbType.GENERAL) {
 				String out = new String("Grammar Infos:\n");
-				SygusExtractor.CFG cfg = extractor.cfgs.get(name);
+				SygusProblem.CFG cfg = problem.cfgs.get(name);
 				for (String sybName: cfg.grammarSybSort.keySet()) {
 					out += ("Symbol name:" + sybName + " Type:" + cfg.grammarSybSort.get(sybName).toString() + "\n");
 					out += (sybName + " := " + "\n");
@@ -69,17 +70,17 @@ public class GeneralTest {
 				}
                 logger.info(out);
 			}
-			FuncDecl func = extractor.requests.get(name);
+			FuncDecl func = problem.requests.get(name);
             String out = new String();
 			out += ("Name:" + func.getName() + "\n");
 			out += ("Argument types:" + Arrays.toString(func.getDomain()) + "\n");
-			out += ("Argument names:" + Arrays.toString(extractor.requestArgs.get(name)) + "\n");
-			out += ("Used argument names:" + Arrays.toString(extractor.requestUsedArgs.get(name)) + "\n");
+			out += ("Argument names:" + Arrays.toString(problem.requestArgs.get(name)) + "\n");
+			out += ("Used argument names:" + Arrays.toString(problem.requestUsedArgs.get(name)) + "\n");
 			out += ("Return type is " + func.getRange().getName() + "\n");
             logger.info(out);
 		}
 
-        Expand ex = new Expand(ctx, extractor);
+        Expand ex = new Expand(ctx, problem);
         Integer len = new Integer(1);
         for (; len < 4; len ++) {
             ex.setVectorBound(len);
@@ -92,7 +93,7 @@ public class GeneralTest {
         }
 
 		logger.info("Final Constraints:");
-		logger.info(extractor.finalConstraint.toString());
+		logger.info(problem.finalConstraint.toString());
 
 		long estimatedTime = System.currentTimeMillis() - startTime;
 		logger.info("Runtime: " + estimatedTime);

@@ -6,7 +6,7 @@ import java.util.logging.Logger;
 public class AT extends Thread {
 
     private Context ctx;
-    private SygusExtractor extractor;
+    private SygusProblem problem;
     private Logger logger;
 
     public Expr trans;
@@ -18,9 +18,9 @@ public class AT extends Thread {
 
     public DefinedFunc[] results;
 
-    public AT(Context ctx, SygusExtractor extractor, Logger logger) {
+    public AT(Context ctx, SygusProblem problem, Logger logger) {
         this.ctx = ctx;
-        this.extractor = extractor;
+        this.problem = problem;
         this.logger = logger;
     }
 
@@ -28,7 +28,7 @@ public class AT extends Thread {
 
         vars = new LinkedHashMap<String, Expr>();
 
-        Map<String, DefinedFunc[]> invConstraints = extractor.invConstraints;
+        Map<String, DefinedFunc[]> invConstraints = problem.invConstraints;
         logger.info("map size" + invConstraints.size());
 
         DefinedFunc[] invFunc = invConstraints.entrySet().iterator().next().getValue();
@@ -47,10 +47,10 @@ public class AT extends Thread {
             logger.info(post.toString());
         }
 
-        Map<String, Expr[]> requestArgs = extractor.requestArgs;
+        Map<String, Expr[]> requestArgs = problem.requestArgs;
         argParas = requestArgs.entrySet().iterator().next().getValue();
 
-        Map<String, Expr[]> requestUsedArgs = extractor.requestSyntaxUsedArgs;
+        Map<String, Expr[]> requestUsedArgs = problem.requestSyntaxUsedArgs;
         Expr[] usedVars = requestUsedArgs.entrySet().iterator().next().getValue();
         for (Expr var: usedVars) {
             vars.put(var.toString(), var);
@@ -156,7 +156,7 @@ public class AT extends Thread {
         if (argParas == null) {
             argParas = vars.values().toArray(new Expr[vars.size()]);
         }
-        DefinedFunc df = new DefinedFunc(ctx, extractor.names.get(0), argParas, inv);
+        DefinedFunc df = new DefinedFunc(ctx, problem.names.get(0), argParas, inv);
         logger.info("Checking if invariant is valid.");
         BoolExpr e1 = ctx.mkImplies((BoolExpr)pre, (BoolExpr)inv);
         Expr invp = inv;

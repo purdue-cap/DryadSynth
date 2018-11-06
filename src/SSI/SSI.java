@@ -4,7 +4,7 @@ import java.util.logging.Logger;
 
 public class SSI extends Thread {
     protected Context ctx;
-    protected SygusExtractor extractor;
+    protected SygusProblem problem;
     protected Logger logger;
     protected int numCore;
     // Current name that is being worked on
@@ -24,9 +24,9 @@ public class SSI extends Thread {
 
     public class SSIException extends Exception {}
 
-    public SSI(Context ctx, SygusExtractor extractor, Logger logger, int numCore) {
+    public SSI(Context ctx, SygusProblem problem, Logger logger, int numCore) {
         this.ctx = ctx;
-        this.extractor = extractor;
+        this.problem = problem;
         this.logger = logger;
         this.numCore = numCore;
 
@@ -45,7 +45,7 @@ public class SSI extends Thread {
         this.compared.clear();
         // Initialize callcache to defined call args
         // If later called, would be overridden, if not, would kick in as fail-safe
-        this.callCache = extractor.requestUsedArgs.get(name);
+        this.callCache = problem.requestUsedArgs.get(name);
 
         logger.info("Reducing constraint to partial constraint.");
         this.partConstr = this.reduceConstr(this.pushedConstr);
@@ -57,7 +57,7 @@ public class SSI extends Thread {
             logger.info("Candidate: " + e.toString());
         }
 
-        this.funcExpr = extractor.rdcdRequests.get(name).apply(this.callCache);
+        this.funcExpr = problem.rdcdRequests.get(name).apply(this.callCache);
 
         logger.info("Constructing result...");
         Expr def = this.constructITE().simplify();
@@ -69,16 +69,16 @@ public class SSI extends Thread {
     public void run(){
         logger.info("Pushing in Nots in the constraint");
         try {
-            this.pushedConstr = pushInNots(extractor.finalConstraint);
+            this.pushedConstr = pushInNots(problem.finalConstraint);
         } catch(SSIException e) {
             this.results = null;
             return;
         }
         logger.info("Pushed constraint: " + this.pushedConstr.toString());
 
-        this.results = new DefinedFunc[extractor.names.size()];
+        this.results = new DefinedFunc[problem.names.size()];
         int i = 0;
-        for (String funcName: extractor.names) {
+        for (String funcName: problem.names) {
             this.name = funcName;
             logger.info("Working on func: " + funcName);
             Expr def;
@@ -89,8 +89,8 @@ public class SSI extends Thread {
                 return;
             }
 
-            Expr defUsedArgs[] = extractor.requestUsedArgs.get(name);
-            Expr defArgs[] = extractor.requestArgs.get(name);
+            Expr defUsedArgs[] = problem.requestUsedArgs.get(name);
+            Expr defArgs[] = problem.requestArgs.get(name);
 
             def = def.substitute(this.callCache, defUsedArgs);
             DefinedFunc interResult = new DefinedFunc(ctx, name, defUsedArgs, def);
@@ -109,7 +109,7 @@ public class SSI extends Thread {
         Expr rewritten = orig;
         for (String funcName : this.partResults.keySet()){
             DefinedFunc func = this.partResults.get(funcName);
-            FuncDecl decl = extractor.rdcdRequests.get(funcName);
+            FuncDecl decl = problem.rdcdRequests.get(funcName);
             rewritten = func.rewrite(rewritten, decl);
         }
         return killNonCurrent(rewritten).simplify();
@@ -143,7 +143,7 @@ public class SSI extends Thread {
         if (expr.isApp()) {
             FuncDecl decl = expr.getFuncDecl();
             String funcName = decl.getName().toString();
-            if (extractor.names.contains(funcName) &&
+            if (problem.names.contains(funcName) &&
                 !funcName.equals(this.name)) {
                     return true;
             }
@@ -179,7 +179,7 @@ public class SSI extends Thread {
                 for (Expr expr: leftArgs) {
                     if (expr.isMul()) {
                         Expr inner = expr.getArgs()[1];
-                        if (inner.isApp() && extractor.rdcdRequests.values().contains(inner.getFuncDecl())) {
+                        if (inner.isApp() && problem.rdcdRequests.values().contains(inner.getFuncDecl())) {
                             if (funcTerm != null) {
                                 throw new SSIException();
                             }
@@ -189,7 +189,7 @@ public class SSI extends Thread {
                         }
 
                     } else {
-                        if (expr.isApp() && extractor.rdcdRequests.values().contains(expr.getFuncDecl())) {
+                        if (expr.isApp() && problem.rdcdRequests.values().contains(expr.getFuncDecl())) {
                             if (funcTerm != null) {
                                 throw new SSIException();
                             }
@@ -353,7 +353,7 @@ public class SSI extends Thread {
             if (expr.isLE()|| expr.isGE()|| expr.isLT()|| expr.isGT()|| expr.isEq()) {
                 Expr left = args[0];
                 Expr right = args[1];
-                if (right.isApp() && extractor.rdcdRequests.values().contains(right.getFuncDecl()))  {
+                if (right.isApp() && problem.rdcdRequests.values().contains(right.getFuncDecl()))  {
                     if (expr.isGE()|| expr.isLE()|| expr.isEq()) {
                         this.compared.add(left);
                     } else if (expr.isGT()) {
@@ -364,7 +364,7 @@ public class SSI extends Thread {
                     this.callCache = right.getArgs();
                 } else if (right.isMul()) {
                     Expr inner = right.getArgs()[1];
-                    if(inner.isApp() && extractor.rdcdRequests.values().contains(inner.getFuncDecl())) {
+                    if(inner.isApp() && problem.rdcdRequests.values().contains(inner.getFuncDecl())) {
                         if (right.getArgs()[0].equals(ctx.mkInt(-1))) {
                             if (expr.isGE()|| expr.isLE()|| expr.isEq()) {
                                 this.compared.add(ctx.mkMul(ctx.mkInt(-1), (ArithExpr)left).simplify());

@@ -5,10 +5,11 @@ import com.microsoft.z3.*;
 
 public class SygusExtractor extends SygusBaseListener {
     Context z3ctx;
-    SygusExtractor(Context initctx) {
+    public SygusExtractor(Context initctx) {
         z3ctx = initctx;
-        nomCombinedConstraint = z3ctx.mkTrue();
+        combinedConstraint = z3ctx.mkTrue();
         invCombinedConstraint = z3ctx.mkTrue();
+        opDis = new OpDispatcher(z3ctx, requests, funcs);
     }
 
     enum CmdType {
@@ -17,60 +18,70 @@ public class SygusExtractor extends SygusBaseListener {
     CmdType currentCmd = CmdType.NONE;
     boolean currentOnArgList = false;
 
-    public List<String> names = new LinkedList<String>();
-    public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>(); // Original requests
-    public Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>(); // Request arguments with readable names
-    public Map<String, Expr[]> requestUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments
-    public Map<String, Expr[]> requestSyntaxUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments in Syntax, used in AT fragment
-    public Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
-    public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
+    List<String> names = new LinkedList<String>();
+    Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>(); // Original requests
+    Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>(); // Request arguments with readable names
+    Map<String, Expr[]> requestUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments
+    Map<String, Expr[]> requestSyntaxUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments in Syntax, used in AT fragment
+    Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
+    Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
     List<Expr> currentArgList;
     List<String> currentArgNameList;
     List<Sort> currentSortList;
 
-    public enum ProbType {
-        CLIA, INV, GENERAL
-    }
-    public ProbType problemType = null;
+    SygusProblem.ProbType problemType = null;
 
-    public Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
-    public Map<String, Expr> regularVars = new LinkedHashMap<String, Expr>();
-    public List<BoolExpr> constraints = new ArrayList<BoolExpr>(); // General constraints
-    public Map<String, DefinedFunc[]> invConstraints = new LinkedHashMap<String, DefinedFunc[]>(); // Invariant constraints
-    public BoolExpr nomCombinedConstraint; // CLIA combined constraints
-    public BoolExpr invCombinedConstraint; // INV combined constraints
-    public BoolExpr finalConstraint = null; // Final constraint expressed using reduced request declearations
+    Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
+    Map<String, Expr> regularVars = new LinkedHashMap<String, Expr>();
+    List<BoolExpr> constraints = new ArrayList<BoolExpr>(); // General constraints
+    Map<String, DefinedFunc[]> invConstraints = new LinkedHashMap<String, DefinedFunc[]>(); // Invariant constraints
+    BoolExpr combinedConstraint; // CLIA combined constraints
+    BoolExpr invCombinedConstraint; // INV combined constraints
+    BoolExpr finalConstraint = null; // Final constraint expressed using reduced request declearations
     Stack<Object> termStack = new Stack<Object>();
 
-    public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
+    Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
+    OpDispatcher opDis;
     Map<String, Expr> defFuncVars;
 
-    // For grammar parsing
-    enum SybType {
-        LITERAL, GLBVAR, FUNC, SYMBOL, LCLARG, CSTINT, CSTBOL
-    }
-    // Inner grammar class
-    static class CFG {
-        public Map<String, Sort> grammarSybSort = new LinkedHashMap<String, Sort>();
-        public Map<String, List<String[]>>  grammarRules = new LinkedHashMap<String, List<String[]>>();
-        // For symbol resolving
-        public Map<String, SybType> sybTypeTbl = new LinkedHashMap<String, SybType>();
-        public Map<String, Expr> localArgs = new LinkedHashMap<String, Expr>();
-    }
     String currentSymbol;
     boolean inGrammarArgs = false;
     boolean inLetTerms = false;
     List<String> grammarArgs = new ArrayList<String>();
-    // Internal expressions that might be used in grammars
-    public static final String[] internalOpsArray = new String[] {
-        "+","-","*","/","and","or","not","<",">","=","<=",">=","=>","ite", "div", "mod"
-    };
-    public static final Set<String> internalOps = new HashSet<String>(Arrays.asList(internalOpsArray));
 
-    public Map<String, SybType> glbSybTypeTbl = new LinkedHashMap<String, SybType>();
-    public Map<String, CFG> cfgs = new LinkedHashMap<String, CFG>();
-    CFG currentCFG = null;
-    public boolean isGeneral;
+    Map<String, SygusProblem.SybType> glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>();
+    Map<String, SygusProblem.CFG> cfgs = new LinkedHashMap<String, SygusProblem.CFG>();
+    SygusProblem.CFG currentCFG = null;
+    boolean isGeneral;
+
+    public SygusProblem createProblem() {
+        SygusProblem pblm = new SygusProblem(z3ctx);
+        pblm.names = new LinkedList<String>(this.names);
+        pblm.requests = new LinkedHashMap<String, FuncDecl>(this.requests);
+        pblm.requestArgs = new LinkedHashMap<String, Expr[]>(this.requestArgs);
+        pblm.requestUsedArgs = new LinkedHashMap<String, Expr[]>(this.requestUsedArgs);
+        pblm.requestSyntaxUsedArgs = new LinkedHashMap<String, Expr[]>(this.requestSyntaxUsedArgs);
+        pblm.rdcdRequests = new LinkedHashMap<String, FuncDecl>(this.rdcdRequests);
+        pblm.candidate = new LinkedHashMap<String, DefinedFunc>(this.candidate);
+
+        pblm.problemType = this.problemType;
+
+        pblm.vars = new LinkedHashMap<String, Expr>(this.vars);
+        pblm.regularVars = new LinkedHashMap<String, Expr>(this.regularVars);
+        pblm.constraints = new ArrayList<BoolExpr>(this.constraints);
+        pblm.invConstraints = new LinkedHashMap<String, DefinedFunc[]>(this.invConstraints);
+        pblm.combinedConstraint = this.combinedConstraint;
+        pblm.invCombinedConstraint = this.invCombinedConstraint;
+        pblm.finalConstraint = this.finalConstraint;
+        pblm.funcs = new LinkedHashMap<String, DefinedFunc>(this.funcs);
+
+        pblm.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(this.glbSybTypeTbl);
+        for (String key : this.cfgs.keySet()) {
+            pblm.cfgs.put(key, new SygusProblem.CFG(this.cfgs.get(key)));
+        }
+        pblm.isGeneral = this.isGeneral;
+        return pblm;
+    }
 
     Sort strToSort(String name) {
         Sort sort;
@@ -95,9 +106,7 @@ public class SygusExtractor extends SygusBaseListener {
             return this;
         }
         SygusExtractor newExtractor = new SygusExtractor(ctx);
-        for(String name : this.names) {
-            newExtractor.names.add(name);
-        }
+        newExtractor.names.addAll(this.names);
         for(String key : this.requests.keySet()) {
             newExtractor.requests.put(key, this.requests.get(key).translate(ctx));
         }
@@ -131,6 +140,7 @@ public class SygusExtractor extends SygusBaseListener {
         for(String key : this.candidate.keySet()) {
             newExtractor.candidate.put(key, this.candidate.get(key).translate(ctx));
         }
+        newExtractor.problemType = this.problemType;
         for(String key : this.vars.keySet()) {
             newExtractor.vars.put(key, this.vars.get(key).translate(ctx));
         }
@@ -148,7 +158,7 @@ public class SygusExtractor extends SygusBaseListener {
             }
             newExtractor.invConstraints.put(key, funcs);
         }
-        newExtractor.nomCombinedConstraint = (BoolExpr)this.nomCombinedConstraint.translate(ctx);
+        newExtractor.combinedConstraint = (BoolExpr)this.combinedConstraint.translate(ctx);
         newExtractor.invCombinedConstraint = (BoolExpr)this.invCombinedConstraint.translate(ctx);
         if (this.finalConstraint != null) {
             newExtractor.finalConstraint = (BoolExpr)this.finalConstraint.translate(ctx);
@@ -156,7 +166,13 @@ public class SygusExtractor extends SygusBaseListener {
         for(String key : this.funcs.keySet()) {
             newExtractor.funcs.put(key, this.funcs.get(key).translate(ctx));
         }
-        // TODO: translate procedures for general track objects
+        newExtractor.opDis = new OpDispatcher(newExtractor.z3ctx, newExtractor.requests, newExtractor.funcs);
+        newExtractor.glbSybTypeTbl.putAll(this.glbSybTypeTbl);
+        for(String key : this.cfgs.keySet()) {
+            newExtractor.cfgs.put(key, this.cfgs.get(key).translate(ctx));
+        }
+        newExtractor.isGeneral = this.isGeneral;
+
         return newExtractor;
     }
 
@@ -271,7 +287,7 @@ public class SygusExtractor extends SygusBaseListener {
         Stack<Expr> todo = new Stack<Expr>();
         Stack<Expr> funcCall = new Stack<Expr>();
         int requestCallDepth = 0;
-        todo.add(nomCombinedConstraint);
+        todo.add(combinedConstraint);
         while (!todo.empty()) {
             Expr expr = todo.peek();
             if (expr.isConst()) {
@@ -358,7 +374,7 @@ public class SygusExtractor extends SygusBaseListener {
         }
 
         // Generate reduced function declarations and final constraints
-        finalConstraint = z3ctx.mkAnd(nomCombinedConstraint, invCombinedConstraint);
+        finalConstraint = z3ctx.mkAnd(combinedConstraint, invCombinedConstraint);
         for (String name : names) {
             Expr[] args = requestUsedArgs.get(name);
             Expr[] allArgs = requestArgs.get(name);
@@ -378,7 +394,7 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void enterSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
-        problemType = ProbType.CLIA;
+        problemType = SygusProblem.ProbType.CLIA;
         currentCmd = CmdType.SYNTHFUNC;
         currentArgList = new ArrayList<Expr>();
         currentArgNameList = new ArrayList<String>();
@@ -401,7 +417,7 @@ public class SygusExtractor extends SygusBaseListener {
                 i++;
             }
             for (String arg : currentCFG.localArgs.keySet()) {
-                currentCFG.sybTypeTbl.put(arg, SybType.LCLARG);
+                currentCFG.sybTypeTbl.put(arg, SygusProblem.SybType.LCLARG);
             }
             cfgs.put(name, currentCFG);
             currentCFG = null;
@@ -410,7 +426,7 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void enterSynthInvCmd(SygusParser.SynthInvCmdContext ctx) {
-        problemType = ProbType.INV;
+        problemType = SygusProblem.ProbType.INV;
         currentCmd = CmdType.SYNTHINV;
         currentArgList = new ArrayList<Expr>();
         currentArgNameList = new ArrayList<String>();
@@ -446,7 +462,7 @@ public class SygusExtractor extends SygusBaseListener {
         } else {
             newVar = z3ctx.mkConst(name, type);
             vars.put(name, newVar);
-            glbSybTypeTbl.put(name, SybType.GLBVAR);
+            glbSybTypeTbl.put(name, SygusProblem.SybType.GLBVAR);
             if (!prime) {
                 regularVars.put(name, newVar);
             }
@@ -502,7 +518,7 @@ public class SygusExtractor extends SygusBaseListener {
     public void exitConstraintCmd(SygusParser.ConstraintCmdContext ctx) {
         BoolExpr cstrt = (BoolExpr)termStack.pop();
         constraints.add(cstrt);
-        nomCombinedConstraint = z3ctx.mkAnd(nomCombinedConstraint, cstrt);
+        combinedConstraint = z3ctx.mkAnd(combinedConstraint, cstrt);
         currentCmd = CmdType.NONE;
     }
 
@@ -547,21 +563,21 @@ public class SygusExtractor extends SygusBaseListener {
         Expr def = (Expr)termStack.pop();
         DefinedFunc func = new DefinedFunc(z3ctx, name, argList, def);
         funcs.put(name, func);
-        glbSybTypeTbl.put(name, SybType.FUNC);
+        glbSybTypeTbl.put(name, SygusProblem.SybType.FUNC);
         currentCmd = CmdType.NONE;
     }
 
     public void enterNTDef(SygusParser.NTDefContext ctx) {
-        problemType = ProbType.GENERAL;
+        problemType = SygusProblem.ProbType.GENERAL;
         isGeneral = true;
         currentCmd = CmdType.NTDEF;
         if (currentCFG == null) {
-            currentCFG = new CFG();
+            currentCFG = new SygusProblem.CFG(z3ctx);
         }
         currentSymbol = ctx.symbol().getText();
         Sort currentSort = strToSort(ctx.sortExpr().getText());
         currentCFG.grammarSybSort.put(currentSymbol, currentSort);
-        currentCFG.sybTypeTbl.put(currentSymbol, SybType.SYMBOL);
+        currentCFG.sybTypeTbl.put(currentSymbol, SygusProblem.SybType.SYMBOL);
         currentCFG.grammarRules.put(currentSymbol, new ArrayList<String[]>());
     }
 
@@ -593,14 +609,14 @@ public class SygusExtractor extends SygusBaseListener {
             currentTerm = ctx.symbol().getText();
         } else if (ctx.literal() != null) {
             currentTerm = ctx.literal().getText();
-            glbSybTypeTbl.put(currentTerm, SybType.LITERAL);
+            glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LITERAL);
         } else if (ctx.getChild(1) != null && ctx.getChild(1).getText().equals("Constant")) {
             if (ctx.sortExpr().getText().equals("Int")) {
                 currentTerm = "ConstantInt";
-                glbSybTypeTbl.put(currentTerm, SybType.CSTINT);
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.CSTINT);
             } else if (ctx.sortExpr().getText().equals("Bool")) {
                 currentTerm = "ConstantBool";
-                glbSybTypeTbl.put(currentTerm, SybType.CSTBOL);
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.CSTBOL);
             } else {
                 currentTerm = null;
             }
@@ -611,8 +627,8 @@ public class SygusExtractor extends SygusBaseListener {
             if (ctx.gTermStar() == null) {
                 grammarArgs.add(currentTerm);
             } else {
-                if (internalOps.contains(currentTerm)) {
-                    glbSybTypeTbl.put(currentTerm, SybType.FUNC);
+                if (OpDispatcher.internalOps.contains(currentTerm)) {
+                    glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.FUNC);
                 }
                 String[] args = grammarArgs.toArray(new String[grammarArgs.size()]);
                 String[] repr = Arrays.copyOf(new String[]{currentTerm}, 1 + args.length);
@@ -699,80 +715,10 @@ public class SygusExtractor extends SygusBaseListener {
                     top = termStack.pop();
                 }
                 String name = ctx.symbol().getText();
-                Expr res = operationDispatcher(name, args.toArray(new Expr[args.size()]));
+                Expr res = opDis.dispatch(name, args.toArray(new Expr[args.size()]));
                 termStack.push(res);
             }
         }
     }
 
-    public Expr operationDispatcher(String name, Expr[] args) {
-        return operationDispatcher(name, args, false, false);
-    }
-
-    public Expr operationDispatcher(String name, Expr[] args, boolean definedOnly, boolean doNotInterp) {
-        if (name.equals("+")) {
-            return z3ctx.mkAdd(Arrays.copyOf(args, args.length, ArithExpr[].class));
-        }
-        if (name.equals("-")) {
-            return z3ctx.mkSub(Arrays.copyOf(args, args.length, ArithExpr[].class));
-        }
-        if (name.equals("*")) {
-            return z3ctx.mkMul(Arrays.copyOf(args, args.length, ArithExpr[].class));
-        }
-        if (name.equals("/")) {
-            return z3ctx.mkDiv((ArithExpr)args[0], (ArithExpr)args[1]);
-        }
-        if (name.equals("and")) {
-            return z3ctx.mkAnd(Arrays.copyOf(args, args.length, BoolExpr[].class));
-        }
-        if (name.equals("or")) {
-            return z3ctx.mkOr(Arrays.copyOf(args, args.length, BoolExpr[].class));
-        }
-        if (name.equals("not")) {
-            return z3ctx.mkNot((BoolExpr)args[0]);
-        }
-        if (name.equals(">")) {
-            return z3ctx.mkGt((ArithExpr)args[0], (ArithExpr)args[1]);
-        }
-        if (name.equals(">=")) {
-            return z3ctx.mkGe((ArithExpr)args[0], (ArithExpr)args[1]);
-        }
-        if (name.equals("<")) {
-            return z3ctx.mkLt((ArithExpr)args[0], (ArithExpr)args[1]);
-        }
-        if (name.equals("<=")) {
-            return z3ctx.mkLe((ArithExpr)args[0], (ArithExpr)args[1]);
-        }
-        if (name.equals("=")) {
-            return z3ctx.mkEq(args[0], args[1]);
-        }
-        if (name.equals("=>")) {
-            return z3ctx.mkImplies((BoolExpr)args[0], (BoolExpr)args[1]);
-        }
-        if (name.equals("ite")) {
-            return z3ctx.mkITE((BoolExpr)args[0], args[1], args[2]);
-        }
-        if (name.equals("div")) {
-            return z3ctx.mkDiv((ArithExpr)args[0], (ArithExpr)args[1]);
-        }
-        if (name.equals("mod")) {
-            return z3ctx.mkMod((IntExpr)args[0], (IntExpr)args[1]);
-        }
-        DefinedFunc df = funcs.get(name);
-        if (df != null) {
-            if (doNotInterp) {
-                return df.applyUninterp(args);
-            } else {
-                return df.apply(args);
-            }
-        }
-        if (definedOnly) {
-            return null;
-        }
-        FuncDecl f = requests.get(name);
-        if (f != null) {
-            return z3ctx.mkApp(f, args);
-        }
-        return null;
-    }
 }

@@ -33,11 +33,11 @@ public class ITCegis extends Cegis {
 				logger.info("No candidate present, returning false");
 				return false;
 			}
-			String name = extractor.names.get(funcIndex);
-			FuncDecl f = extractor.rdcdRequests.get(name);
+			String name = problem.names.get(funcIndex);
+			FuncDecl f = problem.rdcdRequests.get(name);
 			DefinedFunc newTmplt = extend(type, funcIndex);
-			BoolExpr predToCheck = ctx.mkImplies(extractor.finalConstraint,
-									(BoolExpr)newTmplt.rewrite(extractor.finalConstraint, f));
+			BoolExpr predToCheck = ctx.mkImplies(problem.finalConstraint,
+									(BoolExpr)newTmplt.rewrite(problem.finalConstraint, f));
 			logger.info("Running SAT check");
             Solver svr = ctx.mkSolver();
 			svr.add(ctx.mkNot(predToCheck));
@@ -50,9 +50,9 @@ public class ITCegis extends Cegis {
 			if(lastCands[funcIndex] == null){
 				return null;
 			}
-			String name = extractor.names.get(funcIndex);
-			FuncDecl f = extractor.rdcdRequests.get(name);
-			Expr[] vars = extractor.requestUsedArgs.get(name);
+			String name = problem.names.get(funcIndex);
+			FuncDecl f = problem.rdcdRequests.get(name);
+			Expr[] vars = problem.requestUsedArgs.get(name);
 			Expr fapp = f.apply(vars);
 			Expr cand = lastCands[funcIndex];
 			Expr newDef;
@@ -80,8 +80,8 @@ public class ITCegis extends Cegis {
 		// Request sort is checked in this procedure
 		DefinedFunc findExtension(int funcIndex) {
 			logger.info("Finding extension for funcIndex " + String.valueOf(funcIndex));
-			String name = extractor.names.get(funcIndex);
-			boolean isBool = extractor.requests.get(name).getRange().toString().equals("Bool");
+			String name = problem.names.get(funcIndex);
+			boolean isBool = problem.requests.get(name).getRange().toString().equals("Bool");
 			Tmplt[] tmplts;
 			if (isBool) {
 				tmplts = boolTmplts;
@@ -109,10 +109,10 @@ public class ITCegis extends Cegis {
 				if (lastTmplts != env.lastTmplts.array) {
 					// Reset bounds here
 					lastTmplts = env.lastTmplts.array;
-					resetBounds();
-					lastCands = null;
-					this.lastFailReason = "new template presented by another thread";
-					return null;
+					//resetBounds();
+					//lastCands = null;
+					//this.lastFailReason = "new template presented by another thread";
+					//return null;
 				}
 			}
 			if (lastCands == null) {
@@ -122,11 +122,11 @@ public class ITCegis extends Cegis {
 			}
 			int k = 0;
 			boolean tmpltUpdated = false;
-			for (String name : extractor.names) {
+			for (String name : problem.names) {
 				DefinedFunc tmplt = findExtension(k);
 				if (tmplt != null) {
 					if (lastTmplts == null) {
-						lastTmplts = new DefinedFunc[extractor.names.size()];
+						lastTmplts = new DefinedFunc[problem.names.size()];
 						for (int i = 0; i < lastTmplts.length; i++) {
 							lastTmplts[i] = null;
 						}
@@ -142,10 +142,10 @@ public class ITCegis extends Cegis {
 				synchronized(env.lastTmplts) {
 					env.lastTmplts.array = lastTmplts;
 				}
-				resetBounds();
-				lastCands = null;
-				this.lastFailReason = "new template presented by self";
-				return null;
+				//resetBounds();
+				//lastCands = null;
+				//this.lastFailReason = "new template presented by self";
+				//return null;
 			} else {
 				logger.info("No new templates found.");
 			}
@@ -161,9 +161,9 @@ public class ITCegis extends Cegis {
 			if (lastTmplts[funcIndex] == null) {
 				return pureEval;
 			}
-			String name = extractor.names.get(funcIndex);
-			FuncDecl f = extractor.rdcdRequests.get(name);
-			Expr[] vars = extractor.requestUsedArgs.get(name);
+			String name = problem.names.get(funcIndex);
+			FuncDecl f = problem.rdcdRequests.get(name);
+			Expr[] vars = problem.requestUsedArgs.get(name);
 			Expr fapp = f.apply(vars);
 			DefinedFunc tmplt = lastTmplts[funcIndex].translate(ctx);
 			return tmplt.getDef().substitute(fapp, pureEval);
@@ -187,13 +187,13 @@ public class ITCegis extends Cegis {
 			super.generateFunction(functions);
 			ITCegis.Synthesizer synthIT = (ITCegis.Synthesizer)this.synth;
 			if (synthIT.lastCands == null) {
-				synthIT.lastCands = new Expr[extractor.names.size()];
+				synthIT.lastCands = new Expr[problem.names.size()];
 				for (int i = 0; i < synthIT.lastCands.length; i++) {
 					synthIT.lastCands[i] = null;
 				}
 			}
 			int k = 0;
-			for (String name : extractor.names) {
+			for (String name : problem.names) {
 				Expr tree = functions.get(name);
                 tree = tree.simplify();
 				if (synthIT.lastTmplts == null || synthIT.lastTmplts[k] == null){
@@ -201,8 +201,8 @@ public class ITCegis extends Cegis {
 					k++;
 					continue;
 				}
-				FuncDecl f = extractor.rdcdRequests.get(name);
-				Expr[] vars = extractor.requestUsedArgs.get(name);
+				FuncDecl f = problem.rdcdRequests.get(name);
+				Expr[] vars = problem.requestUsedArgs.get(name);
 				Expr fapp = f.apply(vars);
 				Expr tmplt = synthIT.lastTmplts[k].translate(ctx).getDef();
 				Expr newCand = tmplt.substitute(fapp, tree);

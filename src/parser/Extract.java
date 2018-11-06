@@ -29,21 +29,22 @@ public class Extract {
 		ParseTreeWalker walker = new ParseTreeWalker();
 		SygusExtractor extractor = new SygusExtractor(z3ctx);
 		walker.walk(extractor, tree);
+        SygusProblem problem = extractor.createProblem();
 
-		System.out.println("Synth type:" + extractor.problemType.toString());
+		System.out.println("Synth type:" + problem.problemType.toString());
 
 
-		if (extractor.problemType == SygusExtractor.ProbType.GENERAL) {
+		if (problem.problemType == SygusProblem.ProbType.GENERAL) {
 			System.out.println("Global symbol types:");
-			for (String name: extractor.glbSybTypeTbl.keySet()) {
-				System.out.println(name + "  " + extractor.glbSybTypeTbl.get(name).toString());
+			for (String name: problem.glbSybTypeTbl.keySet()) {
+				System.out.println(name + "  " + problem.glbSybTypeTbl.get(name).toString());
 			}
 		}
 		System.out.println("Synth requests:");
-		for(String name : extractor.requests.keySet()) {
-			if (extractor.problemType == SygusExtractor.ProbType.GENERAL) {
+		for(String name : problem.requests.keySet()) {
+			if (problem.problemType == SygusProblem.ProbType.GENERAL) {
 				System.out.println("Grammar Infos:");
-				SygusExtractor.CFG cfg = extractor.cfgs.get(name);
+				SygusProblem.CFG cfg = problem.cfgs.get(name);
 				for (String sybName: cfg.grammarSybSort.keySet()) {
 					System.out.println("Symbol name:" + sybName + " Type:" + cfg.grammarSybSort.get(sybName).toString());
 					System.out.println(sybName + " := ");
@@ -60,36 +61,36 @@ public class Extract {
 					System.out.println(sybName + "  " + cfg.sybTypeTbl.get(sybName).toString());
 				}
 			}
-			FuncDecl func = extractor.requests.get(name);
+			FuncDecl func = problem.requests.get(name);
 			System.out.println("Name:" + func.getName());
 			System.out.println("Argument types:" + Arrays.toString(func.getDomain()));
-			System.out.println("Argument names:" + Arrays.toString(extractor.requestArgs.get(name)));
-			System.out.println("Used argument names:" + Arrays.toString(extractor.requestUsedArgs.get(name)));
+			System.out.println("Argument names:" + Arrays.toString(problem.requestArgs.get(name)));
+			System.out.println("Used argument names:" + Arrays.toString(problem.requestUsedArgs.get(name)));
 			System.out.println("Return type is " + func.getRange().getName());
 		}
 
 		System.out.println("Defined variables:");
-		for(Expr expr: extractor.vars.values()) {
+		for(Expr expr: problem.vars.values()) {
 			System.out.println("Name:" + expr.toString() + " Type:" + expr.getSort().toString());
 		}
 
 		System.out.println("Defined functions:");
-		for(DefinedFunc func: extractor.funcs.values()) {
+		for(DefinedFunc func: problem.funcs.values()) {
 			System.out.println("Name:" + func.getName() + " Definition:" + func.toString());
 		}
 
 		System.out.println("Constraints:");
-		for (Expr expr: extractor.constraints) {
+		for (Expr expr: problem.constraints) {
 			System.out.println(expr);
 		}
 
 		System.out.println("Final Constraints:");
-		System.out.println(extractor.finalConstraint);
+		System.out.println(problem.finalConstraint);
 
-		if (!extractor.candidate.isEmpty()) {
+		if (!problem.candidate.isEmpty()) {
 			System.out.println("Possible candidates:");
-			for (String name : extractor.candidate.keySet()) {
-				System.out.println(name + " : " + extractor.candidate.get(name).getDef().toString());
+			for (String name : problem.candidate.keySet()) {
+				System.out.println(name + " : " + problem.candidate.get(name).getDef().toString());
 			}
 		}
 	}

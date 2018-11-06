@@ -7,7 +7,7 @@ public class CEGISEnv {
     public int fixedHeight = -1;
     public int fixedCond = -1;
     public int fixedVectorLength = -1;
-    public SygusExtractor extractor = null;
+    public SygusProblem problem = null;
     public int minFinite = -1;
     public int minInfinite = -1;
     public boolean maxsmtFlag = false;

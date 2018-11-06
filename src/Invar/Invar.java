@@ -39,15 +39,16 @@ public class Invar {
         ParseTreeWalker walker = new ParseTreeWalker();
         SygusExtractor extractor = new SygusExtractor(ctx);
         walker.walk(extractor, tree);
+        SygusProblem problem = extractor.createProblem();
 
         logger.info("Final Constraints:");
-        logger.info(extractor.finalConstraint.toString());
+        logger.info(problem.finalConstraint.toString());
 
-        for (String name : extractor.names) {
+        for (String name : problem.names) {
             logger.info(name);
         }
 
-        AT invartest = new AT(ctx, extractor, logger);
+        AT invartest = new AT(ctx, problem, logger);
         invartest.init();
         logger.info(invartest.transfunc.toString());
         invartest.run();

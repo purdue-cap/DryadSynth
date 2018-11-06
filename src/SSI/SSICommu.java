@@ -7,21 +7,21 @@ public class SSICommu extends SSI {
     private FuncDecl func;
     private Expr commuCache[];
 
-    public SSICommu(Context ctx, SygusExtractor extractor, Logger logger, int numCore) {
-        super(ctx, extractor, logger, numCore);
+    public SSICommu(Context ctx, SygusProblem problem, Logger logger, int numCore) {
+        super(ctx, problem, logger, numCore);
         this.commuCache = null;
     }
 
     public void run() {
-        if (extractor.names.size() > 1) {
+        if (problem.names.size() > 1) {
             this.results = null;
             return;
         }
 
-        this.name = extractor.names.get(0);
-        this.func = extractor.rdcdRequests.get(name);
+        this.name = problem.names.get(0);
+        this.func = problem.rdcdRequests.get(name);
 
-        Expr constrt = extractor.finalConstraint;
+        Expr constrt = problem.finalConstraint;
         logger.info("Constructing onesided constraint.");
         Expr sideConstrt;
         try {
@@ -78,8 +78,8 @@ public class SSICommu extends SSI {
         //    logger.severe("Result incorrect!");
         //}
 
-        Expr defUsedArgs[] = extractor.requestUsedArgs.get(name);
-        Expr defArgs[] = extractor.requestArgs.get(name);
+        Expr defUsedArgs[] = problem.requestUsedArgs.get(name);
+        Expr defArgs[] = problem.requestArgs.get(name);
 
         def = def.substitute(this.commuCache, defUsedArgs);
         DefinedFunc result = new DefinedFunc(ctx, name, defArgs, def);
