@@ -2,7 +2,7 @@ import java.util.*;
 import com.microsoft.z3.*;
 
 public class SygusProblem {
-    Context ctx;
+    public Context ctx;
 
     public List<String> names = new LinkedList<String>();
     public Map<String, FuncDecl> requests = new LinkedHashMap<String, FuncDecl>(); // Original requests

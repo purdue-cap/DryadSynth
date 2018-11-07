@@ -87,6 +87,12 @@ public class Cegis extends Thread{
 		//addSimpleExamples();
 	}
 
+	// Function to get counterExample set,
+	// for subclass overriding
+	public Set<Expr[]> getCE() {
+		return this.env.counterExamples;
+	}
+
 	public void addRandomInitialExamples() {
 		int numVar = problem.vars.size();
 		//int numExamples = (int)Math.pow(4, numVar) + 1;
@@ -109,8 +115,8 @@ public class Cegis extends Thread{
 				}
 				randomExample[j] = ctx.mkInt(n);
 			}
-			synchronized(env.counterExamples) {
-				env.counterExamples.add(randomExample);
+			synchronized(getCE()) {
+				getCE().add(randomExample);
 			}
 		}
 
@@ -243,8 +249,8 @@ public class Cegis extends Thread{
 				k = k + 1;
 			}
 
-			synchronized(env.counterExamples) {
-				for (Expr[] params : env.counterExamples) {
+			synchronized(getCE()) {
+				for (Expr[] params : getCE()) {
 					Expr[] newParas = new Expr[params.length];
 					for (int i = 0; i < params.length; i++) {
 						newParas[i] = params[i].translate(ctx);
@@ -293,8 +299,8 @@ public class Cegis extends Thread{
 				k = k + 1;
 			}
 
-			synchronized (env.counterExamples) {
-				for (Expr[] params : env.counterExamples) {
+			synchronized (getCE()) {
+				for (Expr[] params : getCE()) {
 					Expr[] newParas = new Expr[params.length];
 					for (int i = 0; i < params.length; i++) {
 						newParas[i] = params[i].translate(ctx);
@@ -343,8 +349,8 @@ public class Cegis extends Thread{
 				k = k + 1;
 			}
 
-			synchronized(env.counterExamples) {
-				for (Expr[] params : env.counterExamples) {
+			synchronized(getCE()) {
+				for (Expr[] params : getCE()) {
 					Expr[] newParas = new Expr[params.length];
 					for (int i = 0; i < params.length; i++) {
 						newParas[i] = params[i].translate(ctx);
@@ -561,9 +567,9 @@ public class Cegis extends Thread{
 	public void addSimpleExamples() {
 		int numVar = problem.vars.size();
 		IntExpr[][] examples = addSimpleExamplesRecursive(numVar);
-		synchronized(env.counterExamples) {
+		synchronized(getCE()) {
 			for (int j = 0; j < examples.length; j++) {
-				env.counterExamples.add(examples[j]);
+				getCE().add(examples[j]);
 			}
 		}
 	}
@@ -628,8 +634,8 @@ public class Cegis extends Thread{
 		int k = 0;	//number of iterations
 
 		//print out initial examples
-		synchronized(env.counterExamples) {
-			logger.info("Initial examples:" + Arrays.deepToString(env.counterExamples.toArray()));
+		synchronized(getCE()) {
+			logger.info("Initial examples:" + Arrays.deepToString(getCE().toArray()));
 		}
 
 		// Subprocedure classes
@@ -753,9 +759,9 @@ public class Cegis extends Thread{
 				VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
 
 				Expr[] cntrExmp = decoder.decode();
-				synchronized(env.counterExamples) {
-					env.counterExamples.add(cntrExmp);
-					logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(env.counterExamples.toArray()));
+				synchronized(getCE()) {
+					getCE().add(cntrExmp);
+					logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(getCE().toArray()));
 				}
 			}
 
@@ -824,8 +830,8 @@ public class Cegis extends Thread{
 		int k = 0;	//number of iterations
 
 		//print out initial examples
-		synchronized(env.counterExamples) {
-			logger.info("Initial examples:" + Arrays.deepToString(env.counterExamples.toArray()));
+		synchronized(getCE()) {
+			logger.info("Initial examples:" + Arrays.deepToString(getCE().toArray()));
 		}
 
 		// Subprocedure classes
@@ -870,10 +876,10 @@ public class Cegis extends Thread{
 					VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
 
 					Expr[] cntrExmp = decoder.decode();
-					synchronized(env.counterExamples) {
-						env.counterExamples.add(cntrExmp);
+					synchronized(getCE()) {
+						getCE().add(cntrExmp);
 						//print out for debug
-						logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(env.counterExamples.toArray()));
+						logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(getCE().toArray()));
 					}
 
 					// if (k >= 10) {

@@ -6,7 +6,7 @@ import com.microsoft.z3.*;
 
 public class SygusDispatcher {
     public enum SolveMethod {
-        PRESCREENED, CEGIS, SSI, SSICOMM, AT
+        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
@@ -26,6 +26,9 @@ public class SygusDispatcher {
     Map<String, Expr[]> callCache = null;
     Set<String> funcCalled = null;
     CEGISEnv env = null;
+    DnCEnv dncEnv = null;
+    Expr dncBaseExpr = null;
+    Expr[] dncBaseArgs = null;
 
     AT preparedAT;
     Thread [] fallbackCEGIS = null;
@@ -79,11 +82,14 @@ public class SygusDispatcher {
         }
         boolean checkResult = this.checkGeneral();
         if (checkResult) {
+            checkResult = this.checkDnC();
+            if (checkResult) {
+                logger.info("General Divide and Conquer Algorithm applicable, applying");
+                this.method = SolveMethod.GENERALDNC;
+                return;
+            }
             logger.info("General SyGuS problem detected, using CEGIS.");
             this.method = SolveMethod.CEGIS;
-            // Limite to single thread at this point
-            logger.warning("General is single thread only, setting numCore to 1");
-            this.numCore = 1;
             return;
         }
         logger.info("Checking candidates generated from parsing.");
@@ -154,6 +160,39 @@ public class SygusDispatcher {
             ((Cegis)fallbackCEGIS[0]).iterLimit = this.iterLimit;
         }
 
+        if (this.method == SolveMethod.GENERALDNC) {
+            logger.info("Initializing DnC General CEGIS.");
+            dncEnv = new DnCEnv();
+            dncEnv.problem = new DnCProblem(problem);
+            dncEnv.minFinite = minFinite;
+            dncEnv.minInfinite = minInfinite;
+            dncEnv.maxsmtFlag = maxsmtFlag;
+            threads = new Thread[numCore];
+            dncEnv.pdc1D = new Producer1D();
+            dncEnv.feedType = CEGISEnv.FeedType.HEIGHTONLY;
+            dncEnv.dncBaseExpr = this.dncBaseExpr;
+            dncEnv.dncBaseArgs = this.dncBaseArgs;
+            dncEnv.scanSubExprs();
+            logger.info("Scanned subexprs:");
+            for (Expr expr : dncEnv.dncPblms.keySet()) {
+                logger.info(expr.toString());
+            }
+            if (numCore > 1) {
+                for (int i = 0; i < numCore; i++) {
+                    Logger threadLogger = Logger.getLogger("main.thread" + i);
+                    threadLogger.setUseParentHandlers(false);
+                    FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
+                    threadHandler.setFormatter(new SimpleFormatter());
+                    threadLogger.addHandler(threadHandler);
+                    threads[i] = new DnCegis(dncEnv, threadLogger);
+                    ((Cegis)threads[i]).iterLimit = this.iterLimit;
+                }
+            } else {
+                threads[0] = new DnCegis(z3ctx, dncEnv, logger);
+                ((Cegis)threads[0]).iterLimit = this.iterLimit;
+            }
+        }
+
         if (this.method == SolveMethod.CEGIS) {
             if (this.enforceCEGIS) {
                 logger.info("Enforcing CEGIS.");
@@ -201,6 +240,29 @@ public class SygusDispatcher {
         }
 
         DefinedFunc[] results = null;
+        if (this.method == SolveMethod.GENERALDNC) {
+            logger.info("Starting DnC General CEGIS.");
+            if (numCore > 1) {
+                for (int i = 0; i < numCore; i++) {
+                    threads[i].start();
+                }
+        		while (results == null) {
+                    synchronized(dncEnv) {
+                        dncEnv.wait();
+                    }
+        			for (Thread thread : threads) {
+                        DnCegis cegis = (DnCegis)thread;
+        				if (cegis.results != null) {
+                            results = cegis.results;
+        				}
+        			}
+        		}
+            } else {
+                threads[0].run();
+                results = ((Cegis)threads[0]).results;
+            }
+        }
+
         if (this.method == SolveMethod.SSI) {
             logger.info("Starting SSI algorithms.");
             threads[0].run();
@@ -381,6 +443,63 @@ public class SygusDispatcher {
                 }
             }
             return true;
+        }
+        return false;
+    }
+
+    boolean checkDnC() {
+        if (problem.problemType != SygusProblem.ProbType.GENERAL) {
+            return false;
+        }
+        if (problem.requests.size() > 1) {
+            return false;
+        }
+        FuncDecl target = problem.requests.get(problem.names.get(0));
+        if (problem.constraints.size() > 1){
+            return false;
+        }
+        BoolExpr spec = problem.constraints.get(0);
+        if (!spec.isEq()) {
+            return false;
+        }
+        Expr left = spec.getArgs()[0];
+        Expr right = spec.getArgs()[1];
+        if (left.getFuncDecl().equals(target) &&
+                isConcrete(right)) {
+            this.dncBaseExpr = right;
+            this.dncBaseArgs = left.getArgs();
+            return true;
+        }
+        if (right.getFuncDecl().equals(target) &&
+                isConcrete(left)) {
+            this.dncBaseExpr = left;
+            this.dncBaseArgs = right.getArgs();
+            return true;
+        }
+        return false;
+    }
+
+    boolean isConcrete(Expr expr) {
+        if (expr.isNumeral()) {
+            return true;
+        }
+        if (expr.isConst()) {
+            String varName = expr.toString();
+            if (problem.vars.containsKey(varName)) {
+                return true;
+            }
+            return false;
+        }
+        if (expr.isApp()) {
+            FuncDecl decl = expr.getFuncDecl();
+            String funcName = decl.getName().toString();
+            if (OpDispatcher.internalOps.contains(funcName) || problem.funcs.containsKey(funcName)) {
+                boolean result = true;
+                for (int i = 0; i < expr.getNumArgs(); i++){
+                    result = result && isConcrete(expr.getArgs()[i]);
+                }
+                return result;
+            }
         }
         return false;
     }
