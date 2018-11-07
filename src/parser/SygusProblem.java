@@ -66,7 +66,7 @@ public class SygusProblem {
             }
             CFG newcfg = new CFG(newctx);
             for (String key : this.grammarSybSort.keySet()) {
-                newcfg.grammarSybSort.put(key, this.grammarSybSort.get(key).translate(newctx));
+                newcfg.grammarSybSort.put(key, (Sort)this.grammarSybSort.get(key).translate(newctx));
             }
             for (String key : this.grammarRules.keySet()) {
                 List<String[]> newList = new ArrayList<String[]>(this.grammarRules.get(key));

@@ -53,6 +53,8 @@ public class SygusExtractor extends SygusBaseListener {
     Map<String, SygusProblem.CFG> cfgs = new LinkedHashMap<String, SygusProblem.CFG>();
     SygusProblem.CFG currentCFG = null;
     boolean isGeneral;
+    // Unsupported Let expressions now
+    // TODO: Add support for let expressions
 
     public SygusProblem createProblem() {
         SygusProblem pblm = new SygusProblem(z3ctx);
@@ -74,6 +76,7 @@ public class SygusExtractor extends SygusBaseListener {
         pblm.invCombinedConstraint = this.invCombinedConstraint;
         pblm.finalConstraint = this.finalConstraint;
         pblm.funcs = new LinkedHashMap<String, DefinedFunc>(this.funcs);
+        pblm.opDis = new OpDispatcher(this.z3ctx, this.requests, this.funcs);
 
         pblm.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(this.glbSybTypeTbl);
         for (String key : this.cfgs.keySet()) {

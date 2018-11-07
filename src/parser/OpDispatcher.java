@@ -3,13 +3,13 @@ import com.microsoft.z3.*;
 
 public class OpDispatcher {
     private Context z3ctx;
-    private Map<String, FuncDecl> requests;
-    private Map<String, DefinedFunc> funcs;
+    public Map<String, FuncDecl> requests;
+    public Map<String, DefinedFunc> funcs;
 
     // For grammar parsing
     // Internal expressions that might be used in grammars
     public static final String[] internalOpsArray = new String[] {
-        "+","-","*","/","and","or","not","<",">","=","<=",">=","=>","ite", "div", "mod"
+        "+","-","*","/","and","or","not","<",">","=","<=",">=","=>","ite", "if", "div", "mod"
     };
     public static final Set<String> internalOps = new HashSet<String>(Arrays.asList(internalOpsArray));
 
@@ -63,6 +63,9 @@ public class OpDispatcher {
             return z3ctx.mkImplies((BoolExpr)args[0], (BoolExpr)args[1]);
         }
         if (name.equals("ite")) {
+            return z3ctx.mkITE((BoolExpr)args[0], args[1], args[2]);
+        }
+        if (name.equals("if")) {
             return z3ctx.mkITE((BoolExpr)args[0], args[1], args[2]);
         }
         if (name.equals("div")) {
