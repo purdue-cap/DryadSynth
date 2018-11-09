@@ -1,5 +1,6 @@
 import java.util.*;
 import com.microsoft.z3.*;
+import java.util.concurrent.atomic.*;
 
 public class CEGISEnv {
     public Producer1D pdc1D = null;
@@ -22,4 +23,5 @@ public class CEGISEnv {
         public DefinedFunc[] array = null;
     }
     Tmplts lastTmplts = new Tmplts();
+    public AtomicInteger runningThreads = new AtomicInteger(0);
 }

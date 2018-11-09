@@ -26,6 +26,8 @@ public class Cegis extends Thread{
 	protected int searchRegions = 2;
 	protected int vectorBound = 1;
 
+	protected int iterCount = 0;
+
 	protected boolean isGeneral = false;
 
     public int iterLimit = 0;
@@ -575,6 +577,7 @@ public class Cegis extends Thread{
 	}
 
 	public void run() {
+		env.runningThreads.incrementAndGet();
 		if (problem.isGeneral) {
 			logger.info(Thread.currentThread().getName() + " Started");
 			logger.info("Starting general track CEGIS");
@@ -585,6 +588,13 @@ public class Cegis extends Thread{
 					fixedVectorLength = pdc1D.get();
 					logger.info("Started loop with fixedVectorLength = " + fixedVectorLength);
 					cegisGeneral();
+		            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+						synchronized(env) {
+							env.notify();
+						}
+						env.runningThreads.decrementAndGet();
+		                return;
+		            }
 				}
 			} else {
 				cegisGeneral();
@@ -603,6 +613,13 @@ public class Cegis extends Thread{
 				fixedHeight = pdc1D.get();
 				logger.info("Started loop with fixedHeight = " + fixedHeight);
 				cegis();
+	            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+					synchronized(env) {
+						env.notify();
+					}
+					env.runningThreads.decrementAndGet();
+	                return;
+	            }
 			}
 		} else if (pdc2D != null) {
 			while (results == null && running) {
@@ -611,6 +628,13 @@ public class Cegis extends Thread{
 				fixedCond = args[1];
 				logger.info("Started loop with fixedHeight = " + fixedHeight + ", fixedCond = " + fixedCond);
 				cegis();
+	            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+					synchronized(env) {
+						env.notify();
+					}
+					env.runningThreads.decrementAndGet();
+	                return;
+	            }
 			}
 		} else {
 			cegis();
@@ -630,8 +654,6 @@ public class Cegis extends Thread{
 		//int condBoundInc = 1;
 		//int searchRegions = 2;
 		long startTime = System.currentTimeMillis();
-
-		int k = 0;	//number of iterations
 
 		//print out initial examples
 		synchronized(getCE()) {
@@ -657,9 +679,9 @@ public class Cegis extends Thread{
 
 		while(running) {
 
-			k = k + 1;
+			iterCount = iterCount + 1;
 
-            if (this.iterLimit > 0 && k > this.iterLimit) {
+            if (this.iterLimit > 0 && iterCount > this.iterLimit) {
                 logger.info("Iteration Limit Hit, returning without a result.");
                 this.results = null;
                 return;
@@ -684,7 +706,7 @@ public class Cegis extends Thread{
 					logger.info(String.format("Exited vectorLength %d due to ", vectorBound) + testSynthesizer.lastFailReason);
 					return;
 				} else {
-                    logger.info("Iteration : " + k);
+                    logger.info("Iteration : " + iterCount);
 					continue;
 				}
 			}
@@ -703,7 +725,7 @@ public class Cegis extends Thread{
 						expand.setVectorBound(vectorBound);
 					}
 					startTime = System.currentTimeMillis();
-                    logger.info("Iteration : " + k);
+                    logger.info("Iteration : " + iterCount);
 					continue;
 				}
 			} else if (synth == Status.UNKNOWN) {
@@ -739,7 +761,7 @@ public class Cegis extends Thread{
 					ASTGeneral ast = ASTs.get(name);
 					results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def, ast);
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
-                    logger.info(String.format("Total iteration count: %d", k));
+                    logger.info(String.format("Total iteration count: %d", iterCount));
 					i = i + 1;
 				}
 				if (fixedVectorLength > 0) {
@@ -777,11 +799,11 @@ public class Cegis extends Thread{
 						expand.setVectorBound(vectorBound);
 					}
 					startTime = System.currentTimeMillis();
-                    logger.info("Iteration : " + k);
+                    logger.info("Iteration : " + iterCount);
 					continue;
 				}
 			}
-			logger.info("Iteration : " + k);
+			logger.info("Iteration : " + iterCount);
 		}
 	}
 
@@ -827,8 +849,6 @@ public class Cegis extends Thread{
 		}
 		long startTime = System.currentTimeMillis();
 
-		int k = 0;	//number of iterations
-
 		//print out initial examples
 		synchronized(getCE()) {
 			logger.info("Initial examples:" + Arrays.deepToString(getCE().toArray()));
@@ -856,7 +876,7 @@ public class Cegis extends Thread{
 						}
 						results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
 						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
-                        logger.info(String.format("Total iteration count: %d", k));
+                        logger.info(String.format("Total iteration count: %d", iterCount));
 						i = i + 1;
 					}
 					flag = false;
@@ -890,9 +910,9 @@ public class Cegis extends Thread{
 
 					while(unsat && flag && running) {
 
-						k = k + 1;
+						iterCount = iterCount + 1;
 
-			            if (this.iterLimit > 0 && k > this.iterLimit) {
+			            if (this.iterLimit > 0 && iterCount > this.iterLimit) {
 			                logger.info("Iteration Limit Hit, returning without a result.");
 			                this.results = null;
 			                return;
@@ -1013,7 +1033,7 @@ public class Cegis extends Thread{
 
 						}
 
-					logger.info("Iteration : " + k);
+					logger.info("Iteration : " + iterCount);
 					}
 				}
 		}

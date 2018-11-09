@@ -256,6 +256,9 @@ public class SygusDispatcher {
                             results = cegis.results;
         				}
         			}
+                    if (dncEnv.runningThreads.get() == 0) {
+                        return results;
+                    }
         		}
             } else {
                 threads[0].run();
@@ -297,6 +300,9 @@ public class SygusDispatcher {
                             results = cegis.results;
         				}
         			}
+                    if (env.runningThreads.get() == 0) {
+                        return results;
+                    }
         		}
             } else {
                 fallbackCEGIS[0].run();

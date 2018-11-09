@@ -24,6 +24,7 @@ public class DnCegis extends Cegis {
 
 	@Override
 	public void run() {
+		env.runningThreads.incrementAndGet();
 		if (!problem.isGeneral || env.feedType != CEGISEnv.FeedType.HEIGHTONLY) {
 			return;
 		}
@@ -34,6 +35,13 @@ public class DnCegis extends Cegis {
 			logger.info("Started loop with fixedVectorLength = " + fixedVectorLength);
 			expand = new Expand(ctx, problem);
 			cegisGeneral();
+            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+				synchronized(env) {
+					env.notify();
+				}
+				env.runningThreads.decrementAndGet();
+                return;
+            }
 			if(this.results != null) {
 				break;
 			}
@@ -45,6 +53,13 @@ public class DnCegis extends Cegis {
 				}
 				expand = new Expand(ctx, problem);
 				cegisGeneral();
+	            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+					synchronized(env) {
+						env.notify();
+					}
+					env.runningThreads.decrementAndGet();
+	                return;
+	            }
 				if (this.results != null){
 					DefinedFunc subSol = this.results[0].translate(pblm.ctx);
 					((DnCEnv)env).addSubSolutionToAll(subSol);
@@ -56,6 +71,13 @@ public class DnCegis extends Cegis {
 			}
 			expand = new Expand(ctx, problem);
 			cegisGeneral();
+            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+				synchronized(env) {
+					env.notify();
+				}
+				env.runningThreads.decrementAndGet();
+                return;
+            }
 			if(this.results != null) {
 				break;
 			}
