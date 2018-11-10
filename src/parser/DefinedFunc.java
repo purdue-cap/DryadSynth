@@ -3,10 +3,11 @@ import com.microsoft.z3.*;
 
 public class DefinedFunc {
 
-    DefinedFunc (Context ctx, String name, Expr[] args, Expr definition, ASTGeneral ASTDef) {
+    DefinedFunc (Context ctx, String name, Expr[] args, Expr definition, String[] strArgs,  ASTGeneral ASTDef) {
         this.ctx = ctx;
         this.name = name;
         this.args = args;
+        this.strArgs = strArgs;
         this.definition = definition;
         this.numArgs = args.length;
         declareFunc();
@@ -42,6 +43,7 @@ public class DefinedFunc {
     Context ctx;
     String name;
     Expr [] args;
+    String [] strArgs;
     Expr definition;
     int numArgs;
     FuncDecl decl;
@@ -128,6 +130,10 @@ public class DefinedFunc {
 
     public final Expr[] getArgs () {
         return args;
+    }
+
+    public final ASTGeneral getAST() {
+        return ASTDef;
     }
 
     public final Expr getDef () {

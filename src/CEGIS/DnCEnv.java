@@ -6,6 +6,8 @@ public class DnCEnv extends CEGISEnv {
     public Expr[] dncBaseArgs = null;
     public Map<Expr, Set<Expr[]> > dncCEs = new HashMap<Expr, Set<Expr[]> >();
     public Map<Expr, DnCProblem> dncPblms = new HashMap<Expr, DnCProblem>();
+    public Set<String> interResultNames = new HashSet<String>();
+    public Map<String, DefinedFunc> interResults = new HashMap<String, DefinedFunc>();
     public void scanSubExprs() {
         this.scanSubExprs(dncBaseExpr);
     }
@@ -15,12 +17,21 @@ public class DnCEnv extends CEGISEnv {
                 dncCEs.put(expr, new HashSet<Expr[]>());
                 // Create subProblem for this subExpr
                 DnCProblem subPblm = ((DnCProblem)problem).createSubProblem(expr, dncBaseArgs);
+
+                // Add subPblm names to interResultNames
+                String name = subPblm.names.get(0);
+                interResultNames.add(name);
+
                 dncPblms.put(expr, subPblm);
             }
         }
         for (Expr child : expr.getArgs()) {
             scanSubExprs(child);
         }
+    }
+
+    public String scanInterResults(ASTGeneral ast) {
+        return null;
     }
 
     boolean isValidSub(Expr expr) {

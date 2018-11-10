@@ -754,12 +754,17 @@ public class Cegis extends Thread{
 			if (v == Status.UNSATISFIABLE) {
 				SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
 				synthDecoder.expandFunctions(generalFuncs, ASTs);
-				results = new DefinedFunc[functions.size()];
+				results = new DefinedFunc[problem.rdcdRequests.size()];
 				int i = 0;
 				for (String name : problem.rdcdRequests.keySet()) {
 					Expr def = functions.get(name);
 					ASTGeneral ast = ASTs.get(name);
-					results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def, ast);
+					Expr[] args = problem.requestArgs.get(name);
+					String[] strArgs = new String[args.length];
+					for (int j = 0; j < args.length; j++) {
+						strArgs[j] = args[i].toString();
+					}
+					results[i] = new DefinedFunc(ctx, name, args, def, strArgs, ast);
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
                     logger.info(String.format("Total iteration count: %d", iterCount));
 					i = i + 1;
@@ -867,7 +872,7 @@ public class Cegis extends Thread{
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
-					results = new DefinedFunc[functions.size()];
+					results = new DefinedFunc[problem.rdcdRequests.size()];
 					int i = 0;
 					for (String name : problem.rdcdRequests.keySet()) {
 						Expr def = functions.get(name);

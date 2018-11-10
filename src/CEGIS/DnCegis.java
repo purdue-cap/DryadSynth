@@ -34,6 +34,7 @@ public class DnCegis extends Cegis {
 			fixedVectorLength = pdc1D.get();
 			logger.info("Started loop with fixedVectorLength = " + fixedVectorLength);
 			expand = new Expand(ctx, problem);
+			results = null;
 			cegisGeneral();
             if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
 				synchronized(env) {
@@ -52,6 +53,7 @@ public class DnCegis extends Cegis {
 					this.problem = pblm.translate(this.ctx);
 				}
 				expand = new Expand(ctx, problem);
+				results = null;
 				cegisGeneral();
 	            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
 					synchronized(env) {
@@ -63,6 +65,8 @@ public class DnCegis extends Cegis {
 				if (this.results != null){
 					DefinedFunc subSol = this.results[0].translate(pblm.ctx);
 					((DnCEnv)env).addSubSolutionToAll(subSol);
+					String name = problem.names.get(0);
+					((DnCEnv)env).interResults.put(name, subSol);
 				}
 			}
 			this.currentSubExpr = null;
@@ -70,6 +74,7 @@ public class DnCegis extends Cegis {
 				this.problem = env.problem.translate(this.ctx);
 			}
 			expand = new Expand(ctx, problem);
+			results = null;
 			cegisGeneral();
             if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
 				synchronized(env) {
@@ -82,6 +87,12 @@ public class DnCegis extends Cegis {
 				break;
 			}
 		}
+		// We should have results at this point, we need to fill in all intermediate results
+		//String funcName;
+		//DefinedFunc def = this.results[0];
+		//while((funcName = ((DnCEnv)env).scanInterResults(def.getAST())) != null) {
+		//	FuncDecl decl = problem.requests.get(funcName);
+		//}
 		return;
 	}
 

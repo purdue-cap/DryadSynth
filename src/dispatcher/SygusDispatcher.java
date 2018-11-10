@@ -284,7 +284,7 @@ public class SygusDispatcher {
             results = ((AT)threads[0]).results;
         }
 
-        if (this.method == SolveMethod.CEGIS || results == null) {
+        if (this.method == SolveMethod.CEGIS || (results == null) && (iterLimit == 0)) {
             logger.info("Starting fallback CEGIS algorithms execution.");
             if (numCore > 1) {
                 for (int i = 0; i < numCore; i++) {

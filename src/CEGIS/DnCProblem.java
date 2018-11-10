@@ -14,16 +14,19 @@ public class DnCProblem extends SygusProblem {
         subPblm.requests.clear();
         subPblm.requestArgs.clear();
         subPblm.constraints.clear(); // Assume only constraint now
+        subPblm.cfgs.clear();
 
         String oldName = this.names.get(0);
         FuncDecl oldDecl = this.requests.get(oldName);
         FuncDecl newDecl = ctx.mkFreshFuncDecl("DnC", oldDecl.getDomain(), oldDecl.getRange());
         BoolExpr newSpec = ctx.mkEq(newDecl.apply(subArgs), subExpr);
         String name = newDecl.getName().toString();
+        CFG oldGrammar = this.cfgs.get(oldName);
         subPblm.names.add(name);
-        subPblm.requests.put(name, oldDecl);
+        subPblm.requests.put(name, newDecl);
         subPblm.requestArgs.put(name, this.requestArgs.get(oldName));
         subPblm.constraints.add(newSpec);
+        subPblm.cfgs.put(name, new CFG(oldGrammar));
 
         subPblm.rdcdRequests = subPblm.requests;
         subPblm.requestUsedArgs = subPblm.requestArgs;
