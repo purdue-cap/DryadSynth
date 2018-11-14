@@ -762,7 +762,7 @@ public class Cegis extends Thread{
 					Expr[] args = problem.requestArgs.get(name);
 					String[] strArgs = new String[args.length];
 					for (int j = 0; j < args.length; j++) {
-						strArgs[j] = args[i].toString();
+						strArgs[j] = args[j].toString();
 					}
 					results[i] = new DefinedFunc(ctx, name, args, def, strArgs, ast);
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));

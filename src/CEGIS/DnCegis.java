@@ -46,11 +46,16 @@ public class DnCegis extends Cegis {
 			if(this.results != null) {
 				break;
 			}
+			boolean newInter = false;
 			for (Expr expr : ((DnCEnv)env).dncPblms.keySet()) {
 				this.currentSubExpr = expr;
-				SygusProblem pblm = ((DnCEnv)env).dncPblms.get(expr);
-				synchronized(pblm) {
+				synchronized(env) {
+					SygusProblem pblm = ((DnCEnv)env).dncPblms.get(expr);
 					this.problem = pblm.translate(this.ctx);
+					String name = problem.names.get(0);
+					if (((DnCEnv)env).interResults.containsKey(name)) {
+						continue;
+					}
 				}
 				expand = new Expand(ctx, problem);
 				results = null;
@@ -62,16 +67,25 @@ public class DnCegis extends Cegis {
 					env.runningThreads.decrementAndGet();
 	                return;
 	            }
-				if (this.results != null){
-					DefinedFunc subSol = this.results[0].translate(pblm.ctx);
-					((DnCEnv)env).addSubSolutionToAll(subSol);
-					String name = problem.names.get(0);
-					((DnCEnv)env).interResults.put(name, subSol);
+				synchronized(env) {
+					if (this.results != null) {
+						SygusProblem pblm = ((DnCEnv)env).dncPblms.get(expr);
+						String name = problem.names.get(0);
+						DefinedFunc subSol = this.results[0].translate(pblm.ctx);
+						if (!((DnCEnv)env).interResults.containsKey(name)) {
+							newInter = true;
+							((DnCEnv)env).addSubSolutionToAll(subSol);
+							((DnCEnv)env).interResults.put(name, subSol);
+						}
+					}
 				}
 			}
 			this.currentSubExpr = null;
-			synchronized(env.problem) {
+			synchronized(env) {
 				this.problem = env.problem.translate(this.ctx);
+			}
+			if (!newInter) {
+				continue;
 			}
 			expand = new Expand(ctx, problem);
 			results = null;
@@ -88,11 +102,20 @@ public class DnCegis extends Cegis {
 			}
 		}
 		// We should have results at this point, we need to fill in all intermediate results
-		//String funcName;
-		//DefinedFunc def = this.results[0];
-		//while((funcName = ((DnCEnv)env).scanInterResults(def.getAST())) != null) {
-		//	FuncDecl decl = problem.requests.get(funcName);
-		//}
+		String funcName;
+		DefinedFunc def = this.results[0];
+		logger.info("Expr with internal results: " + def.toString());
+		ASTGeneral defAST = def.getAST();
+		logger.info("Internal results:");
+		for (String func : ((DnCEnv)env).interResults.keySet()) {
+			DefinedFunc df = ((DnCEnv)env).interResults.get(func);
+			logger.info(df.toString());
+		}
+		while((funcName = ((DnCEnv)env).scanInterResults(defAST)) != null) {
+			DefinedFunc interFunc = ((DnCEnv)env).interResults.get(funcName);
+			defAST = interFunc.rewrite(defAST);
+		}
+		this.results[0].setAST(defAST);
 		return;
 	}
 

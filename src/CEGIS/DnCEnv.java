@@ -31,6 +31,17 @@ public class DnCEnv extends CEGISEnv {
     }
 
     public String scanInterResults(ASTGeneral ast) {
+        String nodeName = ast.node;
+        if (interResultNames.contains(nodeName)) {
+            return nodeName;
+        } else {
+            for (ASTGeneral child : ast.children) {
+                nodeName = scanInterResults(child);
+                if (nodeName != null) {
+                    return nodeName;
+                }
+            }
+        }
         return null;
     }
 

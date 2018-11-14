@@ -8,6 +8,10 @@ public class DefinedFunc {
         this.name = name;
         this.args = args;
         this.strArgs = strArgs;
+        this.astArgs = new ASTGeneral[this.strArgs.length];
+        for (int i = 0; i < strArgs.length; i++) {
+            this.astArgs[i] = new ASTGeneral(strArgs[i]);
+        }
         this.definition = definition;
         this.numArgs = args.length;
         declareFunc();
@@ -44,6 +48,7 @@ public class DefinedFunc {
     String name;
     Expr [] args;
     String [] strArgs;
+    ASTGeneral [] astArgs;
     Expr definition;
     int numArgs;
     FuncDecl decl;
@@ -51,6 +56,10 @@ public class DefinedFunc {
 
     public Expr apply(Expr... argList){
         return definition.substitute(args, argList);
+    }
+
+    public ASTGeneral apply(ASTGeneral... argList) {
+        return ASTDef.substitute(astArgs, argList);
     }
 
     public Expr applyUninterp(Expr... argList) {
@@ -65,8 +74,55 @@ public class DefinedFunc {
         for(int i = 0; i < this.args.length; i++) {
             newArgs[i] = this.args[i].translate(ctx);
         }
-        DefinedFunc df = new DefinedFunc(ctx, this.name, newArgs, this.definition.translate(ctx));
-        return df;
+        if (ASTDef == null) {
+            return new DefinedFunc(ctx, this.name, newArgs, this.definition.translate(ctx));
+        } else {
+            return new DefinedFunc(ctx, this.name, newArgs, this.definition.translate(ctx), this.strArgs, new ASTGeneral(this.ASTDef));
+        }
+    }
+
+    public ASTGeneral rewrite(ASTGeneral orig) {
+        return this.rewrite(orig, this.name);
+    }
+
+    public ASTGeneral rewrite(ASTGeneral orig, String func) {
+        Stack<ASTGeneral> todo = new Stack<ASTGeneral>();
+        todo.push(orig);
+        Map<ASTGeneral, ASTGeneral> cache = new HashMap<ASTGeneral, ASTGeneral>();
+
+        boolean visited;
+        ASTGeneral tree;
+        List<ASTGeneral> newChildren = new ArrayList<ASTGeneral>();
+        while(!todo.empty()) {
+            tree = todo.peek();
+            if (tree.isLeaf()){
+                todo.pop();
+                cache.put(tree, new ASTGeneral(tree));
+            } else {
+                visited = true;
+                newChildren.clear();
+                for (ASTGeneral child : tree.children) {
+                    if(!cache.containsKey(child)) {
+                        todo.push(child);
+                        visited = false;
+                    } else {
+                        newChildren.add(cache.get(child));
+                    }
+                }
+                if (visited) {
+                    todo.pop();
+                    ASTGeneral newTree;
+                    ASTGeneral[] newChildrenArray = newChildren.toArray(new ASTGeneral[newChildren.size()]);
+                    if (tree.node.equals(func)) {
+                        newTree = this.apply(newChildrenArray);
+                    } else {
+                        newTree = tree.update(newChildrenArray);
+                    }
+                    cache.put(tree, newTree);
+                }
+            }
+        }
+        return cache.get(orig);
     }
 
     public Expr rewrite(Expr orig, FuncDecl func) {
@@ -142,6 +198,10 @@ public class DefinedFunc {
 
     public final FuncDecl getDecl() {
         return decl;
+    }
+
+    public void setAST(ASTGeneral ast) {
+        this.ASTDef = new ASTGeneral(ast);
     }
 
     // Return a new DefinedFunc with replaced argument list
