@@ -211,6 +211,14 @@ public class ITCegis extends Cegis {
 					}
 				}
 				logger.info("Template found: " + df.toString());
+                env.tmpltApplied = true;
+                if (env.checkITOnly) {
+                    synchronized(env) {
+                        env.notify();
+                    }
+                    env.runningThreads.decrementAndGet();
+                    return;
+                }
 				newTmplts[i] = df;
 			}
 			if (newTmplts == null) {

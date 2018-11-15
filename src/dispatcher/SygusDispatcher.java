@@ -308,6 +308,13 @@ public class SygusDispatcher {
                     if (env.runningThreads.get() == 0) {
                         return results;
                     }
+                    if (env.checkITOnly){
+                        for (Thread thread : fallbackCEGIS) {
+                            Cegis cegis = (Cegis)thread;
+                            cegis.running = false;
+                        }
+                        return results;
+                    }
         		}
             } else {
                 fallbackCEGIS[0].run();
@@ -316,6 +323,17 @@ public class SygusDispatcher {
         }
         return results;
 
+    }
+
+    public boolean checkTmplt() throws Exception {
+        boolean oldCEGIS = this.enforceCEGIS;
+        boolean oldITCEGIS = this.enableITCEGIS;
+        this.initAlgorithm();
+        this.env.checkITOnly = true;
+        this.runAlgorithm();
+        this.enforceCEGIS = oldCEGIS;
+        this.enableITCEGIS = oldITCEGIS;
+        return this.env.tmpltApplied;
     }
 
     boolean checkGeneral() {

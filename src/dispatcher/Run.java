@@ -103,7 +103,15 @@ public class Run {
         dispatcher.setEnableITCEGIS(options.has("I"));
 		dispatcher.prescreen();
         if (options.has("M")) {
-            System.out.println(dispatcher.getMethod().toString());
+            SygusDispatcher.SolveMethod method = dispatcher.getMethod();
+            System.out.println(method.toString());
+            if (method == SygusDispatcher.SolveMethod.CEGIS && options.has("I")) {
+                if (dispatcher.checkTmplt()) {
+                    System.out.println("TMPLT:TRUE");
+                } else {
+                    System.out.println("TMPLT:FALSE");
+                }
+            }
             return;
         }
 		dispatcher.initAlgorithm();

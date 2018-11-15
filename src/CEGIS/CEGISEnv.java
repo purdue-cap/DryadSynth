@@ -12,6 +12,8 @@ public class CEGISEnv {
     public int minFinite = -1;
     public int minInfinite = -1;
     public boolean maxsmtFlag = false;
+    public boolean checkITOnly = false;
+    public boolean tmpltApplied = false;
 
     public enum FeedType {
         ALLINONE, FIXED, HEIGHTONLY, HEIGHTANDCOND;
