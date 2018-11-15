@@ -664,7 +664,7 @@ public class SygusExtractor extends SygusBaseListener {
         if (checkLocal) {
             DefinedFunc df = funcs.get(name);
             if (df != null && df.getNumArgs() == 0) {
-                termStack.push(df.apply());
+                termStack.push(df.apply(new Expr[0]));
                 return;
             }
         }
