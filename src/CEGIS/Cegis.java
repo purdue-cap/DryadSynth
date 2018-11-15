@@ -641,9 +641,14 @@ public class Cegis extends Thread{
 		}
 	}
 
+	private Verifier testVerifier = null;
+	private Synthesizer testSynthesizer = null;
+
 	public void cegisGeneral() {
 		if (fixedVectorLength > 0) {
 			vectorBound = fixedVectorLength;
+		} else {
+			vectorBound = 1;
 		}
 		logger.warning("Condition bound not implemented for general");
 		logger.warning("Using minFinite + minInfinite as timeout");
@@ -652,7 +657,6 @@ public class Cegis extends Thread{
 		//	condBound = fixedCond;
 		//}
 		//int condBoundInc = 1;
-		//int searchRegions = 2;
 		long startTime = System.currentTimeMillis();
 
 		//print out initial examples
@@ -661,8 +665,12 @@ public class Cegis extends Thread{
 		}
 
 		// Subprocedure classes
-		Verifier testVerifier = this.createVerifier();
-		Synthesizer testSynthesizer = this.createSynthesizer();
+		if (testVerifier == null) {
+			testVerifier = this.createVerifier();
+		}
+		if (testSynthesizer == null) {
+			testSynthesizer = this.createSynthesizer();
+		}
 		expand.setVectorBound(vectorBound);
 		if (fixedVectorLength > 0) {
 			if (!expand.isInterpretableNow()) {
@@ -845,12 +853,16 @@ public class Cegis extends Thread{
 
 	public void cegis() {
 
-		boolean flag = true;
 		if (fixedHeight > 0) {
 			heightBound = fixedHeight;
+		} else {
+			heightBound = 1;
 		}
 		if (fixedCond > 0) {
 			condBound = fixedCond;
+		} else {
+			condBound = 1;
+			condBoundInc = 1;
 		}
 		long startTime = System.currentTimeMillis();
 
@@ -860,187 +872,169 @@ public class Cegis extends Thread{
 		}
 
 		// Subprocedure classes
-		Verifier testVerifier = this.createVerifier();
-		Synthesizer testSynthesizer = this.createSynthesizer();
-		expand = new Expand(ctx, problem);
+		if (testVerifier == null) {
+			testVerifier = this.createVerifier();
+		}
+		if (testSynthesizer == null) {
+			testSynthesizer = this.createSynthesizer();
+		}
+		if (expand == null) {
+			expand = new Expand(ctx, problem);
+		}
 		expand.setHeightBound(heightBound);
 
-		while(flag && running) {
+		while(running) {
+
+			iterCount = iterCount + 1;
+
+            if (this.iterLimit > 0 && iterCount > this.iterLimit) {
+                logger.info("Iteration Limit Hit, returning without a result.");
+                this.results = null;
+                return;
+            }
+			logger.info("Iteration : " + iterCount);
+
+			logger.info("Start synthesizing");
+
+			Status synth = Status.UNKNOWN;
+
+			if (!maxsmtFlag) {
+				synth = testSynthesizer.synthesis(condBound);
+			} else {
+				synth = testSynthesizer.synthesisWithSMT();
+			}
+
+			//print out for debug
+			logger.info("Synthesis Done");
+
+			if (synth == null) {
+				logger.info("Synthesizer actively exited synthesis due to " + testSynthesizer.lastFailReason);
+				if (fixedCond > 0 || fixedHeight > 0) {
+					logger.info(String.format("Exited height %d, cond %d due to ", fixedHeight, fixedCond) + testSynthesizer.lastFailReason);
+					return;
+				} else {
+					continue;
+				}
+			}
+
+			if (synth == Status.UNSATISFIABLE) {
+				logger.info("Synthesizer : Unsatisfiable");
+				if (fixedCond > 0) {
+					logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
+					return;
+				}
+				if (condBoundInc > searchRegions) {		//for 2, >5		//for 4, >3	64 	//infinite 5
+					if (fixedHeight > 0) {
+						logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
+						return;
+					}
+					heightBound = heightBound + 1;
+					expand.setHeightBound(heightBound);
+					logger.info("Synthesizer : Increase height bound to " + heightBound);
+					condBound = 1;
+					if (fixedCond > 0) {
+						condBound = fixedCond;
+					}
+					condBoundInc = 1;
+				} else {
+					if (condBoundInc == searchRegions) {
+						condBound = -1;
+						logger.info("Synthesizer : Increase coefficient bound to infinity");
+					} else {
+						condBound = (int)Math.pow(64, condBoundInc);	//64
+						logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+					}
+
+					condBoundInc = condBoundInc + 1;
+				}
+				startTime = System.currentTimeMillis();
+				continue;
+			} else if (synth != Status.SATISFIABLE) {
+				logger.severe("Synthesizer Error : Unknown");
+				return;
+			}
+
+			SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
+			logger.info("Start decoding synthesizer output");
+			synthDecoder.generateFunction(functions);
+			logger.info("Synthesizer output decode done");
+			for (String name : problem.names) {
+				logger.info(name + " : " + functions.get(name).toString());
+			}
 
 			logger.info("Start verifying");
 
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
-					results = new DefinedFunc[problem.rdcdRequests.size()];
-					int i = 0;
-					for (String name : problem.rdcdRequests.keySet()) {
-						Expr def = functions.get(name);
-						if (def.isBool()) {
-							def = SygusFormatter.elimITE(this.ctx, def);
-						}
-						results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
-						logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
-                        logger.info(String.format("Total iteration count: %d", iterCount));
-						i = i + 1;
+				results = new DefinedFunc[problem.rdcdRequests.size()];
+				int i = 0;
+				for (String name : problem.rdcdRequests.keySet()) {
+					Expr def = functions.get(name);
+					if (def.isBool()) {
+						def = SygusFormatter.elimITE(this.ctx, def);
 					}
-					flag = false;
-					if (fixedCond > 0 || fixedHeight > 0) {
-						synchronized(env) {
-							env.notify();
-						}
-					}
-
-				} else if (v == Status.UNKNOWN) {
-					logger.severe("Verifier Error : Unknown");
-					flag = false;
-
-				} else if (v == Status.SATISFIABLE) {
-
-					logger.info("Verifier results:" + testVerifier.s.getModel());	//for test only
-					VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
-
-					Expr[] cntrExmp = decoder.decode();
-					synchronized(getCE()) {
-						getCE().add(cntrExmp);
-						//print out for debug
-						logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(getCE().toArray()));
-					}
-
-					// if (k >= 10) {
-					// 	break;
-					// }
-
-					boolean unsat = true;
-
-					while(unsat && flag && running) {
-
-						iterCount = iterCount + 1;
-
-			            if (this.iterLimit > 0 && iterCount > this.iterLimit) {
-			                logger.info("Iteration Limit Hit, returning without a result.");
-			                this.results = null;
-			                return;
-			            }
-						//print out for debug
-						logger.info("Start synthesizing");
-
-						Status synth = Status.UNKNOWN;
-
-						if (!maxsmtFlag) {
-							synth = testSynthesizer.synthesis(condBound);
-						} else {
-							synth = testSynthesizer.synthesisWithSMT();
-						}
-
-						//print out for debug
-						logger.info("Synthesis Done");
-
-						if (synth == null) {
-							logger.info("Synthesizer actively exited synthesis due to " + testSynthesizer.lastFailReason);
-							if (fixedCond > 0 || fixedHeight > 0) {
-								logger.info(String.format("Exited height %d, cond %d due to ", fixedHeight, fixedCond) + testSynthesizer.lastFailReason);
-								return;
-							} else {
-								continue;
-							}
-						}
-
-						if (synth == Status.UNSATISFIABLE) {
-							logger.info("Synthesizer : Unsatisfiable");
-							if (fixedCond > 0) {
-								logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
-								return;
-							}
-							if (condBoundInc > searchRegions) {		//for 2, >5		//for 4, >3	64 	//infinite 5
-								if (fixedHeight > 0) {
-									logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
-									return;
-								}
-								heightBound = heightBound + 1;
-								expand.setHeightBound(heightBound);
-								logger.info("Synthesizer : Increase height bound to " + heightBound);
-								condBound = 1;
-								if (fixedCond > 0) {
-									condBound = fixedCond;
-								}
-								condBoundInc = 1;
-							} else {
-								if (condBoundInc == searchRegions) {
-									condBound = -1;
-									logger.info("Synthesizer : Increase coefficient bound to infinity");
-								} else {
-									condBound = (int)Math.pow(64, condBoundInc);	//64
-									logger.info("Synthesizer : Increase coefficient bound to " + condBound);
-								}
-
-								condBoundInc = condBoundInc + 1;
-							}
-							startTime = System.currentTimeMillis();
-							//flag = false;
-						} else if (synth == Status.UNKNOWN) {
-							logger.severe("Synthesizer Error : Unknown");
-							flag = false;
-							unsat = false;
-						} else if (synth == Status.SATISFIABLE) {
-
-							unsat = false;
-							//flag = false;	//for test only
-
-							//logger.info(testSynthesizer.s.getModel());	//for test only
-							SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
-							//print out for debug
-							logger.info("Start decoding synthesizer output");
-							synthDecoder.generateFunction(functions);
-							//print out for debug
-							logger.info("Synthesizer output decode done");
-							//print out for debug
-							for (String name : problem.names) {
-								logger.info(name + " : " + functions.get(name).toString());
-							}
-
-							if (condBoundInc > 1) {
-								if (condBoundInc <= searchRegions) {
-									if (System.currentTimeMillis() - startTime > 60000 * this.minFinite) {
-										if (fixedCond > 0) {
-											logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
-											return;
-										}
-										if (condBoundInc == searchRegions) {
-											condBound = -1;
-											logger.info("Synthesizer : Increase coefficient bound to infinity");
-										} else {
-											condBound = (int)Math.pow(64, condBoundInc);	//64
-											logger.info("Synthesizer : Increase coefficient bound to " + condBound);
-										}
-										condBoundInc = condBoundInc + 1;
-										startTime = System.currentTimeMillis();
-									}
-								} else {
-									if (System.currentTimeMillis() - startTime > 60000 * this.minInfinite) {
-										if (fixedHeight > 0) {
-											logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
-											return;
-										}
-										heightBound = heightBound + 1;
-										expand.setHeightBound(heightBound);
-										logger.info("Synthesizer : Increase height bound to " + heightBound);
-										condBound = 1;
-										if (fixedCond > 0) {
-											condBound = fixedCond;
-										}
-										condBoundInc = 1;
-										startTime = System.currentTimeMillis();
-
-									}
-								}
-							}
-
-						}
-
-					logger.info("Iteration : " + iterCount);
+					results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
+					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+                    logger.info(String.format("Total iteration count: %d", iterCount));
+					i = i + 1;
+				}
+				if (fixedCond > 0 || fixedHeight > 0) {
+					synchronized(env) {
+						env.notify();
 					}
 				}
+				return;
+			} else if (v != Status.SATISFIABLE) {
+				logger.severe("Verifier Error : Unknown");
+				return;
+			}
+
+			logger.info("Verifier results:" + testVerifier.s.getModel());
+			VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
+
+			Expr[] cntrExmp = decoder.decode();
+			synchronized(getCE()) {
+				getCE().add(cntrExmp);
+				logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(getCE().toArray()));
+			}
+
+			if (condBoundInc > 1) {
+				if (condBoundInc <= searchRegions) {
+					if (System.currentTimeMillis() - startTime > 60000 * this.minFinite) {
+						if (fixedCond > 0) {
+							logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
+							return;
+						}
+						if (condBoundInc == searchRegions) {
+							condBound = -1;
+							logger.info("Synthesizer : Increase coefficient bound to infinity");
+						} else {
+							condBound = (int)Math.pow(64, condBoundInc);	//64
+							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+						}
+						condBoundInc = condBoundInc + 1;
+						startTime = System.currentTimeMillis();
+					}
+				} else {
+					if (System.currentTimeMillis() - startTime > 60000 * this.minInfinite) {
+						if (fixedHeight > 0) {
+							logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
+							return;
+						}
+						heightBound = heightBound + 1;
+						expand.setHeightBound(heightBound);
+						logger.info("Synthesizer : Increase height bound to " + heightBound);
+						condBound = 1;
+						if (fixedCond > 0) {
+							condBound = fixedCond;
+						}
+						condBoundInc = 1;
+						startTime = System.currentTimeMillis();
+
+					}
+				}
+			}
 		}
 	}
 }

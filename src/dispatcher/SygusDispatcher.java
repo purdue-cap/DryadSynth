@@ -151,10 +151,15 @@ public class SygusDispatcher {
                 ((Cegis)fallbackCEGIS[i]).iterLimit = this.iterLimit;
             }
         } else {
-            env.feedType = CEGISEnv.FeedType.ALLINONE;
+            env.pdc1D = new Producer1D();
+            env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
             if (enableITCEGIS) {
+                // ITCEGIS is producer only
                 fallbackCEGIS[0] = new ITCegis(z3ctx, env, logger);
             } else {
+                // ALLINONE only enabled for regular CEGIS single-thread
+                // May get rid of this and use producers in the future
+                env.feedType = CEGISEnv.FeedType.ALLINONE;
                 fallbackCEGIS[0] = new Cegis(z3ctx, env, logger);
             }
             ((Cegis)fallbackCEGIS[0]).iterLimit = this.iterLimit;
