@@ -596,9 +596,13 @@ public class Cegis extends Thread{
 		                return;
 		            }
 				}
+				synchronized(env) {
+					env.notify();
+				}
 			} else {
 				cegisGeneral();
 			}
+			env.runningThreads.decrementAndGet();
 			return;
 		}
 		logger.info("Check for possible candidates from parser.");
@@ -621,6 +625,9 @@ public class Cegis extends Thread{
 	                return;
 	            }
 			}
+			synchronized(env) {
+				env.notify();
+			}
 		} else if (pdc2D != null) {
 			while (results == null && running) {
 				int[] args = pdc2D.get();
@@ -636,9 +643,13 @@ public class Cegis extends Thread{
 	                return;
 	            }
 			}
+			synchronized(env) {
+				env.notify();
+			}
 		} else {
 			cegis();
 		}
+		env.runningThreads.decrementAndGet();
 	}
 
 	private Verifier testVerifier = null;
@@ -776,11 +787,6 @@ public class Cegis extends Thread{
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
                     logger.info(String.format("Total iteration count: %d", iterCount));
 					i = i + 1;
-				}
-				if (fixedVectorLength > 0) {
-					synchronized(env) {
-						env.notify();
-					}
 				}
 				return;
 
@@ -978,11 +984,6 @@ public class Cegis extends Thread{
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
                     logger.info(String.format("Total iteration count: %d", iterCount));
 					i = i + 1;
-				}
-				if (fixedCond > 0 || fixedHeight > 0) {
-					synchronized(env) {
-						env.notify();
-					}
 				}
 				return;
 			} else if (v != Status.SATISFIABLE) {

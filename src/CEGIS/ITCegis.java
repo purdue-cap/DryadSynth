@@ -229,5 +229,6 @@ public class ITCegis extends Cegis {
 				}
 			}
 		}
+		env.runningThreads.decrementAndGet();
 	}
 }

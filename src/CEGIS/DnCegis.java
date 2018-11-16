@@ -116,6 +116,10 @@ public class DnCegis extends Cegis {
 			defAST = interFunc.rewrite(defAST);
 		}
 		this.results[0].setAST(defAST);
+		synchronized(env) {
+			env.notify();
+		}
+		env.runningThreads.decrementAndGet();
 		return;
 	}
 
