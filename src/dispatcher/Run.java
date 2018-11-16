@@ -17,6 +17,7 @@ public class Run {
         OptionParser oParser = new OptionParser();
         oParser.acceptsAll(Arrays.asList("m", "maxSAT"), "Enable maxSAT");
         oParser.acceptsAll(Arrays.asList("h", "?", "help"), "Print help");
+		oParser.acceptsAll(Arrays.asList("H", "heightsOnly"), "Only outputs entered heights and result heights for CEGIS algorithms (Would output vector length bound values in CEGIS for General track)");
         oParser.acceptsAll(Arrays.asList("t", "threads"), "Numbers of parallel threads to use")
             .withRequiredArg().ofType(Integer.class).defaultsTo(Runtime.getRuntime().availableProcessors());
         oParser.acceptsAll(Arrays.asList("l", "iterLimit"), "Limit of iterations per thread for CEGIS algorithm (0 means no limit)")
@@ -101,6 +102,7 @@ public class Run {
 		dispatcher.setMaxSMTFlag(maxsmtFlag);
         dispatcher.setEnforceCEGIS(options.has("C"));
         dispatcher.setEnableITCEGIS(options.has("I"));
+		dispatcher.setHeightsOnly(options.has("H"));
 		dispatcher.prescreen();
         if (options.has("M")) {
             SygusDispatcher.SolveMethod method = dispatcher.getMethod();

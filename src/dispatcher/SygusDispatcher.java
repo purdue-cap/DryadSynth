@@ -21,6 +21,7 @@ public class SygusDispatcher {
     boolean maxsmtFlag = false;
     boolean enforceCEGIS = false;
     boolean enableITCEGIS = false;
+    boolean heightsOnly = false;
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
@@ -72,6 +73,10 @@ public class SygusDispatcher {
 
     public void setEnableITCEGIS(boolean enable) {
         this.enableITCEGIS = enable;
+    }
+
+    public void setHeightsOnly(boolean flag) {
+        this.heightsOnly = flag;
     }
 
     public void prescreen() {
@@ -134,9 +139,10 @@ public class SygusDispatcher {
         env.minInfinite = minInfinite;
         env.maxsmtFlag = maxsmtFlag;
         fallbackCEGIS = new Thread[numCore];
+        env.pdc1D = new Producer1D();
+        env.pdc1D.heightsOnly = heightsOnly;
+        env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
         if (numCore > 1) {
-            env.pdc1D = new Producer1D();
-            env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
             for (int i = 0; i < numCore; i++) {
                 Logger threadLogger = Logger.getLogger("main.thread" + i);
                 threadLogger.setUseParentHandlers(false);
@@ -151,15 +157,9 @@ public class SygusDispatcher {
                 ((Cegis)fallbackCEGIS[i]).iterLimit = this.iterLimit;
             }
         } else {
-            env.pdc1D = new Producer1D();
-            env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
             if (enableITCEGIS) {
-                // ITCEGIS is producer only
                 fallbackCEGIS[0] = new ITCegis(z3ctx, env, logger);
             } else {
-                // ALLINONE only enabled for regular CEGIS single-thread
-                // May get rid of this and use producers in the future
-                env.feedType = CEGISEnv.FeedType.ALLINONE;
                 fallbackCEGIS[0] = new Cegis(z3ctx, env, logger);
             }
             ((Cegis)fallbackCEGIS[0]).iterLimit = this.iterLimit;
@@ -299,10 +299,12 @@ public class SygusDispatcher {
                     synchronized(env) {
                         env.wait();
                     }
+                    int resultHeight = 0;
         			for (Thread thread : fallbackCEGIS) {
                         Cegis cegis = (Cegis)thread;
         				if (cegis.results != null) {
                             results = cegis.results;
+                            resultHeight = cegis.resultHeight;
         				}
         			}
                     if (env.runningThreads.get() == 0) {
@@ -315,10 +317,20 @@ public class SygusDispatcher {
                         }
                         return results;
                     }
+                    if (heightsOnly) {
+                        System.out.println("resultHeight:" + new Integer(resultHeight).toString());
+                        return null;
+                    }
         		}
             } else {
+                int resultHeight;
                 fallbackCEGIS[0].run();
                 results = ((Cegis)fallbackCEGIS[0]).results;
+                resultHeight = ((Cegis)fallbackCEGIS[0]).resultHeight;
+                if (heightsOnly) {
+                    System.out.println("resultHeight:" + new Integer(resultHeight).toString());
+                    return null;
+                }
             }
         }
         return results;

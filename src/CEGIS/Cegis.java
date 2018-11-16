@@ -37,6 +37,7 @@ public class Cegis extends Thread{
 	public Map<String, Expr> functions;
 	public volatile DefinedFunc[] results = null;
 	public volatile boolean running = true;
+	public volatile int resultHeight = 0;
 
 	public Cegis(CEGISEnv env, Logger logger) {
 		this(new Context(), env, logger);
@@ -784,6 +785,7 @@ public class Cegis extends Thread{
 						strArgs[j] = args[j].toString();
 					}
 					results[i] = new DefinedFunc(ctx, name, args, def, strArgs, ast);
+					resultHeight = vectorBound;
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
                     logger.info(String.format("Total iteration count: %d", iterCount));
 					i = i + 1;
@@ -981,6 +983,7 @@ public class Cegis extends Thread{
 						def = SygusFormatter.elimITE(this.ctx, def);
 					}
 					results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
+					resultHeight = heightBound;
 					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
                     logger.info(String.format("Total iteration count: %d", iterCount));
 					i = i + 1;
