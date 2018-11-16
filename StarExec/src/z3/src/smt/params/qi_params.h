@@ -19,8 +19,8 @@ Revision History:
 #ifndef QI_PARAMS_H_
 #define QI_PARAMS_H_
 
-#include"util.h"
-#include"params.h"
+#include "util/util.h"
+#include "util/params.h"
 
 enum quick_checker_mode {
     MC_NO,     // do not use (cheap) model checking based instantiation
@@ -99,7 +99,7 @@ struct qi_params {
         m_mbqi_max_iterations(1000),
         m_mbqi_trace(false),
         m_mbqi_force_template(10),
-        m_mbqi_id(0)  
+        m_mbqi_id(nullptr)
     {
         updt_params(p);
     }

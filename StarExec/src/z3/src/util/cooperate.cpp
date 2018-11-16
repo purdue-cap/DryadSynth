@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"cooperate.h"
-#include"trace.h"
-#include"debug.h"
-#include"z3_omp.h"
+#include "util/cooperate.h"
+#include "util/trace.h"
+#include "util/debug.h"
+#include "util/z3_omp.h"
 
 struct cooperation_lock {
     omp_nest_lock_t  m_lock;
@@ -28,7 +28,7 @@ struct cooperation_lock {
     cooperation_lock() {
         omp_set_nested(1);
         omp_init_nest_lock(&m_lock);
-        m_task = 0;
+        m_task = nullptr;
         m_owner_thread = -1;
     }
     ~cooperation_lock() {

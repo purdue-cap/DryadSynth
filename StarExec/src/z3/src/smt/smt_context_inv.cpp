@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 namespace smt {
 
@@ -322,6 +322,9 @@ namespace smt {
     bool context::check_th_diseq_propagation() const {
         TRACE("check_th_diseq_propagation", tout << "m_propagated_th_diseqs.size() " << m_propagated_th_diseqs.size() << "\n";);
         int num = get_num_bool_vars();
+        if (inconsistent()) {
+            return true;
+        }
         for (bool_var v = 0; v < num; v++) {
             if (has_enode(v)) {
                 enode * n = bool_var2enode(v);
@@ -399,6 +402,19 @@ namespace smt {
 
 #endif
 
+    bool context::validate_justification(bool_var v, bool_var_data const& d, b_justification const& j) {
+        if (j.get_kind() == b_justification::CLAUSE && v != true_bool_var) {
+            clause* cls = j.get_clause();
+            literal l = cls->get_literal(0);
+            if (l.var() != v) {
+                l = cls->get_literal(1);
+            }
+            SASSERT(l.var() == v);
+            SASSERT(m_assignment[l.index()] == l_true);
+        }
+        return true;
+    }
+
     bool context::validate_model() {
         if (!m_proto_model) {
             return true;
@@ -414,6 +430,9 @@ namespace smt {
             expr_ref n(m), res(m);
             literal2expr(lit, n);
             if (!is_ground(n)) {
+                continue;
+            }
+            if (is_quantifier(n) && m.is_rec_fun_def(to_quantifier(n))) {
                 continue;
             }
             switch (get_assignment(*it)) {

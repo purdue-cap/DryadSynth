@@ -22,13 +22,13 @@ Revision History:
 #ifndef THEORY_DIFF_LOGIC_DEF_H_
 #define THEORY_DIFF_LOGIC_DEF_H_
 
-#include"theory_diff_logic.h"
-#include"smt_context.h"
-#include"map.h"
-#include"ast_pp.h"
-#include"warning.h"
-#include"smt_model_generator.h"
-#include"model_implicant.h"
+#include "smt/theory_diff_logic.h"
+#include "smt/smt_context.h"
+#include "util/map.h"
+#include "ast/ast_pp.h"
+#include "util/warning.h"
+#include "smt/smt_model_generator.h"
+#include "model/model_implicant.h"
 
 
 using namespace smt;
@@ -298,7 +298,7 @@ void theory_diff_logic<Ext>::internalize_eq_eh(app * atom, bool_var v) {
 template<typename Ext>
 void theory_diff_logic<Ext>::assign_eh(bool_var v, bool is_true) {
     m_stats.m_num_assertions++;
-    atom * a = 0;
+    atom * a = nullptr;
     VERIFY (m_bool_var2atom.find(v, a));
     SASSERT(a);
     SASSERT(get_context().get_assignment(v) != l_undef);
@@ -602,7 +602,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
     ctx.mark_as_relevant(le.get());
     literal lit(ctx.get_literal(le));
     bool_var bv = lit.var();
-    atom* a = 0;
+    atom* a = nullptr;
     m_bool_var2atom.find(bv, a);
     SASSERT(a);
 
@@ -619,7 +619,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
           tout << "\n";
           );
 
-    justification * js = 0;
+    justification * js = nullptr;
     if (get_manager().proofs_enabled()) {
         vector<parameter> params;
         params.push_back(parameter(symbol("farkas")));
@@ -628,7 +628,7 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
                    lits.size(), lits.c_ptr(), 
                    params.size(), params.c_ptr());
     }
-    ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, 0);
+    ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
     if (dump_lemmas()) {
         symbol logic(m_is_lia ? "QF_LIA" : "QF_LRA");
         ctx.display_lemma_as_smt_problem(lits.size(), lits.c_ptr(), false_literal, logic);
@@ -683,14 +683,16 @@ void theory_diff_logic<Ext>::set_neg_cycle_conflict() {
     vector<parameter> params;
     if (get_manager().proofs_enabled()) {
         params.push_back(parameter(symbol("farkas")));
-        params.resize(lits.size()+1, parameter(rational(1)));
+        for (unsigned i = 0; i <= lits.size(); ++i) {
+            params.push_back(parameter(rational(1)));
+        }
     } 
    
     ctx.set_conflict(
         ctx.mk_justification(
             ext_theory_conflict_justification(
                 get_id(), ctx.get_region(), 
-                lits.size(), lits.c_ptr(), 0, 0, params.size(), params.c_ptr())));
+                lits.size(), lits.c_ptr(), 0, nullptr, params.size(), params.c_ptr())));
 
 }
 
@@ -733,7 +735,6 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
         source = mk_var(a);
         for (unsigned i = 0; i < n->get_num_args(); ++i) {
             expr* arg = n->get_arg(i);
-            std::cout << "internalize: " << mk_pp(arg, get_manager()) << " " << ctx.e_internalized(arg) << "\n";
             if (!ctx.e_internalized(arg)) {
                 ctx.internalize(arg, false);
             }
@@ -773,7 +774,7 @@ theory_var theory_diff_logic<Ext>::mk_term(app* n) {
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_num(app* n, rational const& r) {
     theory_var v = null_theory_var;
-    enode* e = 0;
+    enode* e = nullptr;
     context& ctx = get_context();
     if (r.is_zero()) {
         v = get_zero();
@@ -812,7 +813,7 @@ theory_var theory_diff_logic<Ext>::mk_var(enode* n) {
 template<typename Ext>
 theory_var theory_diff_logic<Ext>::mk_var(app* n) {
     context & ctx = get_context();
-    enode* e = 0;
+    enode* e = nullptr;
     theory_var v = null_theory_var;
     if (ctx.e_internalized(n)) {
         e = ctx.get_enode(n);
@@ -905,7 +906,7 @@ model_value_proc * theory_diff_logic<Ext>::mk_value(enode * n, model_generator &
     numeral val = m_graph.get_assignment(v);
     rational num = val.get_rational().to_rational() + m_delta * val.get_infinitesimal().to_rational();
     TRACE("arith", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
-    return alloc(expr_wrapper_proc, m_factory->mk_value(num, m_util.is_int(n->get_owner())));
+    return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, m_util.is_int(n->get_owner())));
 }
 
 template<typename Ext>
@@ -1108,6 +1109,8 @@ unsigned theory_diff_logic<Ext>::simplex2edge(unsigned e) {
 
 template<typename Ext> 
 void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
+    unsynch_mpq_manager mgr;
+    unsynch_mpq_inf_manager inf_mgr;
     unsigned num_nodes = m_graph.get_num_nodes();
     vector<dl_edge<GExt> > const& es = m_graph.get_all_edges();
     S.ensure_var(num_simplex_vars());
@@ -1115,13 +1118,13 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
         numeral const& a = m_graph.get_assignment(i);
         rational fin = a.get_rational().to_rational();
         rational inf = a.get_infinitesimal().to_rational();
-        mpq_inf q(fin.to_mpq(), inf.to_mpq());
+        mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
         S.set_value(node2simplex(i), q);
+        inf_mgr.del(q);
     }
     S.set_lower(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
     S.set_upper(node2simplex(get_zero()), mpq_inf(mpq(0), mpq(0)));
     svector<unsigned> vars;
-    unsynch_mpq_manager mgr;
     scoped_mpq_vector coeffs(mgr);
     coeffs.push_back(mpq(1));
     coeffs.push_back(mpq(-1));
@@ -1146,8 +1149,9 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
             numeral const& w = e.get_weight();
             rational fin = w.get_rational().to_rational();
             rational inf = w.get_infinitesimal().to_rational();
-            mpq_inf q(fin.to_mpq(),inf.to_mpq());
+            mpq_inf q(mgr.dup(fin.to_mpq()), mgr.dup(inf.to_mpq()));
             S.set_upper(base_var, q);
+            inf_mgr.del(q);
         }
         else {
             S.unset_upper(base_var);
@@ -1242,7 +1246,8 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
             rational r = rational(val.first) + m_delta*rational(val.second);
             m_graph.set_assignment(i, numeral(r));
         }
-        blocker = mk_gt(v, r);
+        inf_eps r1(rational(0), r);
+        blocker = mk_gt(v, r1);
         return inf_eps(rational(0), r + m_objective_consts[v]);
     }
     default:
@@ -1273,7 +1278,7 @@ theory_var theory_diff_logic<Ext>::add_objective(app* term) {
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, bool is_strict) {
+expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_eps const& val, bool is_strict) {
     ast_manager& m = get_manager();
     objective_term const& t = m_objectives[v];
     expr_ref e(m), f(m), f2(m);
@@ -1304,7 +1309,7 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, 
         return f;
     }
 
-    inf_rational new_val = val; // - inf_rational(m_objective_consts[v]);
+    inf_eps new_val = val; // - inf_rational(m_objective_consts[v]);
     e = m_util.mk_numeral(new_val.get_rational(), m.get_sort(f));
     
     if (new_val.get_infinitesimal().is_neg()) {
@@ -1328,12 +1333,12 @@ expr_ref theory_diff_logic<Ext>::mk_ineq(theory_var v, inf_rational const& val, 
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_rational const& val) {
+expr_ref theory_diff_logic<Ext>::mk_gt(theory_var v, inf_eps const& val) {
     return mk_ineq(v, val, true);
 }
 
 template<typename Ext>
-expr_ref theory_diff_logic<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val) {
+expr_ref theory_diff_logic<Ext>::mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val) {
     return mk_ineq(v, val, false);
 }
 

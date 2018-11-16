@@ -46,6 +46,7 @@ clean_package:
 
 clean_logs:
 	rm -f log.*.txt
+	rm -f log.*.txt.*
 	rm -f log.*.txt.lck
 
 clean: clean_classes clean_parser clean_package clean_logs

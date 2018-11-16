@@ -26,16 +26,16 @@ Author:
 Notes:
 
 --*/
-#include"goal2sat.h"
-#include"ast_smt2_pp.h"
-#include"ref_util.h"
-#include"cooperate.h"
-#include"filter_model_converter.h"
-#include"model_evaluator.h"
-#include"for_each_expr.h"
-#include"model_v2_pp.h"
-#include"tactic.h"
-#include"ast_pp.h"
+#include "sat/tactic/goal2sat.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/ref_util.h"
+#include "util/cooperate.h"
+#include "tactic/filter_model_converter.h"
+#include "model/model_evaluator.h"
+#include "ast/for_each_expr.h"
+#include "model/model_v2_pp.h"
+#include "tactic/tactic.h"
+#include "ast/ast_pp.h"
 #include<sstream>
 
 struct goal2sat::imp {
@@ -174,6 +174,7 @@ struct goal2sat::imp {
         switch (to_app(t)->get_decl_kind()) {
         case OP_NOT:
         case OP_OR:
+        case OP_AND:
         case OP_IFF:
             m_frame_stack.push_back(frame(to_app(t), root, sign, 0));
             return false;
@@ -185,7 +186,6 @@ struct goal2sat::imp {
             }
             convert_atom(t, root, sign);
             return true;
-        case OP_AND:
         case OP_XOR:
         case OP_IMPLIES:
         case OP_DISTINCT: {
@@ -215,8 +215,8 @@ struct goal2sat::imp {
             }
             else {
                 mk_clause(m_result_stack.size(), m_result_stack.c_ptr());
-                m_result_stack.reset();
             }
+            m_result_stack.reset();
         }
         else {
             SASSERT(num <= m_result_stack.size());
@@ -239,6 +239,50 @@ struct goal2sat::imp {
             m_result_stack.push_back(l);
         }
     }
+
+    void convert_and(app * t, bool root, bool sign) {
+        TRACE("goal2sat", tout << "convert_and:\n" << mk_ismt2_pp(t, m) << "\n";);
+        unsigned num = t->get_num_args();
+        if (root) {
+            if (sign) {
+                for (unsigned i = 0; i < num; ++i) {
+                    m_result_stack[i].neg();
+                }                
+                mk_clause(m_result_stack.size(), m_result_stack.c_ptr());
+            }
+            else {
+                for (unsigned i = 0; i < num; ++i) {
+                    mk_clause(m_result_stack[i]);
+                }
+            }
+            m_result_stack.reset();
+        }
+        else {
+            SASSERT(num <= m_result_stack.size());
+            sat::bool_var k = m_solver.mk_var();
+            sat::literal  l(k, false);
+            m_cache.insert(t, l);
+            // l => /\ lits
+            sat::literal * lits = m_result_stack.end() - num;
+            for (unsigned i = 0; i < num; i++) {
+                mk_clause(~l, lits[i]);
+            }
+            // /\ lits => l
+            for (unsigned i = 0; i < num; ++i) {
+                m_result_stack[m_result_stack.size() - num + i].neg();
+            }
+            m_result_stack.push_back(l);
+            lits = m_result_stack.end() - num - 1;
+            mk_clause(num+1, lits);
+            unsigned old_sz = m_result_stack.size() - num - 1;
+            m_result_stack.shrink(old_sz);
+            if (sign)
+                l.neg();
+            m_result_stack.push_back(l);
+            TRACE("goal2sat", tout << m_result_stack << "\n";);
+        }
+    }
+
 
     void convert_ite(app * n, bool root, bool sign) {
         unsigned sz = m_result_stack.size();
@@ -315,6 +359,9 @@ struct goal2sat::imp {
         switch (to_app(t)->get_decl_kind()) {
         case OP_OR:
             convert_or(t, root, sign);
+            break;
+        case OP_AND:
+            convert_and(t, root, sign);
             break;
         case OP_ITE:
             convert_ite(t, root, sign);
@@ -456,7 +503,6 @@ struct unsupported_bool_proc {
     void operator()(app * n) { 
         if (n->get_family_id() == m.get_basic_family_id()) {
             switch (n->get_decl_kind()) {
-            case OP_AND:
             case OP_XOR:
             case OP_IMPLIES:
             case OP_DISTINCT:
@@ -479,7 +525,7 @@ bool goal2sat::has_unsupported_bool(goal const & g) {
     return test<unsupported_bool_proc>(g);
 }
 
-goal2sat::goal2sat():m_imp(0), m_interpreted_atoms(0) {
+goal2sat::goal2sat():m_imp(nullptr), m_interpreted_atoms(nullptr) {
 }
 
 void goal2sat::collect_param_descrs(param_descrs & r) {
@@ -493,7 +539,7 @@ struct goal2sat::scoped_set_imp {
         m_owner->m_imp = i;        
     }
     ~scoped_set_imp() {
-        m_owner->m_imp = 0;        
+        m_owner->m_imp = nullptr;
     }
 };
 
@@ -547,7 +593,7 @@ struct sat2goal::imp {
             }
         }
         
-        virtual void operator()(model_ref & md, unsigned goal_idx) {
+        void operator()(model_ref & md, unsigned goal_idx) override {
             SASSERT(goal_idx == 0);
             TRACE("sat_mc", tout << "before sat_mc\n"; model_v2_pp(tout, *md); display(tout););
             // REMARK: potential problem
@@ -598,7 +644,7 @@ struct sat2goal::imp {
             TRACE("sat_mc", tout << "after sat_mc\n"; model_v2_pp(tout, *md););
         }
         
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             sat_model_converter * res = alloc(sat_model_converter, translator.to());
             res->m_fmc = static_cast<filter_model_converter*>(m_fmc->translate(translator));
             unsigned sz = m_var2expr.size();
@@ -607,7 +653,7 @@ struct sat2goal::imp {
             return res;
         }
         
-        void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             out << "(sat-model-converter\n";
             m_mc.display(out);
             sat::bool_var_set vars;
@@ -657,9 +703,9 @@ struct sat2goal::imp {
         for (sat::bool_var v = 0; v < num_vars; v++) {
             checkpoint();
             sat::literal l(v, false);
-            if (m_lit2expr.get(l.index()) == 0) {
+            if (m_lit2expr.get(l.index()) == nullptr) {
                 SASSERT(m_lit2expr.get((~l).index()) == 0);
-                app * aux = m.mk_fresh_const(0, b);
+                app * aux = m.mk_fresh_const(nullptr, b);
                 if (_mc)
                     _mc->insert(aux, true);
                 m_lit2expr.set(l.index(), aux);
@@ -730,7 +776,7 @@ struct sat2goal::imp {
 
 };
 
-sat2goal::sat2goal():m_imp(0) {
+sat2goal::sat2goal():m_imp(nullptr) {
 }
 
 void sat2goal::collect_param_descrs(param_descrs & r) {
@@ -744,7 +790,7 @@ struct sat2goal::scoped_set_imp {
         m_owner->m_imp = i;        
     }
     ~scoped_set_imp() {
-        m_owner->m_imp = 0;        
+        m_owner->m_imp = nullptr;
     }
 };
 

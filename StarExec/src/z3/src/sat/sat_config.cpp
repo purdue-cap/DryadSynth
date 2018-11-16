@@ -16,13 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"sat_config.h"
-#include"sat_types.h"
-#include"sat_params.hpp"
+#include "sat/sat_config.h"
+#include "sat/sat_types.h"
+#include "sat/sat_params.hpp"
 
 namespace sat {
 
     config::config(params_ref const & p):
+        m_restart_max(0),
         m_always_true("always_true"),
         m_always_false("always_false"),
         m_caching("caching"),
@@ -34,6 +35,7 @@ namespace sat {
         m_glue("glue"),
         m_glue_psm("glue_psm"),
         m_psm_glue("psm_glue") {
+        m_num_parallel = 1;        
         updt_params(p); 
     }
 
@@ -66,7 +68,8 @@ namespace sat {
 
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();
-        
+        m_restart_max     = p.restart_max();
+
         m_random_freq     = p.random_freq();
         m_random_seed     = p.random_seed();
         if (m_random_seed == 0) 
@@ -75,6 +78,7 @@ namespace sat {
         m_burst_search    = p.burst_search();
         
         m_max_conflicts   = p.max_conflicts();
+        m_num_parallel    = p.parallel_threads();
         
         // These parameters are not exposed
         m_simplify_mult1  = _p.get_uint("simplify_mult1", 300);
@@ -109,9 +113,8 @@ namespace sat {
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
-        m_optimize_model  = p.optimize_model();
-        m_bcd             = p.bcd();
         m_dyn_sub_res     = p.dyn_sub_res();
+        m_dimacs_display  = p.dimacs_display();
     }
 
     void config::collect_param_descrs(param_descrs & r) {

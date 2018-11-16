@@ -14,7 +14,6 @@ Author:
     Nikolaj Bjorner (nbjorner) 2015-07-16
 
 Notes:
-    
 **/
 
 package com.microsoft.z3;
@@ -23,10 +22,10 @@ import com.microsoft.z3.enumerations.Z3_lbool;
 
 
 /**
- * Object for managing optimizization context
+ * Object for managing optimization context
  **/
-public class Optimize extends Z3Object
-{
+public class Optimize extends Z3Object {
+
     /**
      * A string that describes all available optimize solver parameters.
      **/
@@ -55,7 +54,7 @@ public class Optimize extends Z3Object
 
     /**
      * Assert a constraint (or multiple) into the optimize solver.
-     **/        
+     **/
     public void Assert(BoolExpr ... constraints)
     {
         getContext().checkContextMatch(constraints);
@@ -67,80 +66,101 @@ public class Optimize extends Z3Object
 
     /**
      * Alias for Assert.
-     **/        
+     **/
     public void Add(BoolExpr ... constraints)
     {
-	Assert(constraints);
+        Assert(constraints);
     }
-    
+
     /**
      * Handle to objectives returned by objective functions.
      **/
-    public class Handle
-    {
-	Optimize opt;
-	int handle;
-	Handle(Optimize opt, int h)
-	{
-	    this.opt = opt;
-	    this.handle = h;
-	}
-	
-	/**
-	 * Retrieve a lower bound for the objective handle.
-	 **/        	   	
-	public ArithExpr getLower()
-	{
-	    return opt.GetLower(handle); 
-	}
-	
-	/**            
-	 * Retrieve an upper bound for the objective handle.
-	 **/        	   	
-	public ArithExpr getUpper()
-	{
-	    return opt.GetUpper(handle); 
-	}
-	
-	/**
-	 * Retrieve the value of an objective.
-	 **/        	   	
-	public ArithExpr getValue()
-	{
-	    return getLower(); 
-	}
+    public static class Handle {
 
-	/**
-	 * Print a string representation of the handle.
-	 **/
-    @Override
-    public String toString()
+        private final Optimize opt;
+        private final int handle;
+
+        Handle(Optimize opt, int h)
+        {
+            this.opt = opt;
+            this.handle = h;
+        }
+
+        /**
+         * Retrieve a lower bound for the objective handle.
+         **/
+        public Expr getLower()
+        {
+            return opt.GetLower(handle);
+        }
+
+        /**
+         * Retrieve an upper bound for the objective handle.
+         **/
+        public Expr getUpper()
+        {
+            return opt.GetUpper(handle);
+        }
+
+        /**
+         * @return a triple representing the upper bound of the objective handle.
+         *
+         * The triple contains values {@code inf, value, eps},
+         * where the objective value is unbounded iff {@code inf} is non-zero,
+         * and otherwise is represented by the expression {@code value + eps * EPSILON},
+         * where {@code EPSILON} is an arbitrarily small real number.
+         */
+        public Expr[] getUpperAsVector()
+        {
+            return opt.GetUpperAsVector(handle);
+        }
+
+        /**
+         * @return a triple representing the upper bound of the objective handle.
+         *
+         * <p>See {@link #getUpperAsVector()} for triple semantics.
+         */
+        public Expr[] getLowerAsVector()
+        {
+            return opt.GetLowerAsVector(handle);
+        }
+
+        /**
+         * Retrieve the value of an objective.
+         **/
+        public Expr getValue()
+        {
+            return getLower();
+        }
+
+        /**
+         * Print a string representation of the handle.
+         **/
+        @Override
+        public String toString()
         {
             return getValue().toString();
         }
     }
 
-    /**        
+    /**
      * Assert soft constraint
      *
      * Return an objective which associates with the group of constraints.
      *
-     **/        
-
+     **/
     public Handle AssertSoft(BoolExpr constraint, int weight, String group)
     {
         getContext().checkContextMatch(constraint);
         Symbol s = getContext().mkSymbol(group);
         return new Handle(this, Native.optimizeAssertSoft(getContext().nCtx(), getNativeObject(), constraint.getNativeObject(), Integer.toString(weight), s.getNativeObject()));
     }
-    
 
-    /**        
+    /**
      * Check satisfiability of asserted constraints.
      * Produce a model that (when the objectives are bounded and 
      * don't use strict inequalities) meets the objectives.
      **/
-
     public Status Check()
     {
         Z3_lbool r = Z3_lbool.fromInt(Native.optimizeCheck(getContext().nCtx(), getNativeObject()));
@@ -153,7 +173,7 @@ public class Optimize extends Z3Object
                 return Status.UNKNOWN;
         }
     }
-    
+
     /**
      * Creates a backtracking point.
      **/
@@ -162,13 +182,11 @@ public class Optimize extends Z3Object
         Native.optimizePush(getContext().nCtx(), getNativeObject());
     }
 
-
-    /** 
+    /**
      * Backtrack one backtracking point.
      *
      * Note that an exception is thrown if Pop is called without a corresponding Push.
      **/
-     
     public void Pop()
     {
         Native.optimizePop(getContext().nCtx(), getNativeObject());
@@ -191,40 +209,75 @@ public class Optimize extends Z3Object
         }
     }
 
-    /** 
+    /**
      *  Declare an arithmetical maximization objective.
      *  Return a handle to the objective. The handle is used as
      *  to retrieve the values of objectives after calling Check.
-     **/        	
-    public Handle MkMaximize(ArithExpr e)
+     **/            
+    public Handle MkMaximize(Expr e)
     {
         return new Handle(this, Native.optimizeMaximize(getContext().nCtx(), getNativeObject(), e.getNativeObject()));
     }
-    
+
     /**
      *  Declare an arithmetical minimization objective. 
      *  Similar to MkMaximize.
-     **/        	
-    public Handle MkMinimize(ArithExpr e)
+     **/
+    public Handle MkMinimize(Expr e)
     {
         return new Handle(this, Native.optimizeMinimize(getContext().nCtx(), getNativeObject(), e.getNativeObject()));
     }
     
     /**
      *  Retrieve a lower bound for the objective handle.
-     **/        	
-    private ArithExpr GetLower(int index)
+     **/
+    private Expr GetLower(int index)
     {
-        return (ArithExpr)Expr.create(getContext(), Native.optimizeGetLower(getContext().nCtx(), getNativeObject(), index));
+        return Expr.create(getContext(), Native.optimizeGetLower(getContext().nCtx(), getNativeObject(), index));
     }
-    
-    
+
     /**
      *  Retrieve an upper bound for the objective handle.
-     **/        	
-    private ArithExpr GetUpper(int index)
+     **/
+    private Expr GetUpper(int index)
     {
-        return (ArithExpr)Expr.create(getContext(), Native.optimizeGetUpper(getContext().nCtx(), getNativeObject(), index));
+        return Expr.create(getContext(), Native.optimizeGetUpper(getContext().nCtx(), getNativeObject(), index));
+    }
+
+    /**
+     * @return Triple representing the upper bound for the objective handle.
+     *
+     * <p>See {@link Handle#getUpperAsVector}.
+     */
+    private Expr[] GetUpperAsVector(int index) {
+        return unpackObjectiveValueVector(
+                Native.optimizeGetUpperAsVector(
+                        getContext().nCtx(), getNativeObject(), index
+                )
+        );
+    }
+
+    /**
+     * @return Triple representing the upper bound for the objective handle.
+     *
+     * <p>See {@link Handle#getLowerAsVector}.
+     */
+    private Expr[] GetLowerAsVector(int index) {
+        return unpackObjectiveValueVector(
+                Native.optimizeGetLowerAsVector(
+                        getContext().nCtx(), getNativeObject(), index
+                )
+        );
+    }
+
+    private Expr[] unpackObjectiveValueVector(long nativeVec) {
+        ASTVector vec = new ASTVector(
+                getContext(), nativeVec
+        );
+        return new Expr[] {
+                (Expr) vec.get(0), (Expr) vec.get(1), (Expr) vec.get(2)
+        };
+
     }
 
     /**
@@ -232,11 +285,9 @@ public class Optimize extends Z3Object
      **/
     public String getReasonUnknown()
     {
-        return Native.optimizeGetReasonUnknown(getContext().nCtx(),
-                getNativeObject());	
+        return Native.optimizeGetReasonUnknown(getContext().nCtx(), getNativeObject());
     }
-    
-    
+
     /**
      *  Print the context to a String (SMT-LIB parseable benchmark).
      **/
@@ -245,7 +296,25 @@ public class Optimize extends Z3Object
     {
         return Native.optimizeToString(getContext().nCtx(), getNativeObject());
     }
-    
+
+    /**
+     * Parse an SMT-LIB2 file with optimization objectives and constraints.
+     * The parsed constraints and objectives are added to the optimization context.
+     */
+    public void fromFile(String file)
+    {
+        Native.optimizeFromFile(getContext().nCtx(), getNativeObject(), file);
+    }
+
+    /**
+     * Similar to FromFile. Instead it takes as argument a string.
+     */
+    public void fromString(String s)
+    {
+        Native.optimizeFromString(getContext().nCtx(), getNativeObject(), s);
+    }
+
+
     /**
      *  Optimize statistics.
      **/

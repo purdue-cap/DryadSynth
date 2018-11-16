@@ -19,12 +19,12 @@ Revision History:
 #ifndef SAT_TYPES_H_
 #define SAT_TYPES_H_
 
-#include"debug.h"
-#include"approx_set.h"
-#include"lbool.h"
-#include"z3_exception.h"
-#include"common_msgs.h"
-#include"vector.h"
+#include "util/debug.h"
+#include "util/approx_set.h"
+#include "util/lbool.h"
+#include "util/z3_exception.h"
+#include "util/common_msgs.h"
+#include "util/vector.h"
 #include<iomanip>
 
 namespace sat {
@@ -96,6 +96,7 @@ namespace sat {
     };
 
     const literal null_literal;
+    struct literal_hash : obj_hash<literal> {};
 
     inline literal to_literal(unsigned x) { return literal(x); }
     inline bool operator<(literal const & l1, literal const & l2) { return l1.m_val < l2.m_val;  }
@@ -200,7 +201,7 @@ namespace sat {
         iterator begin() const { return m_set.begin(); }
         iterator end() const { return m_set.end(); }
         void reset() { m_set.reset(); m_in_set.reset(); }
-        void cleanup() { m_set.finalize(); m_in_set.finalize(); }
+        void finalize() { m_set.finalize(); m_in_set.finalize(); }
         uint_set& operator&=(uint_set const& other) {
             unsigned j = 0;
             for (unsigned i = 0; i < m_set.size(); ++i) {
@@ -259,7 +260,7 @@ namespace sat {
         bool empty() const { return m_set.empty(); }
         unsigned size() const { return m_set.size(); }
         void reset() { m_set.reset(); }
-        void cleanup() { m_set.cleanup(); }
+        void finalize() { m_set.finalize(); }
         class iterator {
             uint_set::iterator m_it;
         public:

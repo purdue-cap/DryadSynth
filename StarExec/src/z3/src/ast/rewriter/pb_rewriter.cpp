@@ -17,11 +17,11 @@ Notes:
 
 --*/
 
-#include "pb_rewriter.h"
-#include "pb_rewriter_def.h"
-#include "ast_pp.h"
-#include "ast_util.h"
-#include "ast_smt_pp.h"
+#include "ast/rewriter/pb_rewriter.h"
+#include "ast/rewriter/pb_rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/ast_smt_pp.h"
 
 
 class pb_ast_rewriter_util {
@@ -196,6 +196,7 @@ void pb_rewriter::dump_pb_rewrite(expr* fml) {
 }
 
 br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
+    if (m_util.is_aux_bool(f)) return BR_FAILED;
     ast_manager& m = result.get_manager();
     rational sum(0), maxsum(0);
     for (unsigned i = 0; i < num_args; ++i) {

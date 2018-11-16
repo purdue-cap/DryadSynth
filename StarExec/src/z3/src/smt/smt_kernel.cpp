@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"smt_kernel.h"
-#include"smt_context.h" 
-#include"ast_smt2_pp.h"
-#include"smt_params_helper.hpp"
+#include "smt/smt_kernel.h"
+#include "smt/smt_context.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/params/smt_params_helper.hpp"
 
 namespace smt {
 
@@ -60,10 +60,10 @@ namespace smt {
             // m_kernel.display(out); <<< for external users it is just junk
             // TODO: it will be replaced with assertion_stack.display
             unsigned num = m_kernel.get_num_asserted_formulas();
-            expr * const * fms = m_kernel.get_asserted_formulas();
             out << "(kernel";
             for (unsigned i = 0; i < num; i++) {
-                out << "\n  " << mk_ismt2_pp(fms[i], m(), 2);
+                expr* f = m_kernel.get_asserted_formula(i);
+                out << "\n  " << mk_ismt2_pp(f, m(), 2);
             }
             out << ")";
         }
@@ -81,8 +81,12 @@ namespace smt {
             return m_kernel.get_num_asserted_formulas();
         }
         
-        expr * const * get_formulas() const {
-            return m_kernel.get_asserted_formulas();
+        void get_formulas(ptr_vector<expr>& fmls) const {
+            m_kernel.get_asserted_formulas(fmls);
+        }
+
+        expr* get_formula(unsigned i) const {
+            return m_kernel.get_asserted_formula(i);
         }
         
         void push() {
@@ -113,6 +117,10 @@ namespace smt {
 
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
             return m_kernel.get_consequences(assumptions, vars, conseq, unfixed);
+        }
+
+        lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+            return m_kernel.preferred_sat(asms, cores);
         }
 
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
@@ -187,9 +195,7 @@ namespace smt {
         }
 
         void updt_params(params_ref const & p) {
-            // We don't need params2smt_params anymore. smt_params has support for reading params_ref.
-            // The update is performed at smt_kernel "users".
-            // params2smt_params(p, fparams());
+            m_kernel.updt_params(p);
         }
     };
 
@@ -208,7 +214,6 @@ namespace smt {
     void  kernel::copy(kernel& src, kernel& dst) {
         imp::copy(*src.m_imp, *dst.m_imp);
     }
-
 
     bool kernel::set_logic(symbol logic) {
         return m_imp->set_logic(logic);
@@ -236,8 +241,8 @@ namespace smt {
         return m_imp->size();
     }
     
-    expr * const * kernel::get_formulas() const {
-        return m_imp->get_formulas();
+    expr* kernel::get_formula(unsigned i) const {
+        return m_imp->get_formula(i);
     }
 
 
@@ -254,9 +259,9 @@ namespace smt {
     }
 
     void kernel::reset() {
-        ast_manager & _m       = m();
+        ast_manager & _m = m();
         smt_params & fps = m_imp->fparams();
-        params_ref ps          = m_imp->params();
+        params_ref ps    = m_imp->params();
         #pragma omp critical (smt_kernel)
         {
             m_imp->~imp();
@@ -280,6 +285,10 @@ namespace smt {
 
     lbool kernel::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
         return m_imp->get_consequences(assumptions, vars, conseq, unfixed);
+    }
+
+    lbool kernel::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+        return m_imp->preferred_sat(asms, cores);
     }
 
     lbool kernel::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {

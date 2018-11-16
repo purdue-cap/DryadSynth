@@ -1,6 +1,6 @@
-#include "model_based_opt.h"
-#include "util.h"
-#include "uint_set.h"
+#include "math/simplex/model_based_opt.h"
+#include "util/util.h"
+#include "util/uint_set.h"
 
 typedef opt::model_based_opt::var var;
 
@@ -20,6 +20,7 @@ static void add_ineq(opt::model_based_opt& mbo,
     mbo.add_constraint(vars, rational(k), rel);
 }
 
+#if 0
 static void add_ineq(opt::model_based_opt& mbo, 
                      unsigned x, int a, 
                      unsigned y, int b, 
@@ -31,6 +32,7 @@ static void add_ineq(opt::model_based_opt& mbo,
     vars.push_back(var(z, rational(c)));
     mbo.add_constraint(vars, rational(k), rel);
 }
+#endif
 
 static void add_random_ineq(opt::model_based_opt& mbo,
                             random_gen& r,
@@ -52,7 +54,7 @@ static void add_random_ineq(opt::model_based_opt& mbo,
             continue;
         }
         unsigned sign = r(2);
-		coeff = sign == 0 ? coeff : -coeff;
+        coeff = sign == 0 ? coeff : -coeff;
         vars.push_back(var(x, rational(coeff)));
         value += coeff*values[x];
     }
@@ -295,7 +297,7 @@ static void test8() {
     unsigned z = mbo.add_var(rational(4));
     unsigned u = mbo.add_var(rational(5));
     unsigned v = mbo.add_var(rational(6));
-    unsigned w = mbo.add_var(rational(6));
+    //    unsigned w = mbo.add_var(rational(6));
 
     add_ineq(mbo, x0, 1, y, -1, 0, opt::t_le);
     add_ineq(mbo, x, 1, y, -1, 0, opt::t_lt);

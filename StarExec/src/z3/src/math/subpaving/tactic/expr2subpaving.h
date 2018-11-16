@@ -20,8 +20,8 @@ Notes:
 #ifndef EXPR2SUBPAVING_H_
 #define EXPR2SUBPAVING_H_
 
-#include"ast.h"
-#include"subpaving.h"
+#include "ast/ast.h"
+#include "math/subpaving/subpaving.h"
 
 class expr2var;
 
@@ -29,7 +29,7 @@ class expr2subpaving {
     struct imp;
     imp *  m_imp;
 public:
-    expr2subpaving(ast_manager & m, subpaving::context & s, expr2var * e2v = 0);
+    expr2subpaving(ast_manager & m, subpaving::context & s, expr2var * e2v = nullptr);
     ~expr2subpaving();
 
     ast_manager & m() const;

@@ -19,7 +19,7 @@ Revision History:
 #ifndef DL_MK_MAGIC_SYMBOLIC_H_
 #define DL_MK_MAGIC_SYMBOLIC_H_
 
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -30,8 +30,8 @@ namespace datalog {
         app_ref      mk_query(app* q);
     public:
         mk_magic_symbolic(context & ctx, unsigned priority = 33037);
-        ~mk_magic_symbolic();        
-        rule_set * operator()(rule_set const & source);
+        ~mk_magic_symbolic() override;
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

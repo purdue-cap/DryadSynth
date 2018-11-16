@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_CG_TABLE_H_
 #define SMT_CG_TABLE_H_
 
-#include"smt_enode.h"
-#include"hashtable.h"
-#include"chashtable.h"
+#include "smt/smt_enode.h"
+#include "util/hashtable.h"
+#include "util/chashtable.h"
 
 namespace smt {
 
@@ -307,17 +307,17 @@ namespace smt {
 
         enode * find(enode * n) const {
             SASSERT(n->get_num_args() > 0);
-            enode * r = 0;
+            enode * r = nullptr;
             void * t = const_cast<cg_table*>(this)->get_table(n); 
             switch (static_cast<table_kind>(GET_TAG(t))) {
             case UNARY:
-                return UNTAG(unary_table*, t)->find(n, r) ? r : 0;
+                return UNTAG(unary_table*, t)->find(n, r) ? r : nullptr;
             case BINARY:
-                return UNTAG(binary_table*, t)->find(n, r) ? r : 0;
+                return UNTAG(binary_table*, t)->find(n, r) ? r : nullptr;
             case BINARY_COMM:
-                return UNTAG(comm_table*, t)->find(n, r) ? r : 0;
+                return UNTAG(comm_table*, t)->find(n, r) ? r : nullptr;
             default:
-                return UNTAG(table*, t)->find(n, r) ? r : 0;
+                return UNTAG(table*, t)->find(n, r) ? r : nullptr;
             }
         }
 

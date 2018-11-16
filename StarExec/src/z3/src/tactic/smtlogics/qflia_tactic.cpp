@@ -16,36 +16,32 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"simplify_tactic.h"
-#include"propagate_values_tactic.h"
-#include"propagate_ineqs_tactic.h"
-#include"normalize_bounds_tactic.h"
-#include"solve_eqs_tactic.h"
-#include"elim_uncnstr_tactic.h"
-#include"smt_tactic.h"
-// include"mip_tactic.h"
-#include"add_bounds_tactic.h"
-#include"pb2bv_tactic.h"
-#include"lia2pb_tactic.h"
-#include"ctx_simplify_tactic.h"
-#include"bit_blaster_tactic.h"
-#include"max_bv_sharing_tactic.h"
-#include"aig_tactic.h"
-#include"sat_tactic.h"
-#include"bound_manager.h"
-#include"probe_arith.h"
+#include "tactic/tactical.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "tactic/arith/propagate_ineqs_tactic.h"
+#include "tactic/arith/normalize_bounds_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/core/elim_uncnstr_tactic.h"
+#include "smt/tactic/smt_tactic.h"
+#include "tactic/arith/add_bounds_tactic.h"
+#include "tactic/arith/pb2bv_tactic.h"
+#include "tactic/arith/lia2pb_tactic.h"
+#include "tactic/core/ctx_simplify_tactic.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/bv/max_bv_sharing_tactic.h"
+#include "tactic/aig/aig_tactic.h"
+#include "sat/tactic/sat_tactic.h"
+#include "tactic/arith/bound_manager.h"
+#include "tactic/arith/probe_arith.h"
 
 struct quasi_pb_probe : public probe {
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         bool found_non_01 = false;
         bound_manager bm(g.m());
         bm(g);
         rational l, u; bool st;
-        bound_manager::iterator it  = bm.begin();
-        bound_manager::iterator end = bm.end();
-        for (; it != end; ++it) {
-            expr * t = *it;
+        for (expr * t : bm) {
             if (bm.has_lower(t, l, st) && bm.has_upper(t, u, st) && (l.is_zero() || l.is_one()) && (u.is_zero() || u.is_one()))
                 continue;
             if (found_non_01)

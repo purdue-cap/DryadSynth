@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"defined_names.h"
-#include"rewriter_def.h"
-#include"filter_model_converter.h"
-#include"cooperate.h"
-#include"scoped_proof.h"
+#include "tactic/tactical.h"
+#include "ast/normal_forms/defined_names.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/filter_model_converter.h"
+#include "util/cooperate.h"
+#include "ast/scoped_proof.h"
 
 
 
@@ -62,14 +62,14 @@ class blast_term_ite_tactic : public tactic {
             for (unsigned i = 0; i < num_args; ++i) {
                 expr* c, *t, *e;
                 if (!m.is_bool(args[i]) && m.is_ite(args[i], c, t, e)) {
-                    enable_trace("blast_term_ite");
+                    // enable_trace("blast_term_ite");
                     TRACE("blast_term_ite", result = m.mk_app(f, num_args, args); tout << result << "\n";);
                     expr_ref e1(m), e2(m);
                     ptr_vector<expr> args1(num_args, args);
                     args1[i] = t;
                     ++m_num_fresh;
                     e1 = m.mk_app(f, num_args, args1.c_ptr());
-                    if (t == e) {
+                    if (m.are_equal(t,e)) {
                         result = e1;
                         return BR_REWRITE1;
                     }
@@ -120,7 +120,7 @@ class blast_term_ite_tactic : public tactic {
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("blast-term-ite", *g);
             bool produce_proofs = g->proofs_enabled();
 
@@ -152,35 +152,35 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(blast_term_ite_tactic, m, m_params);
     }
         
-    virtual ~blast_term_ite_tactic() {
+    ~blast_term_ite_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
         r.insert("max_args", CPK_UINT, 
                  "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         dealloc(m_imp);
         m_imp = alloc(imp, m, m_params);

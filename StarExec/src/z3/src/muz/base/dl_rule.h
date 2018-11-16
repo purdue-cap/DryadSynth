@@ -20,19 +20,19 @@ Revision History:
 #ifndef DL_RULE_H_
 #define DL_RULE_H_
 
-#include"ast.h"
-#include"dl_costs.h"
-#include"dl_util.h"
-#include"used_vars.h"
-#include"proof_converter.h"
-#include"model_converter.h"
-#include"ast_counter.h"
-#include"rewriter.h"
-#include"hnf.h"
-#include"qe_lite.h"
-#include"var_subst.h"
-#include"datatype_decl_plugin.h"
-#include"label_rewriter.h"
+#include "ast/ast.h"
+#include "muz/base/dl_costs.h"
+#include "muz/base/dl_util.h"
+#include "ast/used_vars.h"
+#include "tactic/proof_converter.h"
+#include "tactic/model_converter.h"
+#include "ast/rewriter/ast_counter.h"
+#include "ast/rewriter/rewriter.h"
+#include "muz/base/hnf.h"
+#include "qe/qe_lite.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/rewriter/label_rewriter.h"
 
 namespace datalog {
 
@@ -54,7 +54,7 @@ namespace datalog {
         bool m_found;
         func_decl* m_func;
         uninterpreted_function_finder_proc(ast_manager& m): 
-            m(m), m_dt(m), m_dl(m), m_found(false), m_func(0) {}
+            m(m), m_dt(m), m_dl(m), m_found(false), m_func(nullptr) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) { }
         void operator()(app * n) {
@@ -71,7 +71,7 @@ namespace datalog {
                 }
             }
         }
-        void reset() { m_found = false; m_func = 0; }
+        void reset() { m_found = false; m_func = nullptr; }
 
         bool found(func_decl*& f) const { f = m_func; return m_found; }
     };
@@ -209,7 +209,7 @@ namespace datalog {
            
            \remark A tail may contain negation. tail[i] is assumed to be negated if is_neg != 0 && is_neg[i] == true
         */
-        rule * mk(app * head, unsigned n, app * const * tail, bool const * is_neg = 0, 
+        rule * mk(app * head, unsigned n, app * const * tail, bool const * is_neg = nullptr,
                   symbol const& name = symbol::null, bool normalize = true);
 
         /**
@@ -298,7 +298,7 @@ namespace datalog {
         
         static unsigned get_obj_size(unsigned n) { return sizeof(rule) + n * sizeof(app *); }
 
-        rule() : m_ref_cnt(0) {}
+        rule() : m_ref_cnt(0), m_name(symbol::null) {}
         ~rule() {}
 
         void deallocate(ast_manager & m);
@@ -355,7 +355,12 @@ namespace datalog {
 
         void display(context & ctx, std::ostream & out) const;
 
-        symbol const& name() const { return m_name; }
+        /**
+           \brief Return the name(s) associated with this rule. Plural for preprocessed (e.g. obtained by inlining) rules.
+
+           This possibly returns a ";"-separated list of names.
+        */
+        symbol const& name() const { return m_name; } ;
 
         unsigned hash() const;
 

@@ -22,23 +22,23 @@ Notes:
 --*/
 
 #include <sstream>
-#include "array_decl_plugin.h"
-#include "ast_pp.h"
-#include "bool_rewriter.h"
-#include "for_each_expr.h"
-#include "model.h"
-#include "ref_vector.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "util.h"
-#include "model_implicant.h"
-#include "arith_decl_plugin.h"
-#include "expr_replacer.h"
-#include "model_smt2_pp.h"
-#include "poly_rewriter.h"
-#include "poly_rewriter_def.h"
-#include "arith_rewriter.h"
-#include "scoped_proof.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/for_each_expr.h"
+#include "model/model.h"
+#include "util/ref_vector.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "util/util.h"
+#include "model/model_implicant.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "model/model_smt2_pp.h"
+#include "ast/rewriter/poly_rewriter.h"
+#include "ast/rewriter/poly_rewriter_def.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/scoped_proof.h"
 
 
 
@@ -90,7 +90,7 @@ void model_implicant::reset() {
     m_visited.reset();
     m_numbers.reset();
     m_refs.reset();
-    m_model = 0;
+    m_model = nullptr;
 }
 
 expr_ref_vector model_implicant::minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl) {
@@ -666,8 +666,8 @@ void model_implicant::eval_eq(app* e, expr* arg1, expr* arg2) {
 }
 
 void model_implicant::eval_basic(app* e) {
-    expr* arg1 = 0, *arg2 = 0;
-    expr *argCond = 0, *argThen = 0, *argElse = 0, *arg = 0;
+    expr* arg1 = nullptr, *arg2 = nullptr;
+    expr *argCond = nullptr, *argThen = nullptr, *argElse = nullptr, *arg = nullptr;
     bool has_x = false;
     unsigned arity = e->get_num_args();
     switch(e->get_decl_kind()) {

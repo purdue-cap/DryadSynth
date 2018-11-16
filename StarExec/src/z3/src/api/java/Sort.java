@@ -35,12 +35,8 @@ public class Sort extends AST
         if (!(o instanceof Sort)) return false;
         Sort other = (Sort) o;
 
-	return  (getContext().nCtx() == other.getContext().nCtx()) &&
-	    (Native.isEqSort(
-            getContext().nCtx(),
-            getNativeObject(),
-            other.getNativeObject()
-        ));
+        return (getContext().nCtx() == other.getContext().nCtx()) &&
+            (Native.isEqSort(getContext().nCtx(), getNativeObject(), other.getNativeObject()));
     }
 
     /**
@@ -85,6 +81,19 @@ public class Sort extends AST
     @Override
     public String toString() {
         return Native.sortToString(getContext().nCtx(), getNativeObject());
+    }
+
+    /**
+     * Translates (copies) the sort to the Context {@code ctx}.
+     * 
+     * @param ctx A context
+     * 
+     * @return A copy of the sort which is associated with {@code ctx}
+     * @throws Z3Exception on error
+     **/
+    public Sort translate(Context ctx)
+    {
+        return (Sort) super.translate(ctx);
     }
 
     /**

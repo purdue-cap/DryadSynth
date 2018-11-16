@@ -19,7 +19,7 @@ Revision History:
 #ifndef DL_MK_BIT_BLAST_H_
 #define DL_MK_BIT_BLAST_H_
 
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -28,8 +28,8 @@ namespace datalog {
         impl* m_impl;
     public:
         mk_bit_blast(context & ctx, unsigned priority = 35000);
-        ~mk_bit_blast();        
-        rule_set * operator()(rule_set const & source);
+        ~mk_bit_blast() override;
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

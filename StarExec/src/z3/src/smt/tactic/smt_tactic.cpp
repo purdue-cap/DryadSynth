@@ -16,15 +16,19 @@ Author:
 Notes:
 
 --*/
-#include"tactic.h"
-#include"tactical.h"
-#include"smt_kernel.h"
-#include"smt_params.h"
-#include"smt_params_helper.hpp"
-#include"rewriter_types.h"
-#include"filter_model_converter.h"
-#include"ast_util.h"
-#include"solver2tactic.h"
+#include "tactic/tactic.h"
+#include "tactic/tactical.h"
+#include "smt/smt_kernel.h"
+#include "smt/params/smt_params.h"
+#include "smt/params/smt_params_helper.hpp"
+#include "util/lp/lp_params.hpp"
+#include "ast/rewriter/rewriter_types.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/ast_util.h"
+#include "solver/solver2tactic.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
+#include "solver/mus.h"
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
@@ -43,17 +47,17 @@ class smt_tactic : public tactic {
 public:
     smt_tactic(params_ref const & p):
         m_params_ref(p),
-        m_ctx(0),
-        m_callback(0) {
+        m_ctx(nullptr),
+        m_callback(nullptr) {
         updt_params_core(p);
         TRACE("smt_tactic", tout << "p: " << p << "\n";);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(smt_tactic, m_params_ref);
     }
 
-    virtual ~smt_tactic() {
+    ~smt_tactic() override {
         SASSERT(m_ctx == 0);
     }
 
@@ -61,15 +65,20 @@ public:
         return m_params;
     }
 
+    params_ref & params() {
+        return m_params_ref;
+    }
+
     void updt_params_core(params_ref const & p) {
         m_candidate_models     = p.get_bool("candidate_models", false);
         m_fail_if_inconclusive = p.get_bool("fail_if_inconclusive", true);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         TRACE("smt_tactic", tout << "updt_params: " << p << "\n";);
         updt_params_core(p);
         fparams().updt_params(p);
+        m_params_ref.copy(p);
         m_logic = p.get_sym(symbol("logic"), m_logic);
         if (m_logic != symbol::null && m_ctx) {
             m_ctx->set_logic(m_logic);
@@ -77,42 +86,45 @@ public:
         SASSERT(p.get_bool("auto_config", fparams().m_auto_config) == fparams().m_auto_config);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("candidate_models", CPK_BOOL, "(default: false) create candidate models even when quantifier or theory reasoning is incomplete.");
         r.insert("fail_if_inconclusive", CPK_BOOL, "(default: true) fail if found unsat (sat) for under (over) approximated goal.");
         smt_params_helper::collect_param_descrs(r);
+        lp_params::collect_param_descrs(r);
     }
 
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         if (m_ctx)
             m_ctx->collect_statistics(st); // ctx is still running...
         else
             st.copy(m_stats);
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
     }
 
-    virtual void set_logic(symbol const & l) {
+    void set_logic(symbol const & l) override {
         m_logic = l;
     }
 
-    virtual void set_progress_callback(progress_callback * callback) {
+    void set_progress_callback(progress_callback * callback) override {
         m_callback = callback;
     }
 
     struct scoped_init_ctx {
         smt_tactic & m_owner;
         smt_params   m_params; // smt-setup overwrites parameters depending on the current assertions.
+        params_ref   m_params_ref;
 
         scoped_init_ctx(smt_tactic & o, ast_manager & m):m_owner(o) {
             m_params = o.fparams();
-            smt::kernel * new_ctx = alloc(smt::kernel, m, m_params);
+            m_params_ref = o.params();
+            smt::kernel * new_ctx = alloc(smt::kernel, m, m_params, m_params_ref);
             TRACE("smt_tactic", tout << "logic: " << o.m_logic << "\n";);
             new_ctx->set_logic(o.m_logic);
             if (o.m_callback) {
@@ -124,7 +136,7 @@ public:
 
         ~scoped_init_ctx() {
             smt::kernel * d = m_owner.m_ctx;
-            m_owner.m_ctx = 0;
+            m_owner.m_ctx = nullptr;
 
             if (d)
                 dealloc(d);
@@ -132,13 +144,14 @@ public:
     };
 
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
-            mc = 0; pc = 0; core = 0;
+            IF_VERBOSE(10, verbose_stream() << "(smt.tactic start)\n";);
+            mc = nullptr; pc = nullptr; core = nullptr;
             SASSERT(in->is_well_sorted());
             ast_manager & m = in->m();
             TRACE("smt_tactic", tout << this << "\nAUTO_CONFIG: " << fparams().m_auto_config << " HIDIV0: " << fparams().m_hi_div0 << " "
@@ -159,6 +172,8 @@ public:
             ref<filter_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
+                TRACE("mus", in->display_with_dependencies(tout);
+                      tout << clauses << "\n";);
                 if (in->proofs_enabled() && !assumptions.empty())
                     throw tactic_exception("smt tactic does not support simultaneous generation of proofs and unsat cores");
                 for (unsigned i = 0; i < clauses.size(); ++i) {
@@ -204,7 +219,9 @@ public:
                 if (in->models_enabled()) {
                     model_ref md;
                     m_ctx->get_model(md);
-                    mc = model2model_converter(md.get());
+                    buffer<symbol> r;
+                    m_ctx->get_relevant_labels(nullptr, r);
+                    mc = model_and_labels2model_converter(md.get(), r);
                     mc = concat(fmc.get(), mc.get());
                 }
                 return;
@@ -216,8 +233,8 @@ public:
                 }
                 // formula is unsat, reset the goal, and store false there.
                 in->reset();
-                proof * pr              = 0;
-                expr_dependency * lcore = 0;
+                proof * pr              = nullptr;
+                expr_dependency * lcore = nullptr;
                 if (in->proofs_enabled())
                     pr = m_ctx->get_proof();
                 if (in->unsat_core_enabled()) {
@@ -237,7 +254,7 @@ public:
                 if (m_ctx->canceled()) {
                     throw tactic_exception(Z3_CANCELED_MSG);
                 }
-                if (m_fail_if_inconclusive) {
+                if (m_fail_if_inconclusive && !m_candidate_models) {
                     std::stringstream strm;
                     strm << "smt tactic failed to show goal to be sat/unsat " << m_ctx->last_failure_as_string();
                     throw tactic_exception(strm.str().c_str());
@@ -251,7 +268,9 @@ public:
                         if (in->models_enabled()) {
                             model_ref md;
                             m_ctx->get_model(md);
-                            mc = model2model_converter(md.get());
+                            buffer<symbol> r;
+                            m_ctx->get_relevant_labels(nullptr, r);
+                            mc = model_and_labels2model_converter(md.get(), r);
                         }
                         return;
                     default:

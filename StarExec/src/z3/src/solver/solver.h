@@ -19,9 +19,9 @@ Notes:
 #ifndef SOLVER_H_
 #define SOLVER_H_
 
-#include"check_sat_result.h"
-#include"progress_callback.h"
-#include"params.h"
+#include "solver/check_sat_result.h"
+#include "solver/progress_callback.h"
+#include "util/params.h"
 
 class solver;
 
@@ -43,8 +43,9 @@ public:
      - results based on check_sat_result API
 */
 class solver : public check_sat_result {
+    params_ref m_params;
 public:
-    virtual ~solver() {}
+    ~solver() override {}
 
     /**
     \brief Creates a clone of the solver.
@@ -54,7 +55,12 @@ public:
     /**
        \brief Update the solver internal settings. 
     */
-    virtual void updt_params(params_ref const & p) {}
+    virtual void updt_params(params_ref const & p) { m_params.copy(p); }
+
+    /**
+       \brief Retrieve set of parameters set on solver.
+     */
+    virtual params_ref const& get_params() { return m_params; }
 
     /**
        \brief Store in \c r a description of the configuration
@@ -151,9 +157,9 @@ public:
 
     /**
     \brief under assumptions, asms, retrieve set of consequences that 
-    fix values for expressions that can be built from vars. 
-    The consequences are clauses whose first literal constrain one of the 
-    functions from vars and the other literals are negations of literals from asms.
+      fix values for expressions that can be built from vars. 
+      The consequences are clauses whose first literal constrain one of the 
+      functions from vars and the other literals are negations of literals from asms.
     */
     
     virtual lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
@@ -167,9 +173,15 @@ public:
     virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes);
 
     /**
+       \brief Preferential SAT. Prefer assumptions to be true, produce cores that witness cases when not all assumptions can be met.
+       by default, preferred sat ignores the assumptions.
+     */
+    virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
+
+    /**
        \brief Display the content of this solver.
     */
-    virtual std::ostream& display(std::ostream & out) const;
+    virtual std::ostream& display(std::ostream & out, unsigned n = 0, expr* const* assumptions = nullptr) const;
 
     class scoped_push {
         solver& s;

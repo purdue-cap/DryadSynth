@@ -16,14 +16,15 @@ Author:
 Revision History:
 
 --*/
-#include"check_logic.h"
-#include"arith_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"ast_pp.h"
-#include"for_each_expr.h"
+#include "cmd_context/check_logic.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 #include<sstream>
 
 struct check_logic::imp {
@@ -34,7 +35,9 @@ struct check_logic::imp {
     array_util    m_ar_util;
     seq_util      m_seq_util;
     datatype_util m_dt_util;
+    pb_util       m_pb_util;
     bool          m_uf;        // true if the logic supports uninterpreted functions
+    bool          m_dt;        // true if the lgoic supports dattypes
     bool          m_arrays;    // true if the logic supports arbitrary arrays
     bool          m_bv_arrays; // true if the logic supports only bv arrays
     bool          m_reals;     // true if the logic supports reals
@@ -45,12 +48,13 @@ struct check_logic::imp {
     bool          m_quantifiers; // true if the logic supports quantifiers
     bool          m_unknown_logic;
 
-    imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m), m_dt_util(m) {
+    imp(ast_manager & _m):m(_m), m_a_util(m), m_bv_util(m), m_ar_util(m), m_seq_util(m), m_dt_util(m), m_pb_util(m) {
         reset();
     }
 
     void reset() {
         m_uf          = false;
+        m_dt          = false;
         m_arrays      = false;
         m_bv_arrays   = false;
         m_reals       = false;
@@ -102,6 +106,10 @@ struct check_logic::imp {
         else if (logic == "QF_UFBV") {
             m_uf        = true;
             m_bvs       = true;
+        }
+        else if (logic == "QF_DT") {
+            m_uf        = true;            
+            m_dt        = true;
         }
         else if (logic == "QF_AUFLIA") {
             m_uf     = true;
@@ -185,6 +193,8 @@ struct check_logic::imp {
             m_bvs         = true;
             m_uf          = true;
             m_ints        = true;
+            m_dt          = true;
+            m_nonlinear   = true; // non-linear 0-1 variables may get eliminated
         }
         else {
             m_unknown_logic = true;
@@ -318,17 +328,17 @@ struct check_logic::imp {
 
     bool is_offset(app * t) {
         while (true) {
-            expr * non_numeral = 0;
+            expr * non_numeral = nullptr;
             unsigned num_args = t->get_num_args();
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg = t->get_arg(i);
                 if (is_numeral(arg))
                     continue;
-                if (non_numeral != 0)
+                if (non_numeral != nullptr)
                     return false;
                 non_numeral = arg;
             }
-            if (non_numeral == 0)
+            if (non_numeral == nullptr)
                 return true;
             if (is_diff_var(non_numeral))
                 return true;
@@ -440,7 +450,10 @@ struct check_logic::imp {
         else if (fid == m_seq_util.get_family_id()) {
             // nothing to check
         }
-        else if (fid == m_dt_util.get_family_id() && m_logic == "QF_FD") {
+        else if (fid == m_dt_util.get_family_id() && m_dt) {
+            // nothing to check
+        }
+        else if (fid == m_pb_util.get_family_id() && m_logic == "QF_FD") {
             // nothing to check
         }
         else {
@@ -488,7 +501,7 @@ struct check_logic::imp {
 };
 
 check_logic::check_logic() {
-    m_imp = 0;
+    m_imp = nullptr;
 }
 
 check_logic::~check_logic() {
@@ -499,7 +512,7 @@ check_logic::~check_logic() {
 void check_logic::reset() {
     if (m_imp)
         dealloc(m_imp);
-    m_imp = 0;
+    m_imp = nullptr;
 }
 
 void check_logic::set_logic(ast_manager & m, symbol const & logic) {

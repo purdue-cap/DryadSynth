@@ -19,9 +19,9 @@ Notes:
 #ifndef BOOL_REWRITER_H_
 #define BOOL_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter.h"
-#include"params.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "util/params.h"
 
 /**
    \brief Apply basic Boolean rewriting operations.
@@ -74,6 +74,8 @@ class bool_rewriter {
     bool simp_nested_eq_ite(expr * t, expr_fast_mark1 & neg_lits, expr_fast_mark2 & pos_lits, expr_ref & result);
     bool local_ctx_simp(unsigned num_args, expr * const * args, expr_ref & result);
     br_status try_ite_value(app * ite, app * val, expr_ref & result);
+
+    void push_new_arg(expr* arg, expr_ref_vector& new_args, expr_fast_mark1& neg_lits, expr_fast_mark2& pos_lits);
 
 public:
     bool_rewriter(ast_manager & m, params_ref const & p = params_ref()):m_manager(m), m_local_ctx_cost(0) { updt_params(p); }
@@ -181,7 +183,7 @@ struct bool_rewriter_cfg : public default_rewriter_cfg {
     bool flat_assoc(func_decl * f) const { return m_r.flat() && (m_r.m().is_and(f) || m_r.m().is_or(f)); }
     bool rewrite_patterns() const { return false; }
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         if (f->get_family_id() != m_r.get_fid())
             return BR_FAILED;
         return m_r.mk_app_core(f, num, args, result);

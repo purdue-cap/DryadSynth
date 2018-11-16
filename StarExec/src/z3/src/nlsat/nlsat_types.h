@@ -19,10 +19,10 @@ Revision History:
 #ifndef NLSAT_TYPES_H_
 #define NLSAT_TYPES_H_
 
-#include"polynomial.h"
-#include"buffer.h"
-#include"sat_types.h"
-#include"z3_exception.h"
+#include "math/polynomial/polynomial.h"
+#include "util/buffer.h"
+#include "sat/sat_types.h"
+#include "util/z3_exception.h"
 
 namespace algebraic_numbers {
     class anum;
@@ -47,6 +47,8 @@ namespace nlsat {
     typedef polynomial::var_vector     var_vector;
     typedef polynomial::manager        pmanager;
     typedef polynomial::polynomial     poly;
+    typedef polynomial::monomial       monomial;
+    typedef polynomial::numeral        numeral;
     const var null_var = polynomial::null_var;
     
     const var true_bool_var = 0;
@@ -148,10 +150,7 @@ namespace nlsat {
     typedef algebraic_numbers::anum    anum;
     typedef algebraic_numbers::manager anum_manager;
 
-    class solver_exception : public default_exception {
-    public:
-        solver_exception(char const * msg):default_exception(msg) {}
-    };
+    typedef default_exception solver_exception;
 
     class assignment;
     

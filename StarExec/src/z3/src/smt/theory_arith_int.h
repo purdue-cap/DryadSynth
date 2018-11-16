@@ -19,12 +19,11 @@ Revision History:
 #ifndef THEORY_ARITH_INT_H_
 #define THEORY_ARITH_INT_H_
 
-#include"ast_ll_pp.h"
-#include"arith_simplifier_plugin.h"
-#include"well_sorted.h"
-#include"euclidean_solver.h"
-#include"numeral_buffer.h"
-#include"ast_smt2_pp.h"
+#include "util/numeral_buffer.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/ast_smt2_pp.h"
+#include "math/euclid/euclidean_solver.h"
 
 namespace smt {
 
@@ -51,15 +50,15 @@ namespace smt {
                 bound * l               = lower(v);
                 bound * u               = upper(v);
                 const inf_numeral & val = get_value(v);
-                if (l != 0 && u != 0) {
+                if (l != nullptr && u != nullptr) {
                     if (val != l->get_value() && val != u->get_value())
                         set_value(v, l->get_value());
                 }
-                else if (l != 0) {
+                else if (l != nullptr) {
                     if (val != l->get_value())
                         set_value(v, l->get_value());
                 }
-                else if (u != 0) {
+                else if (u != nullptr) {
                     if (val != u->get_value())
                         set_value(v, u->get_value());
                 }
@@ -206,7 +205,8 @@ namespace smt {
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
         expr_ref bound(get_manager());
-        bound  = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(_k, true));
+        expr* e = get_enode(v)->get_owner();
+        bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
         TRACE("arith_int", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
         context & ctx = get_context();
         ctx.internalize(bound, true);
@@ -238,25 +238,25 @@ namespace smt {
         for (; it != end; ++it) {
             theory_var b = it->get_base_var();
             if (b == null_theory_var) {
-                TRACE("theory_arith_int", display_row(tout << "null: ", *it, true); );
+                TRACE("arith_int", display_row(tout << "null: ", *it, true); );
                 continue;
             }
             bool is_tight = false;
             numeral const_coeff(0);
 
             bound* l = lower(b), *u = upper(b);
-            if (l != 0 && get_value(b) - inf_numeral(1) < l->get_value()) {
+            if (l != nullptr && get_value(b) - inf_numeral(1) < l->get_value()) {
                 SASSERT(l->get_value() <= get_value(b));
                 is_tight = true;
                 const_coeff = l->get_value().get_rational();
             }
-            else if (u != 0 && get_value(b) + inf_numeral(1) > u->get_value()) {
+            else if (u != nullptr && get_value(b) + inf_numeral(1) > u->get_value()) {
                 SASSERT(get_value(b) <= u->get_value());
                 is_tight = true;
                 const_coeff = u->get_value().get_rational();
             }
             if (!is_tight) {
-                TRACE("theory_arith_int", 
+                TRACE("arith_int", 
                       display_row(tout << "!tight: ", *it, true); 
                       display_var(tout, b);
                       );
@@ -371,7 +371,7 @@ namespace smt {
         
         ctx.mk_th_axiom(get_id(), l1, l2);
        
-        TRACE("theory_arith_int", 
+        TRACE("arith_int", 
               tout << "cut: (or " << mk_pp(p1, get_manager()) << " " << mk_pp(p2, get_manager()) << ")\n";
               );
 
@@ -454,9 +454,8 @@ namespace smt {
         pol = m_util.mk_add(_args.size(), _args.c_ptr());
         result = m_util.mk_ge(pol, m_util.mk_numeral(k, all_int));
         TRACE("arith_mk_polynomial", tout << "before simplification:\n" << result << "\n";);
-        simplifier & s = get_context().get_simplifier();
         proof_ref pr(m);
-        s(result, result, pr);
+        get_context().get_rewriter()(result, result, pr);
         TRACE("arith_mk_polynomial", tout << "after simplification:\n" << result << "\n";);
         SASSERT(is_well_sorted(get_manager(), result));
     }
@@ -473,7 +472,7 @@ namespace smt {
                                              bounds.num_params(), bounds.params("gomory-cut")) {
         }
         // Remark: the assignment must be propagated back to arith
-        virtual theory_id get_from_theory() const { return null_theory_id; } 
+        theory_id get_from_theory() const override { return null_theory_id; }
     };
 
     /**
@@ -1075,7 +1074,7 @@ namespace smt {
             derived_bound * new_bound = alloc(derived_bound, v, inf_numeral(k), lower ? B_LOWER : B_UPPER);
             t.m_tmp_lit_set.reset();
             t.m_tmp_eq_set.reset();
-            if (old_bound != 0) {
+            if (old_bound != nullptr) {
                 t.accumulate_justification(*old_bound, *new_bound, numeral(0) /* refine for proof gen */, t.m_tmp_lit_set, t.m_tmp_eq_set); 
             }
             unsigned_vector::const_iterator it  = js.begin();
@@ -1175,8 +1174,8 @@ namespace smt {
                 c2 = rational(c);
                 TRACE("euclidean_solver_new", tout << "new fixed: " << c2 << "\n";);
                 propagated = true;
-                mk_lower(v, c2, 0, m_js);
-                mk_upper(v, c2, 0, m_js);
+                mk_lower(v, c2, nullptr, m_js);
+                mk_upper(v, c2, nullptr, m_js);
             }
             else {
                 TRACE("euclidean_solver", tout << "inequality can be tightned, since all coefficients are multiple of: " << g << "\n";);
@@ -1188,7 +1187,7 @@ namespace smt {
                 bound * l = t.lower(v);
                 bound * u = t.upper(v);
                 c2 = rational(c);
-                if (l != 0) {
+                if (l != nullptr) {
                     rational l_old = l->get_value().get_rational().to_rational();
                     rational l_new = g*ceil((l_old - c2)/g) + c2;
                     TRACE("euclidean_solver_new", tout << "new lower: " << l_new << " old: " << l_old << "\n";
@@ -1198,7 +1197,7 @@ namespace smt {
                         mk_lower(v, l_new, l, m_js);
                     }
                 }
-                if (u != 0) {
+                if (u != nullptr) {
                     rational u_old  = u->get_value().get_rational().to_rational();
                     rational u_new  = g*floor((u_old - c2)/g) + c2;
                     TRACE("euclidean_solver_new", tout << "new upper: " << u_new << " old: " << u_old << "\n";);
@@ -1224,7 +1223,7 @@ namespace smt {
                     continue; // skip equations...
                 if (!t.is_int(v))
                     continue; // skip non integer definitions...
-                if (t.lower(v) == 0 && t.upper(v) == 0)
+                if (t.lower(v) == nullptr && t.upper(v) == nullptr)
                     continue; // there is nothing to be tightned
                 if (tight_bounds(v))
                     propagated = true;
@@ -1407,6 +1406,7 @@ namespace smt {
             if (m_params.m_arith_int_eq_branching && branch_infeasible_int_equality()) {
                 return FC_CONTINUE;
             }
+
             theory_var int_var = find_infeasible_int_base_var();
             if (int_var != null_theory_var) {
                 TRACE("arith_int", tout << "v" << int_var << " does not have an integer assignment: " << get_value(int_var) << "\n";);

@@ -19,9 +19,9 @@ Notes:
 #ifndef PRIME_GENERATOR_H_
 #define PRIME_GENERATOR_H_
 
-#include"vector.h"
-#include"z3_exception.h"
-#include"util.h"
+#include "util/vector.h"
+#include "util/z3_exception.h"
+#include "util/util.h"
 
 class prime_generator_exception : public default_exception {
 public:
@@ -45,7 +45,7 @@ class prime_iterator {
     prime_generator * m_generator;
     bool              m_global;
 public:
-    prime_iterator(prime_generator * g = 0);
+    prime_iterator(prime_generator * g = nullptr);
     uint64 next();
     static void finalize();
     /*

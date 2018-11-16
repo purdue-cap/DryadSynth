@@ -16,15 +16,15 @@ Author:
 Revision History:
 
 --*/
-#include "symbol.h"
-#include "smt_logics.h"
+#include "util/symbol.h"
+#include "solver/smt_logics.h"
 
 
 
 bool smt_logics::supported_logic(symbol const & s) {
     return logic_has_uf(s) || logic_is_all(s) || logic_has_fd(s) || 
         logic_has_arith(s) || logic_has_bv(s) ||
-        logic_has_array(s) || logic_has_seq(s) ||
+        logic_has_array(s) || logic_has_seq(s) || logic_has_str(s) ||
         logic_has_horn(s) || logic_has_fpa(s);
 }
 
@@ -132,18 +132,26 @@ bool smt_logics::logic_has_seq(symbol const & s) {
     return s == "QF_BVRE" || s == "QF_S" || s == "ALL";
 }
 
+bool smt_logics::logic_has_str(symbol const & s) {
+    return s == "QF_S" || s == "ALL";
+}
+
 bool smt_logics::logic_has_fpa(symbol const & s) {
     return s == "QF_FP" || s == "QF_FPBV" || s == "QF_BVFP" || s == "ALL";
 }
 
 bool smt_logics::logic_has_uf(symbol const & s) {
-    return s == "QF_UF" || s == "UF";
+    return s == "QF_UF" || s == "UF" || s == "QF_DT";
 }
 
 bool smt_logics::logic_has_horn(symbol const& s) {
     return s == "HORN";
 }
 
+bool smt_logics::logic_has_pb(symbol const& s) {
+    return s == "QF_FD" || s == "ALL";
+}
+
 bool smt_logics::logic_has_datatype(symbol const& s) {
-    return s == "QF_FD";
+    return s == "QF_FD" || s == "ALL" || s == "QF_DT";
 }

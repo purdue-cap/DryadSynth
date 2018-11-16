@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include "pb_decl_plugin.h"
-#include "ast_util.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/ast_util.h"
 
 pb_decl_plugin::pb_decl_plugin():
     m_at_most_sym("at-most"),
@@ -86,12 +86,12 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     }
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
 void pb_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-    if (logic == symbol::null) {
+    if (logic == symbol::null || logic == "QF_FD" || logic == "ALL") {
         op_names.push_back(builtin_name(m_at_most_sym.bare_str(), OP_AT_MOST_K));
         op_names.push_back(builtin_name(m_at_least_sym.bare_str(), OP_AT_LEAST_K));
         op_names.push_back(builtin_name(m_pble_sym.bare_str(), OP_PB_LE));
@@ -299,6 +299,6 @@ bool pb_util::has_unit_coefficients(func_decl* f) const {
 
 app* pb_util::mk_fresh_bool() {
     symbol name = m.mk_fresh_var_name("pb");
-    func_decl_info info(m_fid, OP_PB_AUX_BOOL, 0, 0);
-    return m.mk_const(m.mk_func_decl(name, 0, (sort *const*)0, m.mk_bool_sort(), info));
+    func_decl_info info(m_fid, OP_PB_AUX_BOOL, 0, nullptr);
+    return m.mk_const(m.mk_func_decl(name, 0, (sort *const*)nullptr, m.mk_bool_sort(), info));
 }

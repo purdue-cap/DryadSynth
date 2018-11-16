@@ -4,14 +4,14 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "expr_substitution.h"
-#include "smt_params.h"
-#include "substitution.h"
-#include "unifier.h"
-#include "bv_decl_plugin.h"
-#include "ast_pp.h"
-#include "arith_decl_plugin.h"
-#include "reg_decl_plugins.h"
+#include "ast/expr_substitution.h"
+#include "smt/params/smt_params.h"
+#include "ast/substitution/substitution.h"
+#include "ast/substitution/unifier.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
 
 void tst_substitution()
 {
@@ -35,6 +35,8 @@ void tst_substitution()
 
     bool ok1 = unif(v1.get(), v2.get(), subst, false);
     bool ok2 = unif(v2.get(), v1.get(), subst, false);
+    (void)ok1;
+    (void)ok2;
 
     expr_ref res(m);
 

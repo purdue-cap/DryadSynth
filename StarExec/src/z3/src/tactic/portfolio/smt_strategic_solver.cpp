@@ -17,30 +17,31 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
-#include"combined_solver.h"
-#include"tactic2solver.h"
-#include"qfbv_tactic.h"
-#include"qflia_tactic.h"
-#include"qfnia_tactic.h"
-#include"qfnra_tactic.h"
-#include"qfuf_tactic.h"
-#include"qflra_tactic.h"
-#include"quant_tactics.h"
-#include"qfauflia_tactic.h"
-#include"qfaufbv_tactic.h"
-#include"qfufbv_tactic.h"
-#include"qfidl_tactic.h"
-#include"default_tactic.h"
-#include"ufbv_tactic.h"
-#include"qffp_tactic.h"
-#include"qfufnra_tactic.h"
-#include"horn_tactic.h"
-#include"smt_solver.h"
-#include"inc_sat_solver.h"
-#include"fd_solver.h"
-#include"bv_rewriter.h"
-#include"solver2tactic.h"
+#include "cmd_context/cmd_context.h"
+#include "solver/combined_solver.h"
+#include "solver/tactic2solver.h"
+#include "tactic/smtlogics/qfbv_tactic.h"
+#include "tactic/smtlogics/qflia_tactic.h"
+#include "tactic/smtlogics/qfnia_tactic.h"
+#include "tactic/smtlogics/qfnra_tactic.h"
+#include "tactic/smtlogics/qfuf_tactic.h"
+#include "tactic/smtlogics/qflra_tactic.h"
+#include "tactic/smtlogics/quant_tactics.h"
+#include "tactic/smtlogics/qfauflia_tactic.h"
+#include "tactic/smtlogics/qfaufbv_tactic.h"
+#include "tactic/smtlogics/qfufbv_tactic.h"
+#include "tactic/smtlogics/qfidl_tactic.h"
+#include "tactic/smtlogics/nra_tactic.h"
+#include "tactic/portfolio/default_tactic.h"
+#include "tactic/portfolio/fd_solver.h"
+#include "tactic/ufbv/ufbv_tactic.h"
+#include "tactic/fpa/qffp_tactic.h"
+#include "tactic/smtlogics/qfufnra_tactic.h"
+#include "muz/fp/horn_tactic.h"
+#include "smt/smt_solver.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "ast/rewriter/bv_rewriter.h"
+#include "solver/solver2tactic.h"
 
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
@@ -78,6 +79,8 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_uflra_tactic(m, p);
     else if (logic=="LRA")
         return mk_lra_tactic(m, p);
+    else if (logic=="NRA")
+        return mk_nra_tactic(m, p);
     else if (logic=="LIA")
         return mk_lia_tactic(m, p);
     else if (logic=="UFBV")
@@ -90,7 +93,7 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_qffpbv_tactic(m, p);
     else if (logic=="HORN")
         return mk_horn_tactic(m, p);
-    else if (logic == "QF_FD")
+    else if ((logic == "QF_FD" || logic == "SAT") && !m.proofs_enabled())
         return mk_solver2tactic(mk_fd_solver(m, p));
     //else if (logic=="QF_UFNRA")
     //    return mk_qfufnra_tactic(m, p);
@@ -98,13 +101,20 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
         return mk_default_tactic(m, p);
 }
 
+static solver* mk_special_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
+    if ((logic == "QF_FD" || logic == "SAT") && !m.proofs_enabled())
+        return mk_fd_solver(m, p);
+    return nullptr;
+}
+
 static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
     bv_rewriter rw(m);
-    if (logic == "QF_BV" && rw.hi_div0()) 
-        return mk_inc_sat_solver(m, p);
-    if (logic == "QF_FD") 
-        return mk_fd_solver(m, p);
-    return mk_smt_solver(m, p, logic);
+    solver* s = mk_special_solver_for_logic(m, p, logic);
+    if (!s && logic == "QF_BV" && rw.hi_div0()) 
+        s = mk_inc_sat_solver(m, p);
+    if (!s) 
+        s = mk_smt_solver(m, p, logic);
+    return s;
 }
 
 class smt_strategic_solver_factory : public solver_factory {
@@ -112,13 +122,15 @@ class smt_strategic_solver_factory : public solver_factory {
 public:
     smt_strategic_solver_factory(symbol const & logic):m_logic(logic) {}
     
-    virtual ~smt_strategic_solver_factory() {}
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    ~smt_strategic_solver_factory() override {}
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         symbol l;
         if (m_logic != symbol::null)
             l = m_logic;
         else
             l = logic;
+        solver* s = mk_special_solver_for_logic(m, p, l);
+        if (s) return s;
         tactic * t = mk_tactic_for_logic(m, p, l);
         return mk_combined_solver(mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, l),
                                   mk_solver_for_logic(m, p, l), 

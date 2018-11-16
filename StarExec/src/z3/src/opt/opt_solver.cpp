@@ -19,19 +19,20 @@ Notes:
    
 --*/
 #include <typeinfo>
-#include "reg_decl_plugins.h"
-#include "opt_solver.h"
-#include "smt_context.h"
-#include "theory_arith.h"
-#include "theory_diff_logic.h"
-#include "theory_dense_diff_logic.h"
-#include "theory_pb.h"
-#include "ast_pp.h"
-#include "ast_smt_pp.h"
-#include "pp_params.hpp"
-#include "opt_params.hpp"
-#include "model_smt2_pp.h"
-#include "stopwatch.h"
+#include "ast/reg_decl_plugins.h"
+#include "opt/opt_solver.h"
+#include "smt/smt_context.h"
+#include "smt/theory_arith.h"
+#include "smt/theory_diff_logic.h"
+#include "smt/theory_dense_diff_logic.h"
+#include "smt/theory_pb.h"
+#include "smt/theory_lra.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/pp_params.hpp"
+#include "opt/opt_params.hpp"
+#include "model/model_smt2_pp.h"
+#include "util/stopwatch.h"
 
 namespace opt {
 
@@ -46,10 +47,12 @@ namespace opt {
         m_dump_benchmarks(false),
         m_first(true),
         m_was_unknown(false) {
+        solver::updt_params(p);
         m_params.updt_params(p);
-        if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {
+        if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {            
             m_params.m_relevancy_lvl = 0;
         }
+        // m_params.m_auto_config = false;
     }
 
     unsigned opt_solver::m_dump_count = 0;
@@ -57,7 +60,7 @@ namespace opt {
     opt_solver::~opt_solver() {
     }
 
-    void opt_solver::updt_params(params_ref & _p) {
+    void opt_solver::updt_params(params_ref const & _p) {
         opt_params p(_p);
         m_dump_benchmarks = p.dump_benchmarks();
         m_params.updt_params(_p);
@@ -66,7 +69,7 @@ namespace opt {
 
     solver* opt_solver::translate(ast_manager& m, params_ref const& p) {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
     void opt_solver::collect_param_descrs(param_descrs & r) {
@@ -142,6 +145,9 @@ namespace opt {
         else if (typeid(smt::theory_dense_si&) == typeid(*arith_theory)) {   
             return dynamic_cast<smt::theory_dense_si&>(*arith_theory); 
         }
+        else if (typeid(smt::theory_lra&) == typeid(*arith_theory)) {
+            return dynamic_cast<smt::theory_lra&>(*arith_theory); 
+        }
         else {
             UNREACHABLE();
             return dynamic_cast<smt::theory_mi_arith&>(*arith_theory); 
@@ -156,7 +162,7 @@ namespace opt {
         TRACE("opt_verbose", {
             tout << "context size: " << m_context.size() << "\n";            
             for (unsigned i = 0; i < m_context.size(); ++i) {
-                tout << mk_pp(m_context.get_formulas()[i], m_context.m()) << "\n";
+                tout << mk_pp(m_context.get_formula(i), m_context.m()) << "\n";
             }
         });
         stopwatch w;
@@ -198,6 +204,10 @@ namespace opt {
         return m_context.find_mutexes(vars, mutexes);
     }
 
+    lbool opt_solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+        return m_context.preferred_sat(asms, cores);
+    }
+
 
 
     /**
@@ -217,9 +227,13 @@ namespace opt {
         smt::theory_var v = m_objective_vars[i];
         bool has_shared = false;
         inf_eps val = get_optimizer().maximize(v, blocker, has_shared);
+        get_model(m_model);
         inf_eps val2;
         m_valid_objectives[i] = true;
         TRACE("opt", tout << (has_shared?"has shared":"non-shared") << "\n";);
+        if (!m_models[i]) {
+            set_model(i);
+        }
         if (m_context.get_context().update_model(has_shared)) {
             if (has_shared && val != current_objective_value(i)) {
                 decrement_value(i, val);
@@ -237,7 +251,7 @@ namespace opt {
                 tout << "objective:     " << mk_pp(m_objective_terms[i].get(), m) << "\n";
                 tout << "maximal value: " << val << "\n"; 
                 tout << "new condition: " << blocker << "\n";
-                model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); });
+                if (m_models[i]) model_smt2_pp(tout << "update model:\n", m, *m_models[i], 0); });
     }
 
     void opt_solver::set_model(unsigned i) {
@@ -251,7 +265,7 @@ namespace opt {
         expr_ref ge = mk_ge(i, val);
         TRACE("opt", tout << ge << "\n";);
         assert_expr(ge);
-        lbool is_sat = m_context.check(0, 0);
+        lbool is_sat = m_context.check(0, nullptr);
         is_sat = adjust_result(is_sat);
         if (is_sat == l_true) {
             set_model(i);
@@ -289,6 +303,7 @@ namespace opt {
 
     void opt_solver::get_model(model_ref & m) {
         m_context.get_model(m);
+        if (!m) m = m_model; else m_model = m;
     }
     
     proof * opt_solver::get_proof() {
@@ -306,7 +321,7 @@ namespace opt {
     void opt_solver::get_labels(svector<symbol> & r) {
         r.reset();
         buffer<symbol> tmp;
-        m_context.get_relevant_labels(0, tmp);
+        m_context.get_relevant_labels(nullptr, tmp);
         r.append(tmp.size(), tmp.c_ptr());
     }
         
@@ -321,21 +336,16 @@ namespace opt {
     
     expr * opt_solver::get_assertion(unsigned idx) const {
         SASSERT(idx < get_num_assertions());
-        return m_context.get_formulas()[idx];
+        return m_context.get_formula(idx);
     }
-    
-    std::ostream& opt_solver::display(std::ostream & out) const {
-        m_context.display(out);
-        return out;
-    }
-    
+        
     smt::theory_var opt_solver::add_objective(app* term) {
         smt::theory_var v = get_optimizer().add_objective(term);
         m_objective_vars.push_back(v);
         m_objective_values.push_back(inf_eps(rational(-1), inf_rational()));
         m_objective_terms.push_back(term);
         m_valid_objectives.push_back(true);
-        m_models.push_back(0);
+        m_models.push_back(nullptr);
         return v;
     }
     
@@ -358,6 +368,7 @@ namespace opt {
         }
         smt::theory_opt& opt = get_optimizer();
         smt::theory_var v = m_objective_vars[var];
+        TRACE("opt", tout << "v" << var << " " << val << "\n";);
 
         if (typeid(smt::theory_inf_arith) == typeid(opt)) {
             smt::theory_inf_arith& th = dynamic_cast<smt::theory_inf_arith&>(opt); 
@@ -379,16 +390,48 @@ namespace opt {
 
         if (typeid(smt::theory_idl) == typeid(opt)) {
             smt::theory_idl& th = dynamic_cast<smt::theory_idl&>(opt);
-            return th.mk_ge(m_fm, v, val.get_rational());
+            return th.mk_ge(m_fm, v, val);
         }
 
         if (typeid(smt::theory_rdl) == typeid(opt) &&
             val.get_infinitesimal().is_zero()) {
             smt::theory_rdl& th = dynamic_cast<smt::theory_rdl&>(opt);
-            return th.mk_ge(m_fm, v, val.get_rational());
+            return th.mk_ge(m_fm, v, val);
+        }
+        
+        if (typeid(smt::theory_dense_i) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_dense_i& th = dynamic_cast<smt::theory_dense_i&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+
+        if (typeid(smt::theory_dense_mi) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_dense_mi& th = dynamic_cast<smt::theory_dense_mi&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+
+
+        if (typeid(smt::theory_lra) == typeid(opt)) {
+            smt::theory_lra& th = dynamic_cast<smt::theory_lra&>(opt); 
+            SASSERT(val.is_finite());
+            return th.mk_ge(m_fm, v, val.get_numeral());            
         }
 
         // difference logic?
+        if (typeid(smt::theory_dense_si) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_dense_si& th = dynamic_cast<smt::theory_dense_si&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+
+        if (typeid(smt::theory_dense_smi) == typeid(opt) &&
+            val.get_infinitesimal().is_zero()) {
+            smt::theory_dense_smi& th = dynamic_cast<smt::theory_dense_smi&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+        
+        IF_VERBOSE(0, verbose_stream() << "WARNING: unhandled theory " << typeid(opt).name() << "\n";);
         return expr_ref(m.mk_true(), m);
     } 
 

@@ -19,8 +19,8 @@ Notes:
 #ifndef PB2BV_MODEL_CONVERTER_H_
 #define PB2BV_MODEL_CONVERTER_H_
 
-#include"model_converter.h"
-#include"bound_manager.h"
+#include "tactic/model_converter.h"
+#include "tactic/arith/bound_manager.h"
 
 class pb2bv_model_converter : public model_converter {
     typedef std::pair<func_decl *, func_decl *> func_decl_pair;
@@ -30,11 +30,11 @@ class pb2bv_model_converter : public model_converter {
 public:
     pb2bv_model_converter(ast_manager & _m);
     pb2bv_model_converter(ast_manager & _m, obj_map<func_decl, expr*> const & c2bit, bound_manager const & bm);
-    virtual ~pb2bv_model_converter();
-    virtual void operator()(model_ref & md);
-    virtual void operator()(model_ref & md, unsigned goal_idx);
-    virtual void display(std::ostream & out);
-    virtual model_converter * translate(ast_translation & translator);
+    ~pb2bv_model_converter() override;
+    void operator()(model_ref & md) override;
+    void operator()(model_ref & md, unsigned goal_idx) override;
+    void display(std::ostream & out) override;
+    model_converter * translate(ast_translation & translator) override;
 };
 
 #endif

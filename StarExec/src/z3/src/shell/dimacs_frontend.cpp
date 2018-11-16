@@ -19,14 +19,14 @@ Revision History:
 #include<iostream>
 #include<time.h>
 #include<signal.h>
-#include"timeout.h"
-#include"rlimit.h"
-#include"dimacs.h"
-#include"sat_solver.h"
-#include"gparams.h"
+#include "util/timeout.h"
+#include "util/rlimit.h"
+#include "sat/dimacs.h"
+#include "sat/sat_solver.h"
+#include "util/gparams.h"
 
 extern bool          g_display_statistics;
-static sat::solver * g_solver = 0;
+static sat::solver * g_solver = nullptr;
 static clock_t       g_start_time;
 
 static void display_statistics() {
@@ -134,7 +134,7 @@ unsigned read_dimacs(char const * file_name) {
     params_ref p = gparams::get_module("sat");
     p.set_bool("produce_models", true);
     reslimit limit;
-    sat::solver solver(p, limit, 0);
+    sat::solver solver(p, limit, nullptr);
     g_solver = &solver;
 
     if (file_name) {
@@ -152,7 +152,7 @@ unsigned read_dimacs(char const * file_name) {
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;
-    sat::solver solver2(p, limit, 0);
+    sat::solver solver2(p, limit, nullptr);
     if (p.get_bool("dimacs.core", false)) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;

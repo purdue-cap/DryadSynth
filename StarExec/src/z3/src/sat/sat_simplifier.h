@@ -9,7 +9,7 @@ Abstract:
 
     SAT simplification procedures that use a "full" occurrence list:
     Subsumption, Blocked Clause Removal, Variable Elimination, ...
-    
+
 
 Author:
 
@@ -21,15 +21,15 @@ Revision History:
 #ifndef SAT_SIMPLIFIER_H_
 #define SAT_SIMPLIFIER_H_
 
-#include"sat_types.h"
-#include"sat_clause.h"
-#include"sat_clause_set.h"
-#include"sat_clause_use_list.h"
-#include"sat_watched.h"
-#include"sat_model_converter.h"
-#include"heap.h"
-#include"statistics.h"
-#include"params.h"
+#include "sat/sat_types.h"
+#include "sat/sat_clause.h"
+#include "sat/sat_clause_set.h"
+#include "sat/sat_clause_use_list.h"
+#include "sat/sat_watched.h"
+#include "sat/sat_model_converter.h"
+#include "util/heap.h"
+#include "util/statistics.h"
+#include "util/params.h"
 
 namespace sat {
     class solver;
@@ -83,7 +83,7 @@ namespace sat {
         bool                   m_subsumption;
         unsigned               m_subsumption_limit;
         bool                   m_elim_vars;
-        
+
         // stats
         unsigned               m_num_blocked_clauses;
         unsigned               m_num_subsumed;
@@ -91,11 +91,16 @@ namespace sat {
         unsigned               m_num_sub_res;
         unsigned               m_num_elim_lits;
 
+        bool                   m_learned_in_use_lists;
+        unsigned               m_old_num_elim_vars;
+
         struct size_lt {
             bool operator()(clause const * c1, clause const * c2) const { return c1->size() > c2->size(); }
         };
 
         void checkpoint();
+
+        void initialize();
 
         void init_visited();
         void mark_visited(literal l) { m_visited[l.index()] = true; }
@@ -135,7 +140,7 @@ namespace sat {
         void mark_as_not_learned_core(watch_list & wlist, literal l2);
         void mark_as_not_learned(literal l1, literal l2);
         void subsume();
-        
+
         void cleanup_watches();
         void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists);
 
@@ -145,7 +150,7 @@ namespace sat {
         lbool value(literal l) const;
         watch_list & get_wlist(literal l);
         watch_list const & get_wlist(literal l) const;
-        
+
         struct blocked_clause_elim;
         void elim_blocked_clauses();
 
@@ -168,19 +173,32 @@ namespace sat {
         struct subsumption_report;
         struct elim_var_report;
 
+        class scoped_finalize {
+            simplifier& s;
+        public:
+            scoped_finalize(simplifier& s) : s(s) {}
+            ~scoped_finalize() { s.scoped_finalize_fn(); }
+        };
+        void scoped_finalize_fn();
+
     public:
         simplifier(solver & s, params_ref const & p);
         ~simplifier();
 
-        void insert_todo(bool_var v) { m_elim_todo.insert(v); }
-        void reset_todo() { m_elim_todo.reset(); }
+        void insert_elim_todo(bool_var v) { m_elim_todo.insert(v); }
+
+        void reset_todos() {
+            m_elim_todo.reset();
+            m_sub_todo.reset();
+            m_sub_bin_todo.reset();
+        }
 
         void operator()(bool learned);
 
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
-        
-        void free_memory();
+
+        void finalize();
 
         void collect_statistics(statistics & st) const;
         void reset_statistics();

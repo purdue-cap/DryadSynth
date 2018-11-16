@@ -16,16 +16,16 @@ Author:
 Notes:
 
 --*/
-#include"extension_model_converter.h"
-#include"model_evaluator.h"
-#include"ast_smt2_pp.h"
-#include"model_v2_pp.h"
-#include"ast_pp.h"
+#include "tactic/extension_model_converter.h"
+#include "model/model_evaluator.h"
+#include "ast/ast_smt2_pp.h"
+#include "model/model_v2_pp.h"
+#include "ast/ast_pp.h"
 
 extension_model_converter::~extension_model_converter() {
 }
 
-
+#ifdef _TRACE
 static void display_decls_info(std::ostream & out, model_ref & md) {
     ast_manager & m = md->get_manager();
     unsigned sz = md->get_num_decls();
@@ -42,12 +42,14 @@ static void display_decls_info(std::ostream & out, model_ref & md) {
         out << " :id " << d->get_id() << "\n";
     }
 }
+#endif
 
 void extension_model_converter::operator()(model_ref & md, unsigned goal_idx) {
     SASSERT(goal_idx == 0);
     TRACE("extension_mc", model_v2_pp(tout, *md); display_decls_info(tout, md););
     model_evaluator ev(*(md.get()));
     ev.set_model_completion(true);
+    ev.set_expand_array_equalities(false);
     expr_ref val(m());
     unsigned i = m_vars.size();
     while (i > 0) {

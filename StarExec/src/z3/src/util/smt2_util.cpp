@@ -16,7 +16,7 @@ Author:
 Notes:
 
 --*/
-#include"smt2_util.h"
+#include "util/smt2_util.h"
 
 bool is_smt2_simple_symbol_char(char s) {
     return 
@@ -29,7 +29,7 @@ bool is_smt2_simple_symbol_char(char s) {
 }
 
 bool is_smt2_quoted_symbol(char const * s) {
-    if (s == 0)
+    if (s == nullptr)
         return false;
     if ('0' <= s[0] && s[0] <= '9')
         return true;

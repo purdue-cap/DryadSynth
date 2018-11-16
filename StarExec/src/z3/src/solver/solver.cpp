@@ -16,12 +16,12 @@ Author:
 Notes:
 
 --*/
-#include"solver.h"
-#include"model_evaluator.h"
-#include"ast_util.h"
-#include"ast_pp.h"
-#include"ast_pp_util.h"
-#include "common_msgs.h"
+#include "solver/solver.h"
+#include "model/model_evaluator.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_pp_util.h"
+#include "util/common_msgs.h"
 
 
 unsigned solver::get_num_assertions() const {
@@ -31,14 +31,15 @@ unsigned solver::get_num_assertions() const {
 
 expr * solver::get_assertion(unsigned idx) const {
     NOT_IMPLEMENTED_YET();
-    return 0;
+    return nullptr;
 }
 
-std::ostream& solver::display(std::ostream & out) const {
+std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assumptions) const {
     expr_ref_vector fmls(get_manager());
     get_assertions(fmls);
     ast_pp_util visitor(get_manager());
     visitor.collect(fmls);
+    visitor.collect(n, assumptions);
     visitor.display_decls(out);
     visitor.display_asserts(out, fmls, true);
     return out;
@@ -152,6 +153,10 @@ lbool solver::get_consequences_core(expr_ref_vector const& asms, expr_ref_vector
 
 lbool solver::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
     return l_true;
+}
+
+lbool solver::preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) {
+    return check_sat(0, nullptr);
 }
 
 bool solver::is_literal(ast_manager& m, expr* e) {

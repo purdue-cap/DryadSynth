@@ -69,9 +69,11 @@ IS_WINDOWS=False
 IS_LINUX=False
 IS_OSX=False
 IS_FREEBSD=False
+IS_NETBSD=False
 IS_OPENBSD=False
 IS_CYGWIN=False
 IS_CYGWIN_MINGW=False
+IS_MSYS2=False
 VERBOSE=True
 DEBUG_MODE=False
 SHOW_CPPS = True
@@ -96,8 +98,6 @@ VER_BUILD=None
 VER_REVISION=None
 PREFIX=sys.prefix
 GMP=False
-FOCI2=False
-FOCI2LIB=''
 VS_PAR=False
 VS_PAR_NUM=8
 GPROF=False
@@ -105,6 +105,9 @@ GIT_HASH=False
 GIT_DESCRIBE=False
 SLOW_OPTIMIZE=False
 USE_OMP=True
+LOG_SYNC=False
+GUARD_CF=False
+ALWAYS_DYNAMIC_BASE=False
 
 FPMATH="Default"
 FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
@@ -139,6 +142,9 @@ def is_linux():
 def is_freebsd():
     return IS_FREEBSD
 
+def is_netbsd():
+    return IS_NETBSD
+
 def is_openbsd():
     return IS_OPENBSD
 
@@ -151,9 +157,11 @@ def is_cygwin():
 def is_cygwin_mingw():
     return IS_CYGWIN_MINGW
 
+def is_msys2():
+    return IS_MSYS2
+
 def norm_path(p):
-    # We use '/' on mk_project for convenience
-    return os.path.join(*(p.split('/')))
+    return os.path.expanduser(os.path.normpath(p))
 
 def which(program):
     import os
@@ -227,7 +235,7 @@ def rmf(fname):
 
 def exec_compiler_cmd(cmd):
     r = exec_cmd(cmd)
-    if is_windows() or is_cygwin_mingw():
+    if is_windows() or is_cygwin_mingw() or is_cygwin() or is_msys2():
         rmf('a.exe')
     else:
         rmf('a.out')
@@ -257,13 +265,6 @@ def test_gmp(cc):
     t.commit()
     return exec_compiler_cmd([cc, CPPFLAGS, 'tstgmp.cpp', LDFLAGS, '-lgmp']) == 0
 
-def test_foci2(cc,foci2lib):
-    if is_verbose():
-        print("Testing FOCI2...")
-    t = TempFile('tstfoci2.cpp')
-    t.add('#include<foci2.h>\nint main() { foci2 *f = foci2::create("lia"); return 0; }\n')
-    t.commit()
-    return exec_compiler_cmd([cc, CPPFLAGS, '-Isrc/interp', 'tstfoci2.cpp', LDFLAGS, foci2lib]) == 0
 
 def test_openmp(cc):
     if not USE_OMP:
@@ -607,12 +608,21 @@ elif os.name == 'posix':
         IS_LINUX=True
     elif os.uname()[0] == 'FreeBSD':
         IS_FREEBSD=True
+    elif os.uname()[0] == 'NetBSD':
+        IS_NETBSD=True
     elif os.uname()[0] == 'OpenBSD':
         IS_OPENBSD=True
     elif os.uname()[0][:6] == 'CYGWIN':
         IS_CYGWIN=True
         if (CC != None and "mingw" in CC):
             IS_CYGWIN_MINGW=True
+    elif os.uname()[0].startswith('MSYS_NT') or os.uname()[0].startswith('MINGW'):
+        IS_MSYS2=True
+        if os.uname()[4] == 'x86_64':
+            LINUX_X64=True
+        else:
+            LINUX_X64=False
+            
 
 def display_help(exit_code):
     print("mk_make.py: Z3 Makefile generator\n")
@@ -632,13 +642,13 @@ def display_help(exit_code):
     print("  -d, --debug                   compile Z3 in debug mode.")
     print("  -t, --trace                   enable tracing in release mode.")
     if IS_WINDOWS:
+        print("  --guardcf                     enable Control Flow Guard runtime checks.")
         print("  -x, --x64                     create 64 binary when using Visual Studio.")
     else:
         print("  --x86                         force 32-bit x86 build on x64 systems.")
     print("  -m, --makefiles               generate only makefiles.")
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
-    if IS_WINDOWS:
         print("  --optimize                    generate optimized code during linking.")
     print("  --dotnet                      generate .NET bindings.")
     print("  --dotnet-key=<file>           sign the .NET assembly using the private key in <file>.")
@@ -650,8 +660,8 @@ def display_help(exit_code):
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
-    print("  -f <path> --foci2=<path>      use foci2 library at path")
     print("  --noomp                       disable OpenMP and all features that require it.")
+    print("  --log-sync                    synchronize access to API log files to enable multi-thread API logging.")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
@@ -677,14 +687,15 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, FOCI2, FOCI2LIB, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
-    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP
+    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
+    global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
-                                               ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj',
-                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'foci2=', 'java', 'parallel=', 'gprof',
-                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin'])
+                                               ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
+                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof',
+                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -734,9 +745,6 @@ def parse_options():
             VS_PAR_NUM = int(arg)
         elif opt in ('-g', '--gmp'):
             GMP = True
-        elif opt in ('-f', '--foci2'):
-            FOCI2 = True
-            FOCI2LIB = arg
         elif opt in ('-j', '--java'):
             JAVA_ENABLED = True
         elif opt == '--gprof':
@@ -749,9 +757,14 @@ def parse_options():
             ML_ENABLED = True
         elif opt in ('', '--noomp'):
             USE_OMP = False
+        elif opt in ('', '--log-sync'):
+            LOG_SYNC = True
         elif opt in ('--python'):
             PYTHON_ENABLED = True
             PYTHON_INSTALL_ENABLED = True
+        elif opt == '--guardcf':
+            GUARD_CF = True
+            ALWAYS_DYNAMIC_BASE = True # /GUARD:CF requires /DYNAMICBASE
         else:
             print("ERROR: Invalid command line option '%s'" % opt)
             display_help(1)
@@ -771,8 +784,13 @@ def extract_c_includes(fname):
     linenum = 1
     for line in f:
         m1 = std_inc_pat.match(line)
-        if m1:
-            result.append(m1.group(1))
+        if m1: 
+            root_file_name = m1.group(1)
+            slash_pos =  root_file_name.rfind('/')
+            if slash_pos >= 0  and root_file_name.find("..") < 0 : #it is a hack for lp include files that behave as continued from "src"
+                # print(root_file_name)
+                root_file_name = root_file_name[slash_pos+1:]
+            result.append(root_file_name)
         elif not system_inc_pat.match(line) and non_std_inc_pat.match(line):
             raise MKException("Invalid #include directive at '%s':%s" % (fname, line))
         linenum = linenum + 1
@@ -877,8 +895,13 @@ def is_CXX_gpp():
     return is_compiler(CXX, 'g++')
 
 def is_clang_in_gpp_form(cc):
-    version_string = check_output([cc, '--version'])
-    return str(version_string).find('clang') != -1
+    str = check_output([cc, '--version'])
+    try:
+       version_string = str.encode('utf-8')
+    except:
+       version_string = str
+    clang = 'clang'.encode('utf-8')
+    return version_string.find(clang) != -1
 
 def is_CXX_clangpp():
     if is_compiler(CXX, 'g++'):
@@ -996,6 +1019,7 @@ class Component:
         out.write('%s =' % include_defs)
         for dep in self.deps:
             out.write(' -I%s' % get_component(dep).to_src_dir)
+        out.write(' -I%s' % os.path.join(REV_BUILD_DIR,"src"))
         out.write('\n')
         mk_dir(os.path.join(BUILD_DIR, self.build_dir))
         if VS_PAR and IS_WINDOWS:
@@ -1164,14 +1188,14 @@ class ExeComponent(Component):
             c_dep = get_component(dep)
             out.write(' ' + c_dep.get_link_name())
         out.write('\n')
-        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % exefile)
+        extra_opt = '-static' if not IS_WINDOWS and STATIC_BIN else ''
+        out.write('\t$(LINK) %s $(LINK_OUT_FLAG)%s $(LINK_FLAGS)' % (extra_opt, exefile))
         for obj in objs:
             out.write(' ')
             out.write(obj)
         for dep in deps:
             c_dep = get_component(dep)
             out.write(' ' + c_dep.get_link_name())
-        out.write(' ' + FOCI2LIB)
         out.write(' $(LINK_EXTRA_FLAGS)\n')
         out.write('%s: %s\n\n' % (self.name, exefile))
 
@@ -1227,9 +1251,9 @@ def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'OpenBSD':
+    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'NetBSD' or sysname == 'OpenBSD':
         return 'so'
-    elif sysname == 'CYGWIN':
+    elif sysname == 'CYGWIN' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
         return 'dll'
     else:
         assert(False)
@@ -1297,7 +1321,6 @@ class DLLComponent(Component):
             if dep not in self.reexports:
                 c_dep = get_component(dep)
                 out.write(' ' + c_dep.get_link_name())
-        out.write(' ' + FOCI2LIB)
         out.write(' $(SLINK_EXTRA_FLAGS)')
         if IS_WINDOWS:
             out.write(' /DEF:%s.def' % os.path.join(self.to_src_dir, self.name))
@@ -1388,7 +1411,7 @@ class DLLComponent(Component):
             shutil.copy('%s.a' % os.path.join(build_path, self.dll_name),
                         '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
-class PythonComponent(Component): 
+class PythonComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
         global PYTHON_ENABLED
@@ -1413,7 +1436,7 @@ class PythonComponent(Component):
 
     def mk_makefile(self, out):
         return
-   
+
 class PythonInstallComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
@@ -1516,7 +1539,7 @@ class PythonInstallComponent(Component):
                                       os.path.join('python', 'z3', '*.pyc'),
                                       os.path.join(self.pythonPkgDir,'z3'),
                                       in_prefix=self.in_prefix_install)
-            
+
         if PYTHON_PACKAGE_DIR != distutils.sysconfig.get_python_lib():
             out.write('\t@echo Z3Py was installed at \'%s\', make sure this directory is in your PYTHONPATH environment variable.' % PYTHON_PACKAGE_DIR)
 
@@ -1581,7 +1604,7 @@ class DotNetDLLComponent(Component):
 
     def mk_makefile(self, out):
         global DOTNET_KEY_FILE
-        
+
         if not is_dotnet_enabled():
             return
         cs_fp_files = []
@@ -1626,9 +1649,11 @@ class DotNetDLLComponent(Component):
             else:
                 print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
                 self.key_file = None
-                
+
         if not self.key_file is None:
             print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
+            if (self.key_file.find(' ') != -1):
+                self.key_file = '"' + self.key_file + '"'
             cscCmdLine.append('/keyfile:{}'.format(self.key_file))
 
         cscCmdLine.extend( ['/unsafe+',
@@ -1653,7 +1678,7 @@ class DotNetDLLComponent(Component):
                              )
         else:
             cscCmdLine.extend(['/optimize+'])
-            
+
         if IS_WINDOWS:
             if VS_X64:
                 cscCmdLine.extend(['/platform:x64'])
@@ -1776,10 +1801,14 @@ class JavaDLLComponent(Component):
                 t = t.replace('PLATFORM', 'linux')
             elif IS_FREEBSD:
                 t = t.replace('PLATFORM', 'freebsd')
+            elif IS_NETBSD:
+                t = t.replace('PLATFORM', 'netbsd')
             elif IS_OPENBSD:
                 t = t.replace('PLATFORM', 'openbsd')
             elif IS_CYGWIN:
                 t = t.replace('PLATFORM', 'cygwin')
+            elif IS_MSYS2:
+                t = t.replace('PLATFORM', 'win32')
             else:
                 t = t.replace('PLATFORM', 'win32')
             out.write(t)
@@ -1872,7 +1901,6 @@ class MLComponent(Component):
     def _init_ocamlfind_paths(self):
         """
             Initialises self.destdir and self.ldconf
-
             Do not call this from the MLComponent constructor because OCAMLFIND
             has not been checked at that point
         """
@@ -1910,7 +1938,11 @@ class MLComponent(Component):
             src_dir = self.to_src_dir
             mk_dir(os.path.join(BUILD_DIR, self.sub_dir))
             api_src = get_component(API_COMPONENT).to_src_dir
-            out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n') # remove /GL; the ocaml tools don't like it.
+            # remove /GL and -std=c++11; the ocaml tools don't like them.
+            if IS_WINDOWS:                
+                out.write('CXXFLAGS_OCAML=$(CXXFLAGS:/GL=)\n')
+            else:
+                out.write('CXXFLAGS_OCAML=$(subst -std=c++11,,$(CXXFLAGS))\n')
 
             if IS_WINDOWS:
                 prefix_lib = '-L' + os.path.abspath(BUILD_DIR).replace('\\', '\\\\')
@@ -1957,7 +1989,7 @@ class MLComponent(Component):
 
             OCAMLMKLIB = 'ocamlmklib'
 
-            LIBZ3 = '-L. -lz3'           
+            LIBZ3 = '-L. -lz3'
             if is_cygwin() and not(is_cygwin_mingw()):
                 LIBZ3 = 'libz3.dll'
 
@@ -1968,10 +2000,10 @@ class MLComponent(Component):
             z3mls = os.path.join(self.sub_dir, 'z3ml')
             out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3dllso))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmos, LIBZ3))
-            out.write('%s.cmxa: %s %s %s\n' % (z3mls, cmxs, stubso, z3dllso))
+            out.write('%s.cmxa: %s %s %s %s.cma\n' % (z3mls, cmxs, stubso, z3dllso, z3mls))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs, LIBZ3))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
-            out.write('\t%s -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
+            out.write('\t%s -linkall -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
 
             out.write('\n')
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
@@ -2053,7 +2085,6 @@ class ExampleComponent(Component):
     def is_example(self):
         return True
 
-
 class CppExampleComponent(ExampleComponent):
     def __init__(self, name, path):
         ExampleComponent.__init__(self, name, path)
@@ -2099,6 +2130,30 @@ class CExampleComponent(CppExampleComponent):
 
     def src_files(self):
         return get_c_files(self.ex_dir)
+
+    def mk_makefile(self, out):
+        dll_name = get_component(Z3_DLL_COMPONENT).dll_name
+        dll = '%s$(SO_EXT)' % dll_name
+
+        objfiles = ''
+        for cfile in self.src_files():
+            objfile = '%s$(OBJ_EXT)' % (cfile[:cfile.rfind('.')])
+            objfiles = objfiles + ('%s ' % objfile)
+            out.write('%s: %s\n' % (objfile, os.path.join(self.to_ex_dir, cfile)));
+            out.write('\t%s $(CFLAGS) $(OS_DEFINES) $(EXAMP_DEBUG_FLAG) $(C_OUT_FLAG)%s $(LINK_FLAGS)' % (self.compiler(), objfile))
+            out.write(' -I%s' % get_component(API_COMPONENT).to_src_dir)
+            out.write(' %s' % os.path.join(self.to_ex_dir, cfile))
+            out.write('\n')
+
+        exefile = '%s$(EXE_EXT)' % self.name
+        out.write('%s: %s %s\n' % (exefile, dll, objfiles))
+        out.write('\t$(LINK) $(LINK_OUT_FLAG)%s $(LINK_FLAGS) %s ' % (exefile, objfiles))
+        if IS_WINDOWS:
+            out.write('%s.lib' % dll_name)
+        else:
+            out.write(dll)
+        out.write(' $(LINK_EXTRA_FLAGS)\n')
+        out.write('_ex_%s: %s\n\n' % (self.name, exefile))
 
 class DotNetExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -2209,7 +2264,7 @@ class PythonExampleComponent(ExampleComponent):
     def mk_win_dist(self, build_path, dist_path):
         full = os.path.join(EXAMPLE_DIR, self.path)
         py = 'example.py'
-        shutil.copyfile(os.path.join(full, py), 
+        shutil.copyfile(os.path.join(full, py),
                         os.path.join(dist_path, INSTALL_BIN_DIR, 'python', py))
 
     def mk_unix_dist(self, build_path, dist_path):
@@ -2258,7 +2313,7 @@ def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, man
 def add_python(libz3Component):
     name = 'python'
     reg_component(name, PythonComponent(name, libz3Component))
-    
+
 def add_python_install(libz3Component):
     name = 'python_install'
     reg_component(name, PythonInstallComponent(name, libz3Component))
@@ -2295,11 +2350,13 @@ def mk_config():
     if ONLY_MAKEFILES:
         return
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
+    global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, HAS_OMP, LOG_SYNC
     if IS_WINDOWS:
         config.write(
             'CC=cl\n'
             'CXX=cl\n'
             'CXX_OUT_FLAG=/Fo\n'
+            'C_OUT_FLAG=/Fo\n'
             'OBJ_EXT=.obj\n'
             'LIB_EXT=.lib\n'
             'AR=lib\n'
@@ -2312,17 +2369,24 @@ def mk_config():
             'SLINK_OUT_FLAG=/Fe\n'
             'OS_DEFINES=/D _WINDOWS\n')
         extra_opt = ''
+        link_extra_opt = ''
         HAS_OMP = test_openmp('cl')
         if HAS_OMP:
             extra_opt = ' /openmp'
         else:
-            extra_opt = ' -D_NO_OMP_'
+            extra_opt = ' /D_NO_OMP_'
+        if HAS_OMP and LOG_SYNC:
+            extra_opt = '%s /DZ3_LOG_SYNC' % extra_opt
         if GIT_HASH:
             extra_opt = ' %s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
+        if GUARD_CF:
+            extra_opt = ' %s /guard:cf' % extra_opt
+            link_extra_opt = ' %s /GUARD:CF' % link_extra_opt
         if STATIC_BIN:
             static_opt = '/MT'
         else:
             static_opt = '/MD'
+        maybe_disable_dynamic_base = '/DYNAMICBASE' if ALWAYS_DYNAMIC_BASE else '/DYNAMICBASE:NO'
         if DEBUG_MODE:
             static_opt = static_opt + 'd'
             config.write(
@@ -2333,8 +2397,8 @@ def mk_config():
                 config.write(
                     'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
             elif VS_ARM:
                 print("ARM on VS is unsupported")
                 exit(1)
@@ -2342,8 +2406,8 @@ def mk_config():
                 config.write(
                     'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2 %s %s\n' % (extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n')
+                    'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
+                    'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
         else:
             # Windows Release mode
             LTCG=' /LTCG' if SLOW_OPTIMIZE else ''
@@ -2358,8 +2422,8 @@ def mk_config():
                 config.write(
                     'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608\n'
-                    'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608\n' % (LTCG, LTCG))
+                    'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 %s\n'
+                    'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
             elif VS_ARM:
                 print("ARM on VS is unsupported")
                 exit(1)
@@ -2367,10 +2431,10 @@ def mk_config():
                 config.write(
                     'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2 %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT\n'
-                    'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE:NO\n' % (LTCG, LTCG))
+                    'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
+                    'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (LTCG, link_extra_opt, LTCG, maybe_disable_dynamic_base, link_extra_opt))
 
-
+        config.write('CFLAGS=$(CXXFLAGS)\n')
 
         # End of Windows VS config.mk
         if is_verbose():
@@ -2385,13 +2449,14 @@ def mk_config():
                 print('OCaml Native:   %s' % OCAMLOPT)
                 print('OCaml Library:  %s' % OCAML_LIB)
     else:
-        global CXX, CC, GMP, FOCI2, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS
         OS_DEFINES = ""
         ARITH = "internal"
         check_ar()
         CXX = find_cxx_compiler()
         CC  = find_c_compiler()
         SLIBEXTRAFLAGS = ''
+        EXE_EXT = ''
+        LIB_EXT = '.a'
         if GPROF:
             CXXFLAGS = '%s -pg' % CXXFLAGS
             LDFLAGS  = '%s -pg' % LDFLAGS
@@ -2403,16 +2468,9 @@ def mk_config():
             SLIBEXTRAFLAGS = '%s -lgmp' % SLIBEXTRAFLAGS
         else:
             CPPFLAGS = '%s -D_MP_INTERNAL' % CPPFLAGS
-        if FOCI2:
-            if test_foci2(CXX,FOCI2LIB):
-                LDFLAGS  = '%s %s' % (LDFLAGS,FOCI2LIB)
-                SLIBEXTRAFLAGS = '%s %s' % (SLIBEXTRAFLAGS,FOCI2LIB)
-                CPPFLAGS = '%s -D_FOCI2' % CPPFLAGS
-            else:
-                print("FAILED\n")
-                FOCI2 = False
         if GIT_HASH:
             CPPFLAGS = '%s -DZ3GITHASH=%s' % (CPPFLAGS, GIT_HASH)
+        CXXFLAGS = '%s -std=c++11' % CXXFLAGS
         CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
@@ -2423,48 +2481,65 @@ def mk_config():
             SLIBEXTRAFLAGS = '%s -fopenmp' % SLIBEXTRAFLAGS
         else:
             CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
+        if HAS_OMP and LOG_SYNC:
+            CXXFLAGS = '%s -DZ3_LOG_SYNC' % CXXFLAGS
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
             EXAMP_DEBUG_FLAG = '-g'
+            CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
         else:
+            CXXFLAGS     = '%s -O3' % CXXFLAGS
             if GPROF:
-                CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE' % CXXFLAGS
-            else:
-                CXXFLAGS     = '%s -O3 -D _EXTERNAL_RELEASE -fomit-frame-pointer' % CXXFLAGS
+                CXXFLAGS     += '-fomit-frame-pointer'
+            CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if is_CXX_clangpp():
             CXXFLAGS   = '%s -Wno-unknown-pragmas -Wno-overloaded-virtual -Wno-unused-value' % CXXFLAGS
-        sysname = os.uname()[0]
+        sysname, _, _, _, machine = os.uname()
         if sysname == 'Darwin':
-            SO_EXT    = '.dylib'
-            SLIBFLAGS = '-dynamiclib'
+            SO_EXT         = '.dylib'
+            SLIBFLAGS      = '-dynamiclib'
         elif sysname == 'Linux':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_LINUX_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_FREEBSD_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
             LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
+        elif sysname == 'NetBSD':
+            CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
+            OS_DEFINES     = '-D_NETBSD_'
+            SO_EXT         = '.so'
+            LDFLAGS        = '%s -lrt' % LDFLAGS
+            SLIBFLAGS      = '-shared'
+            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'OpenBSD':
-            CXXFLAGS       = '%s -fno-strict-aliasing -D_OPENBSD_' % CXXFLAGS
+            CXXFLAGS       = '%s -D_OPENBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_OPENBSD_'
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
-        elif sysname[:6] ==  'CYGWIN':
-            CXXFLAGS    = '%s -D_CYGWIN -fno-strict-aliasing' % CXXFLAGS
+        elif sysname.startswith('CYGWIN'):
+            CXXFLAGS       = '%s -D_CYGWIN' % CXXFLAGS
             OS_DEFINES     = '-D_CYGWIN'
-            SO_EXT      = '.dll'
-            SLIBFLAGS   = '-shared'
+            SO_EXT         = '.dll'
+            SLIBFLAGS      = '-shared'
+        elif sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
+            CXXFLAGS       = '%s -D_MINGW' % CXXFLAGS
+            OS_DEFINES     = '-D_MINGW'
+            SO_EXT         = '.dll'
+            SLIBFLAGS      = '-shared'
+            EXE_EXT        = '.exe'
+            LIB_EXT        = '.lib'
         else:
             raise MKException('Unsupported platform: %s' % sysname)
         if is64():
-            if sysname[:6] != 'CYGWIN':
+            if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
             CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
@@ -2473,10 +2548,6 @@ def mk_config():
             CXXFLAGS     = '%s -m32' % CXXFLAGS
             LDFLAGS      = '%s -m32' % LDFLAGS
             SLIBFLAGS    = '%s -m32' % SLIBFLAGS
-        if DEBUG_MODE:
-            CPPFLAGS     = '%s -DZ3DEBUG -D_DEBUG' % CPPFLAGS
-        else:
-            CPPFLAGS     = '%s -DNDEBUG -D_EXTERNAL_RELEASE' % CPPFLAGS
         if TRACE or DEBUG_MODE:
             CPPFLAGS     = '%s -D_TRACE' % CPPFLAGS
         if is_cygwin_mingw():
@@ -2484,24 +2555,25 @@ def mk_config():
             # and to make it create an import library.
             SLIBEXTRAFLAGS = '%s -static-libgcc -static-libstdc++ -Wl,--out-implib,libz3.dll.a' % SLIBEXTRAFLAGS
             LDFLAGS = '%s -static-libgcc -static-libstdc++' % LDFLAGS
-                        
+        if sysname == 'Linux' and machine.startswith('armv7') or machine.startswith('armv8'):
+            CXXFLAGS = '%s -fpic' % CXXFLAGS
+
         config.write('PREFIX=%s\n' % PREFIX)
         config.write('CC=%s\n' % CC)
         config.write('CXX=%s\n' % CXX)
         config.write('CXXFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS))
+        config.write('CFLAGS=%s %s\n' % (CPPFLAGS, CXXFLAGS.replace('-std=c++11', '')))
         config.write('EXAMP_DEBUG_FLAG=%s\n' % EXAMP_DEBUG_FLAG)
         config.write('CXX_OUT_FLAG=-o \n')
+        config.write('C_OUT_FLAG=-o \n')
         config.write('OBJ_EXT=.o\n')
-        config.write('LIB_EXT=.a\n')
+        config.write('LIB_EXT=%s\n' % LIB_EXT)
         config.write('AR=%s\n' % AR)
         config.write('AR_FLAGS=rcs\n')
         config.write('AR_OUTFLAG=\n')
-        config.write('EXE_EXT=\n')
+        config.write('EXE_EXT=%s\n' % EXE_EXT)
         config.write('LINK=%s\n' % CXX)
-        if STATIC_BIN:
-            config.write('LINK_FLAGS=-static\n')
-        else:
-            config.write('LINK_FLAGS=\n')
+        config.write('LINK_FLAGS=\n')
         config.write('LINK_OUT_FLAG=-o \n')
         config.write('LINK_EXTRA_FLAGS=-lpthread %s\n' % LDFLAGS)
         config.write('SO_EXT=%s\n' % SO_EXT)
@@ -2678,10 +2750,10 @@ def get_full_version_string(major, minor, build, revision):
     if GIT_HASH:
         res += " " + GIT_HASH
     if GIT_DESCRIBE:
-        branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD', '--long'])
-        res += " master " + check_output(['git', 'describe'])
+        branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+        res += " " + branch + " " + check_output(['git', 'describe'])
     return '"' + res + '"'
-        
+
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = get_component(UTIL_COMPONENT)
@@ -2719,12 +2791,22 @@ def mk_all_assembly_infos(major, minor, build, revision):
             else:
                 raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
 
+def get_header_files_for_components(component_src_dirs):
+    assert isinstance(component_src_dirs, list)
+    h_files_full_path = []
+    for component_src_dir in sorted(component_src_dirs):
+        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
+        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
+        h_files_full_path.extend(h_files)
+    return h_files_full_path
+
 def mk_install_tactic_cpp(cnames, path):
     component_src_dirs = []
     for cname in cnames:
         c = get_component(cname)
         component_src_dirs.append(c.src_dir)
-    generated_file = mk_genfile_common.mk_install_tactic_cpp_internal(component_src_dirs, path)
+    h_files_full_path = get_header_files_for_components(component_src_dirs)
+    generated_file = mk_genfile_common.mk_install_tactic_cpp_internal(h_files_full_path, path)
     if VERBOSE:
         print("Generated '{}'".format(generated_file))
 
@@ -2742,7 +2824,8 @@ def mk_mem_initializer_cpp(cnames, path):
     for cname in cnames:
         c = get_component(cname)
         component_src_dirs.append(c.src_dir)
-    generated_file = mk_genfile_common.mk_mem_initializer_cpp_internal(component_src_dirs, path)
+    h_files_full_path = get_header_files_for_components(component_src_dirs)
+    generated_file = mk_genfile_common.mk_mem_initializer_cpp_internal(h_files_full_path, path)
     if VERBOSE:
         print("Generated '{}'".format(generated_file))
 
@@ -2760,7 +2843,8 @@ def mk_gparams_register_modules(cnames, path):
     for cname in cnames:
         c = get_component(cname)
         component_src_dirs.append(c.src_dir)
-    generated_file = mk_genfile_common.mk_gparams_register_modules_internal(component_src_dirs, path)
+    h_files_full_path = get_header_files_for_components(component_src_dirs)
+    generated_file = mk_genfile_common.mk_gparams_register_modules_internal(h_files_full_path, path)
     if VERBOSE:
         print("Generated '{}'".format(generated_file))
 
@@ -2864,7 +2948,8 @@ def mk_bindings(api_files):
           dotnet_output_dir=dotnet_output_dir,
           java_output_dir=java_output_dir,
           java_package_name=java_package_name,
-          ml_output_dir=ml_output_dir
+          ml_output_dir=ml_output_dir,
+          ml_src_dir=ml_output_dir
         )
         cp_z3py_to_build()
         if is_ml_enabled():
@@ -2918,172 +3003,17 @@ def mk_z3consts_java(api_files):
 
 # Extract enumeration types from z3_api.h, and add ML definitions
 def mk_z3consts_ml(api_files):
-    blank_pat      = re.compile("^ *$")
-    comment_pat    = re.compile("^ *//.*$")
-    typedef_pat    = re.compile("typedef enum *")
-    typedef2_pat   = re.compile("typedef enum { *")
-    openbrace_pat  = re.compile("{ *")
-    closebrace_pat = re.compile("}.*;")
-
     ml = get_component(ML_COMPONENT)
-
-    DeprecatedEnums = [ 'Z3_search_failure' ]
-    gendir = ml.src_dir
-    if not os.path.exists(gendir):
-        os.mkdir(gendir)
-
-    efile  = open('%s.ml' % os.path.join(gendir, "z3enums"), 'w')
-    efile.write('(* Automatically generated file *)\n\n')
-    efile.write('(** The enumeration types of Z3. *)\n\n')
+    full_path_api_files = []
     for api_file in api_files:
         api_file_c = ml.find_file(api_file, ml.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
-
-        api = open(api_file, 'r')
-
-        SEARCHING  = 0
-        FOUND_ENUM = 1
-        IN_ENUM    = 2
-
-        mode    = SEARCHING
-        decls   = {}
-        idx     = 0
-
-        linenum = 1
-        for line in api:
-            m1 = blank_pat.match(line)
-            m2 = comment_pat.match(line)
-            if m1 or m2:
-                # skip blank lines and comments
-                linenum = linenum + 1
-            elif mode == SEARCHING:
-                m = typedef_pat.match(line)
-                if m:
-                    mode = FOUND_ENUM
-                m = typedef2_pat.match(line)
-                if m:
-                    mode = IN_ENUM
-                    decls = {}
-                    idx   = 0
-            elif mode == FOUND_ENUM:
-                m = openbrace_pat.match(line)
-                if m:
-                    mode  = IN_ENUM
-                    decls = {}
-                    idx   = 0
-                else:
-                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
-            else:
-                assert mode == IN_ENUM
-                words = re.split('[^\-a-zA-Z0-9_]+', line)
-                m = closebrace_pat.match(line)
-                if m:
-                    name = words[1]
-                    if name not in DeprecatedEnums:
-                        efile.write('(** %s *)\n' % name[3:])
-                        efile.write('type %s =\n' % name[3:]) # strip Z3_
-                        for k, i in decls.items():
-                            efile.write('  | %s \n' % k[3:]) # strip Z3_
-                        efile.write('\n')
-                        efile.write('(** Convert %s to int*)\n' % name[3:])
-                        efile.write('let int_of_%s x : int =\n' % (name[3:])) # strip Z3_
-                        efile.write('  match x with\n')
-                        for k, i in decls.items():
-                            efile.write('  | %s -> %d\n' % (k[3:], i))
-                        efile.write('\n')
-                        efile.write('(** Convert int to %s*)\n' % name[3:])
-                        efile.write('let %s_of_int x : %s =\n' % (name[3:],name[3:])) # strip Z3_
-                        efile.write('  match x with\n')
-                        for k, i in decls.items():
-                            efile.write('  | %d -> %s\n' % (i, k[3:]))
-                        # use Z3.Exception?
-                        efile.write('  | _ -> raise (Failure "undefined enum value")\n\n')
-                    mode = SEARCHING
-                else:
-                    if words[2] != '':
-                        if len(words[2]) > 1 and words[2][1] == 'x':
-                            idx = int(words[2], 16)
-                        else:
-                            idx = int(words[2])
-                    decls[words[1]] = idx
-                    idx = idx + 1
-            linenum = linenum + 1
-        api.close()
-    efile.close()
+        full_path_api_files.append(api_file)
+    generated_file = mk_genfile_common.mk_z3consts_ml_internal(
+        full_path_api_files,
+        ml.src_dir)
     if VERBOSE:
-        print ('Generated "%s/z3enums.ml"' % ('%s' % gendir))
-    # efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
-    # efile.write('(* Automatically generated file *)\n\n')
-    # efile.write('(** The enumeration types of Z3. *)\n\n')
-    # for api_file in api_files:
-    #     api_file_c = ml.find_file(api_file, ml.name)
-    #     api_file   = os.path.join(api_file_c.src_dir, api_file)
-
-    #     api = open(api_file, 'r')
-
-    #     SEARCHING  = 0
-    #     FOUND_ENUM = 1
-    #     IN_ENUM    = 2
-
-    #     mode    = SEARCHING
-    #     decls   = {}
-    #     idx     = 0
-
-    #     linenum = 1
-    #     for line in api:
-    #         m1 = blank_pat.match(line)
-    #         m2 = comment_pat.match(line)
-    #         if m1 or m2:
-    #             # skip blank lines and comments
-    #             linenum = linenum + 1
-    #         elif mode == SEARCHING:
-    #             m = typedef_pat.match(line)
-    #             if m:
-    #                 mode = FOUND_ENUM
-    #             m = typedef2_pat.match(line)
-    #             if m:
-    #                 mode = IN_ENUM
-    #                 decls = {}
-    #                 idx   = 0
-    #         elif mode == FOUND_ENUM:
-    #             m = openbrace_pat.match(line)
-    #             if m:
-    #                 mode  = IN_ENUM
-    #                 decls = {}
-    #                 idx   = 0
-    #             else:
-    #                 assert False, "Invalid %s, line: %s" % (api_file, linenum)
-    #         else:
-    #             assert mode == IN_ENUM
-    #             words = re.split('[^\-a-zA-Z0-9_]+', line)
-    #             m = closebrace_pat.match(line)
-    #             if m:
-    #                 name = words[1]
-    #                 if name not in DeprecatedEnums:
-    #                     efile.write('(** %s *)\n' % name[3:])
-    #                     efile.write('type %s =\n' % name[3:]) # strip Z3_
-    #                     for k, i in decls.items():
-    #                         efile.write('  | %s \n' % k[3:]) # strip Z3_
-    #                     efile.write('\n')
-    #                     efile.write('(** Convert %s to int*)\n' % name[3:])
-    #                     efile.write('val int_of_%s : %s -> int\n' % (name[3:], name[3:])) # strip Z3_
-    #                     efile.write('(** Convert int to %s*)\n' % name[3:])
-    #                     efile.write('val %s_of_int : int -> %s\n' % (name[3:],name[3:])) # strip Z3_
-    #                     efile.write('\n')
-    #                 mode = SEARCHING
-    #             else:
-    #                 if words[2] != '':
-    #                     if len(words[2]) > 1 and words[2][1] == 'x':
-    #                         idx = int(words[2], 16)
-    #                     else:
-    #                         idx = int(words[2])
-    #                 decls[words[1]] = idx
-    #                 idx = idx + 1
-    #         linenum = linenum + 1
-    #     api.close()
-    # efile.close()
-    # if VERBOSE:
-    #     print ('Generated "%s/z3enums.mli"' % ('%s' % gendir))
+        print ('Generated "%s"' % generated_file)
 
 def mk_gui_str(id):
     return '4D2F40D8-E5F9-473B-B548-%012d' % id
@@ -3097,7 +3027,11 @@ def get_platform_toolset_str():
     if len(tokens) < 2:
         return default
     else:
-        return 'v' + tokens[0] + tokens[1]
+        if tokens[0] == "15": 
+            # Visual Studio 2017 reports 15.* but the PlatformToolsetVersion is 141
+            return "v141"
+        else:
+            return 'v' + tokens[0] + tokens[1]
 
 def mk_vs_proj_property_groups(f, name, target_ext, type):
     f.write('  <ItemGroup Label="ProjectConfigurations">\n')
@@ -3180,6 +3114,7 @@ def mk_vs_proj_cl_compile(f, name, components, debug):
         else:
             f.write(';')
         f.write(get_component(dep).to_src_dir)
+    f.write(';%s\n' % os.path.join(REV_BUILD_DIR, SRC_DIR))
     f.write('</AdditionalIncludeDirectories>\n')
     f.write('    </ClCompile>\n')
 
@@ -3289,7 +3224,6 @@ class MakeRuleCmd(object):
     """
         These class methods provide a convenient way to emit frequently
         needed commands used in Makefile rules
-
         Note that several of the method are meant for use during ``make
         install`` and ``make uninstall``.  These methods correctly use
         ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferrable
@@ -3465,10 +3399,8 @@ def configure_file(template_file_path, output_file_path, substitutions):
         Read a template file ``template_file_path``, perform substitutions
         found in the ``substitutions`` dictionary and write the result to
         the output file ``output_file_path``.
-
         The template file should contain zero or more template strings of the
         form ``@NAME@``.
-
         The substitutions dictionary maps old strings (without the ``@``
         symbols) to their replacements.
     """

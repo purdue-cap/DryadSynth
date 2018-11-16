@@ -16,26 +16,25 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"rewriter_def.h"
-#include"filter_model_converter.h"
-#include"cooperate.h"
-#include"bv_decl_plugin.h"
-#include"used_vars.h"
-#include"well_sorted.h"
-#include"var_subst.h"
-#include"simplifier.h"
-#include"basic_simplifier_plugin.h"
-#include"bv_simplifier_plugin.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "tactic/filter_model_converter.h"
+#include "util/cooperate.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/used_vars.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/th_rewriter.h"
 
-#include"elim_small_bv_tactic.h"
+#include "tactic/bv/elim_small_bv_tactic.h"
 
 class elim_small_bv_tactic : public tactic {
 
     struct rw_cfg : public default_rewriter_cfg {
         ast_manager               & m;
+        params_ref                  m_params;
         bv_util                     m_util;
-        simplifier                  m_simp;
+        th_rewriter                 m_simp;
         ref<filter_model_converter> m_mc;
         goal *                      m_goal;
         unsigned                    m_max_bits;
@@ -47,21 +46,14 @@ class elim_small_bv_tactic : public tactic {
 
         rw_cfg(ast_manager & _m, params_ref const & p) :
             m(_m),
+            m_params(p),
             m_util(_m),
             m_simp(_m),
             m_bindings(_m),
             m_num_eliminated(0) {
             updt_params(p);
-            m_goal = 0;
+            m_goal = nullptr;
             m_max_steps = UINT_MAX;
-
-            basic_simplifier_plugin * bsimp = alloc(basic_simplifier_plugin, m);
-            // bsimp->set_eliminate_and(true);
-            m_simp.register_plugin(bsimp);
-
-            bv_simplifier_params bv_params;
-            bv_simplifier_plugin * bvsimp = alloc(bv_simplifier_plugin, m, *bsimp, bv_params);
-            m_simp.register_plugin(bvsimp);
         }
 
         bool max_steps_exceeded(unsigned long long num_steps) const {
@@ -85,13 +77,13 @@ class elim_small_bv_tactic : public tactic {
             expr_ref res(m);
             expr_ref_vector substitution(m);
 
-            substitution.resize(num_decls, 0);
+            substitution.resize(num_decls, nullptr);
             substitution[num_decls - idx - 1] = replacement;
 
             // (VAR 0) is in the first position of substitution; (VAR num_decls-1) is in the last position.
 
             for (unsigned i = 0; i < max_var_idx_p1; i++)
-                substitution.push_back(0);
+                substitution.push_back(nullptr);
 
             // (VAR num_decls) ... (VAR num_decls+sz-1); are in positions num_decls .. num_decls+sz-1
 
@@ -119,7 +111,7 @@ class elim_small_bv_tactic : public tactic {
             return res;
         }
 
-        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {            
+        br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
             TRACE("elim_small_bv_app", expr_ref tmp(m.mk_app(f, num, args), m); tout << "reduce " << tmp << std::endl; );
             return BR_FAILED;
         }
@@ -178,12 +170,12 @@ class elim_small_bv_tactic : public tactic {
 
             quantifier_ref new_q(m);
             new_q = m.update_quantifier(q, body);
-            unused_vars_eliminator el(m);
+            unused_vars_eliminator el(m, m_params);
             el(new_q, result);
 
             TRACE("elim_small_bv", tout << "elimination result: " << mk_ismt2_pp(result, m) << std::endl; );
 
-            result_pr = 0; // proofs NIY
+            result_pr = nullptr; // proofs NIY
             m_bindings.shrink(old_sz);
             return true;
         }
@@ -203,6 +195,7 @@ class elim_small_bv_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
+            m_params = p;
             m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
             m_max_steps = p.get_uint("max_steps", UINT_MAX);
             m_max_bits = p.get_uint("max_bits", 4);
@@ -237,7 +230,7 @@ class elim_small_bv_tactic : public tactic {
             proof_converter_ref & pc,
             expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("elim-small-bv", *g);
             bool produce_proofs = g->proofs_enabled();
             fail_if_proof_generation("elim-small-bv", g);
@@ -275,38 +268,37 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(elim_small_bv_tactic, m, m_params);
     }
 
-    virtual ~elim_small_bv_tactic() {
+    ~elim_small_bv_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
         r.insert("max_bits", CPK_UINT, "(default: 4) maximum bit-vector size of quantified bit-vectors to be eliminated.");
     }
 
-    virtual void operator()(goal_ref const & in,
+    void operator()(goal_ref const & in,
         goal_ref_buffer & result,
         model_converter_ref & mc,
         proof_converter_ref & pc,
-        expr_dependency_ref & core) {
+        expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
-        imp * d = alloc(imp, m, m_params);
-        std::swap(d, m_imp);    
-        dealloc(d);
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(m, m_params);
     }
 
 };

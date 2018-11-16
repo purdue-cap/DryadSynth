@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"smt_literal.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "smt/smt_literal.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 namespace smt {
 
@@ -27,6 +27,8 @@ namespace smt {
             out << "true";
         else if (*this == false_literal)
             out << "false";
+        else if (*this == null_literal)
+            out << "null";
         else if (sign())
             out << "(not " << mk_pp(bool_var2expr_map[var()], m) << ")";
         else

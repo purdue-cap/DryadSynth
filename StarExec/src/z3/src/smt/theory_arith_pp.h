@@ -19,30 +19,30 @@ Revision History:
 #ifndef THEORY_ARITH_PP_H_
 #define THEORY_ARITH_PP_H_
 
-#include"theory_arith.h"
-#include"ast_smt_pp.h"
-#include"stats.h"
+#include "smt/theory_arith.h"
+#include "ast/ast_smt_pp.h"
+#include "util/stats.h"
 
 namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::collect_statistics(::statistics & st) const {
         st.update("arith conflicts", m_stats.m_conflicts);
-        st.update("add rows", m_stats.m_add_rows);
-        st.update("pivots", m_stats.m_pivots);
-        st.update("assert lower", m_stats.m_assert_lower);
-        st.update("assert upper", m_stats.m_assert_upper);
-        st.update("assert diseq", m_stats.m_assert_diseq);
-        st.update("bound prop", m_stats.m_bound_props);
-        st.update("fixed eqs", m_stats.m_fixed_eqs);
-        st.update("offset eqs", m_stats.m_offset_eqs);
-        st.update("gcd tests", m_stats.m_gcd_tests);
-        st.update("ineq splits", m_stats.m_branches);
-        st.update("gomory cuts", m_stats.m_gomory_cuts);
-        st.update("max-min", m_stats.m_max_min);
-        st.update("grobner", m_stats.m_gb_compute_basis);
-        st.update("pseudo nonlinear", m_stats.m_nl_linear);
-        st.update("nonlinear bounds", m_stats.m_nl_bounds);
-        st.update("nonlinear horner", m_stats.m_nl_cross_nested);
+        st.update("arith add rows", m_stats.m_add_rows);
+        st.update("arith pivots", m_stats.m_pivots);
+        st.update("arith assert lower", m_stats.m_assert_lower);
+        st.update("arith assert upper", m_stats.m_assert_upper);
+        st.update("arith assert diseq", m_stats.m_assert_diseq);
+        st.update("arith bound prop", m_stats.m_bound_props);
+        st.update("arith fixed eqs", m_stats.m_fixed_eqs);
+        st.update("arith offset eqs", m_stats.m_offset_eqs);
+        st.update("arith gcd tests", m_stats.m_gcd_tests);
+        st.update("arith ineq splits", m_stats.m_branches);
+        st.update("arith gomory cuts", m_stats.m_gomory_cuts);
+        st.update("arith max-min", m_stats.m_max_min);
+        st.update("arith grobner", m_stats.m_gb_compute_basis);
+        st.update("arith pseudo nonlinear", m_stats.m_nl_linear);
+        st.update("arith nonlinear bounds", m_stats.m_nl_bounds);
+        st.update("arith nonlinear horner", m_stats.m_nl_cross_nested);
         m_arith_eq_adapter.collect_statistics(st);
     }
 
@@ -504,7 +504,7 @@ namespace smt {
                 pp.add_assumption(eq);
             }
             else {
-                if (lower(v) != 0) {
+                if (lower(v) != nullptr) {
                     inf_numeral k_inf = lower_bound(v);
                     rational k = k_inf.get_rational().to_rational();
                     expr_ref ineq(m);
@@ -514,7 +514,7 @@ namespace smt {
                         ineq = m_util.mk_lt(m_util.mk_numeral(k, is_int(v)), n);
                     pp.add_assumption(ineq);
                 }
-                if (upper(v) != 0) {
+                if (upper(v) != nullptr) {
                     inf_numeral k_inf = upper_bound(v);
                     rational k = k_inf.get_rational().to_rational();
                     expr_ref ineq(m);
@@ -526,7 +526,7 @@ namespace smt {
                 }
             }
         }
-        pp.display(out, m.mk_true());
+        pp.display_smt2(out, m.mk_true());
     }
 
     template<typename Ext>

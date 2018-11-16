@@ -48,8 +48,8 @@ define-fun) when Boogie supports this.
 
 */
 
-#include "ast.h"
-#include "model.h"
+#include "ast/ast.h"
+#include "model/model.h"
 
 namespace datalog {
     class boogie_proof {
@@ -82,7 +82,7 @@ namespace datalog {
         void get_labels(proof* p, labels&);
 
     public:
-        boogie_proof(ast_manager& m): m(m), m_proof(m), m_model(0) {}
+        boogie_proof(ast_manager& m): m(m), m_proof(m), m_model(nullptr) {}
         
         void set_proof(proof* p);
         

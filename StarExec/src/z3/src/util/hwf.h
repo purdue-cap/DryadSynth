@@ -20,9 +20,9 @@ Revision History:
 #define HWF_H_
 
 #include<string>
-#include"mpz.h"
-#include"mpq.h"
-#include"mpf.h" // we use the same rounding modes as mpf's
+#include "util/mpz.h"
+#include "util/mpq.h"
+#include "util/mpf.h"
 
 class hwf {
     friend class hwf_manager;
@@ -88,9 +88,6 @@ public:
     bool is_pzero(hwf const & x);
 
     bool is_one(hwf const & x);
-    
-    // structural eq
-    bool eq_core(hwf const & x, hwf const & y);
 
     bool eq(hwf const & x, hwf const & y);
     bool lt(hwf const & x, hwf const & y);

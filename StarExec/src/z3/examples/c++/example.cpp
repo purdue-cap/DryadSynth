@@ -470,7 +470,7 @@ void unsat_core_example2() {
     // The solver s already contains p1 => F
     // To disable F, we add (not p1) as an additional assumption
     qs.push_back(!p1);
-    std::cout << s.check(qs.size(), &qs[0]) << "\n";
+    std::cout << s.check((unsigned)qs.size(), &qs[0]) << "\n";
     expr_vector core2 = s.unsat_core();
     std::cout << core2 << "\n";
     std::cout << "size: " << core2.size() << "\n";
@@ -1138,7 +1138,10 @@ static void parse_example() {
     decls.push_back(c.function("a", 0, 0, B));
     expr a = c.parse_string("(assert a)", sorts, decls);
     std::cout << a << "\n";
+
+    // expr b = c.parse_string("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
 }
+
 
 int main() {
 

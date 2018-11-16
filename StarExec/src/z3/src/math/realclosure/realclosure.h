@@ -22,13 +22,13 @@ Notes:
 #ifndef REALCLOSURE_H_
 #define REALCLOSURE_H_
 
-#include"mpq.h"
-#include"params.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"interval.h"
-#include"z3_exception.h"
-#include"rlimit.h"
+#include "util/mpq.h"
+#include "util/params.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "math/interval/interval.h"
+#include "util/z3_exception.h"
+#include "util/rlimit.h"
 
 namespace realclosure {
     class num;
@@ -48,7 +48,7 @@ namespace realclosure {
         friend class save_interval_ctx;
         imp * m_imp;
     public:
-        manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+        manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = nullptr);
         ~manager();
         typedef num                             numeral;
         typedef svector<numeral>                numeral_vector;
@@ -271,7 +271,7 @@ namespace realclosure {
         friend struct manager::imp;
         value * m_value;
     public:
-        num():m_value(0) {}
+        num():m_value(nullptr) {}
 
         // Low level functions for implementing the C API
         void * c_ptr() { return m_value; }

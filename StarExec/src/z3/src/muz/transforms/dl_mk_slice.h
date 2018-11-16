@@ -19,10 +19,10 @@ Revision History:
 #ifndef DL_MK_SLICE_H_
 #define DL_MK_SLICE_H_
 
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"uint_set.h"
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "util/uint_set.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -100,9 +100,9 @@ namespace datalog {
          */
         mk_slice(context & ctx);
 
-        virtual ~mk_slice() { }
+        ~mk_slice() override { }
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
 
         func_decl* get_predicate(func_decl* p) { func_decl* q = p; m_predicates.find(p, q); return q; }
 

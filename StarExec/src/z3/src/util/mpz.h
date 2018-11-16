@@ -21,13 +21,13 @@ Revision History:
 
 #include<limits.h>
 #include<string>
-#include"util.h"
-#include"small_object_allocator.h"
-#include"trace.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"z3_omp.h"
-#include"mpn.h"
+#include "util/util.h"
+#include "util/small_object_allocator.h"
+#include "util/trace.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/z3_omp.h"
+#include "util/mpn.h"
 
 unsigned u_gcd(unsigned u, unsigned v);
 uint64 u64_gcd(uint64 u, uint64 v);
@@ -92,8 +92,11 @@ class mpz {
     friend class mpbq_manager;
     mpz & operator=(mpz const & other) { UNREACHABLE(); return *this; }
 public:
-    mpz(int v):m_val(v), m_ptr(0) {}
-    mpz():m_val(0), m_ptr(0) {}
+    mpz(int v):m_val(v), m_ptr(nullptr) {}
+    mpz():m_val(0), m_ptr(nullptr) {}
+    mpz(mpz && other) : m_val(other.m_val), m_ptr(nullptr) {
+        std::swap(m_ptr, other.m_ptr);
+    }
     void swap(mpz & other) { 
         std::swap(m_val, other.m_val);
         std::swap(m_ptr, other.m_ptr);
@@ -184,7 +187,7 @@ class mpz_manager {
 
     /**
        \brief Set \c a with the value stored at m_tmp[IDX], and the given sign.
-       \c sz is an overapproximation of the the size of the number stored at \c tmp.
+       \c sz is an overapproximation of the size of the number stored at \c tmp.
     */
     template<int IDX>
     void set(mpz & a, int sign, unsigned sz);
@@ -316,11 +319,11 @@ class mpz_manager {
     void big_rem(mpz const & a, mpz const & b, mpz & c);
 
     int big_compare(mpz const & a, mpz const & b);
-    
+
+public:
     unsigned size_info(mpz const & a);
     struct sz_lt;
 
-public:
     static bool precise() { return true; }
     static bool field() { return false; }
 
@@ -330,16 +333,16 @@ public:
 
     ~mpz_manager();
 
-    static bool is_small(mpz const & a) { return a.m_ptr == 0; }
+    static bool is_small(mpz const & a) { return a.m_ptr == nullptr; }
 
     static mpz mk_z(int val) { return mpz(val); }
     
     void del(mpz & a) { 
-        if (a.m_ptr != 0) {
+        if (a.m_ptr != nullptr) {
             MPZ_BEGIN_CRITICAL();
             deallocate(a.m_ptr); 
             MPZ_END_CRITICAL();
-            a.m_ptr = 0; 
+            a.m_ptr = nullptr;
         } 
     }
     
@@ -497,7 +500,9 @@ public:
         STRACE("mpz", tout << "[mpz] 0 - " << to_string(a) << " == ";); 
         if (is_small(a) && a.m_val == INT_MIN) {
             // neg(INT_MIN) is not a small int
+            MPZ_BEGIN_CRITICAL();
             set_big_i64(a, - static_cast<long long>(INT_MIN)); 
+            MPZ_END_CRITICAL();
             return;
         }
 #ifndef _MP_GMP
@@ -518,7 +523,9 @@ public:
             if (a.m_val < 0) {
                 if (a.m_val == INT_MIN) {
                     // abs(INT_MIN) is not a small int
+                    MPZ_BEGIN_CRITICAL();
                     set_big_i64(a, - static_cast<long long>(INT_MIN)); 
+                    MPZ_END_CRITICAL();
                 }
                 else
                     a.m_val = -a.m_val;
@@ -593,6 +600,15 @@ public:
         }
     }
 
+    bool lt(mpz const& a, int b) {
+        if (is_small(a)) {
+            return a.m_val < b;
+        }
+        else {
+            return lt(a, mpz(b));
+        }
+    }
+
     bool lt(mpz const & a, mpz const & b) {
         if (is_small(a) && is_small(b)) {
             return a.m_val < b.m_val;
@@ -655,6 +671,12 @@ public:
         }
     }
 
+    void set(mpz & target, mpz && source) {
+        del(target);
+        target.m_val = source.m_val;
+        std::swap(target.m_ptr, source.m_ptr);
+    }
+
     void set(mpz & a, int val) {
         del(a);
         a.m_val = val;
@@ -686,6 +708,12 @@ public:
     }
 
     void set(mpz & target, unsigned sz, digit_t const * digits);
+
+    mpz dup(const mpz & source) {
+        mpz temp;
+        set(temp, source);
+        return temp;
+    }
 
     void reset(mpz & a) {
         del(a);

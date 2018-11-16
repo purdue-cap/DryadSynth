@@ -19,8 +19,8 @@ Revision History:
 #ifndef SMT_CHECKER_H_
 #define SMT_CHECKER_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
 
 namespace smt {
 
@@ -47,8 +47,8 @@ namespace smt {
 
     public:
         checker(context & c);
-        bool is_sat(expr * n, unsigned num_bindings = 0, enode * const * bindings = 0);
-        bool is_unsat(expr * n, unsigned num_bindings = 0, enode * const * bindings = 0);
+        bool is_sat(expr * n, unsigned num_bindings = 0, enode * const * bindings = nullptr);
+        bool is_unsat(expr * n, unsigned num_bindings = 0, enode * const * bindings = nullptr);
     };
 
 };

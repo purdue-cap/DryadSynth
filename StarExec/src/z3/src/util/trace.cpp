@@ -16,15 +16,15 @@ Author:
 Revision History:
 
 --*/
-#include"trace.h"
-#include"str_hashtable.h"
+#include "util/trace.h"
+#include "util/str_hashtable.h"
 
 #ifdef _TRACE
 std::ofstream tout(".z3-trace"); 
 #endif
 
 static bool g_enable_all_trace_tags = false;
-static str_hashtable* g_enabled_trace_tags = 0;
+static str_hashtable* g_enabled_trace_tags = nullptr;
 
 static str_hashtable& get_enabled_trace_tags() {
     if (!g_enabled_trace_tags) {
@@ -35,7 +35,7 @@ static str_hashtable& get_enabled_trace_tags() {
 
 void finalize_trace() {
     dealloc(g_enabled_trace_tags);
-    g_enabled_trace_tags = 0;
+    g_enabled_trace_tags = nullptr;
 }
 
 void enable_trace(const char * tag) {
@@ -52,7 +52,7 @@ void disable_trace(const char * tag) {
 
 bool is_trace_enabled(const char * tag) {
     return g_enable_all_trace_tags || 
-		(g_enabled_trace_tags && get_enabled_trace_tags().contains(const_cast<char *>(tag)));
+        (g_enabled_trace_tags && get_enabled_trace_tags().contains(const_cast<char *>(tag)));
 }
 
 void close_trace() {

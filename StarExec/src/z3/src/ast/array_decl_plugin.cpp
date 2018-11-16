@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"array_decl_plugin.h"
-#include"warning.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 
 array_decl_plugin::array_decl_plugin():
     m_store_sym("store"),
@@ -44,7 +44,7 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     if (k == _SET_SORT) {
         if (num_parameters != 1) {
             m_manager->raise_exception("invalid array sort definition, invalid number of parameters");
-            return 0;
+            return nullptr;
         }
         parameter params[2] = { parameters[0], parameter(m_manager->mk_bool_sort()) };
         return mk_sort(ARRAY_SORT, 2, params);
@@ -52,13 +52,13 @@ sort * array_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     SASSERT(k == ARRAY_SORT);
     if (num_parameters < 2) {
         m_manager->raise_exception("invalid array sort definition, invalid number of parameters");
-        return 0;
+        return nullptr;
     }
     
     for (unsigned i = 0; i < num_parameters; i++) {
         if (!parameters[i].is_ast() || !is_sort(parameters[i].get_ast())) {
             m_manager->raise_exception("invalid array sort definition, parameter is not a sort");
-            return 0;
+            return nullptr;
         }
     }
     sort * range = to_sort(parameters[num_parameters - 1].get_ast());
@@ -120,15 +120,15 @@ bool array_decl_plugin::is_array_sort(sort* s) const {
 func_decl * array_decl_plugin::mk_const(sort * s, unsigned arity, sort * const * domain) {
     if (arity != 1) {
         m_manager->raise_exception("invalid const array definition, invalid domain size");
-        return 0;
+        return nullptr;
     }
     if (!is_array_sort(s)) {
         m_manager->raise_exception("invalid const array definition, parameter is not an array sort");
-        return 0;
+        return nullptr;
     }
     if (!m_manager->compatible_sorts(get_array_range(s), domain[0])) {
         m_manager->raise_exception("invalid const array definition, sort mismatch between array range and argument");
-        return 0;
+        return nullptr;
     }
     parameter param(s);
     func_decl_info info(m_family_id, OP_CONST_ARRAY, 1, &param);
@@ -142,11 +142,11 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
         buffer << "map expects to take as many arguments as the function being mapped, "
                << "it was given " << arity << " but expects " << f->get_arity();
         m_manager->raise_exception(buffer.str().c_str());
-        return 0;        
+        return nullptr;
     }
     if (arity == 0) {
         m_manager->raise_exception("don't use map on constants");
-        return 0;
+        return nullptr;
     }
     //
     // check that each domain[i] is an array sort 
@@ -159,14 +159,14 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
             std::ostringstream buffer;
             buffer << "map expects an array sort as argument at position " << i;
             m_manager->raise_exception(buffer.str().c_str());
-            return 0;        
+            return nullptr;
         }
         if (get_array_arity(domain[i]) != dom_arity) {
             std::ostringstream buffer;
             buffer << "map expects all arguments to have the same array domain,  "
                    << "this is not the case for argument " << i;
             m_manager->raise_exception(buffer.str().c_str());
-            return 0;                    
+            return nullptr;
         }
         for (unsigned j = 0; j < dom_arity; ++j) {
             if (get_array_domain(domain[i],j) != get_array_domain(domain[0],j)) {
@@ -174,7 +174,7 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
                 buffer << "map expects all arguments to have the same array domain, "
                        << "this is not the case for argument " << i;
                 m_manager->raise_exception(buffer.str().c_str());
-                return 0;                    
+                return nullptr;
             }
         }
         if (get_array_range(domain[i]) != f->get_domain(i)) {
@@ -182,7 +182,7 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
             buffer << "map expects the argument at position " << i 
                    << " to have the array range the same as the function";
             m_manager->raise_exception(buffer.str().c_str());
-            return 0;                                
+            return nullptr;
         }
     }
     vector<parameter> parameters;
@@ -211,19 +211,19 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
 func_decl * array_decl_plugin::mk_default(unsigned domain_size, sort * const * domain) {
     if (domain_size != 1) {
         m_manager->raise_exception("invalid default array definition, invalid domain size");
-        return 0;
+        return nullptr;
     }
     // check that domain[0] is an array sort.
     unsigned num_parameters = domain[0]->get_num_parameters();
 
     if (num_parameters <= 1) {
         m_manager->raise_exception("parameter mismatch. There should be more than one parameter to defaults");
-        return 0;
+        return nullptr;
     }
     parameter param(domain[0]->get_parameter(num_parameters-1));
     if (!param.is_ast() || !is_sort(param.get_ast())) {
         m_manager->raise_exception("last parameter should be a sort");
-        return 0;
+        return nullptr;
     }
     sort * s = to_sort(param.get_ast());
         
@@ -235,15 +235,17 @@ func_decl * array_decl_plugin::mk_default(unsigned domain_size, sort * const * d
 func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
     if (arity <= 1) {
         m_manager->raise_exception("select takes at least two arguments");
-        return 0;
+        return nullptr;
     }
     sort * s = domain[0];
     unsigned num_parameters = s->get_num_parameters();
     parameter const* parameters = s->get_parameters();
  
     if (num_parameters != arity) {
-        m_manager->raise_exception("select requires as many arguments as the size of the domain");
-        return 0;
+        std::stringstream strm;
+        strm << "select requires " << num_parameters << " arguments, but was provided with " << arity << " arguments";
+        m_manager->raise_exception(strm.str().c_str());
+        return nullptr;
     }
     ptr_buffer<sort> new_domain; // we need this because of coercions.
     new_domain.push_back(s);
@@ -253,7 +255,7 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
             !m_manager->compatible_sorts(domain[i+1], to_sort(parameters[i].get_ast()))) {
             m_manager->raise_exception("domain sort and parameter do not match");
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
         new_domain.push_back(to_sort(parameters[i].get_ast()));
     }
@@ -265,7 +267,7 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
 func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
     if (arity < 3) {
         m_manager->raise_exception("store takes at least 3 arguments");
-        return 0;
+        return nullptr;
     }
     sort * s = domain[0];
     unsigned num_parameters = s->get_num_parameters();
@@ -273,7 +275,7 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
     if (!is_array_sort(s)) {
         m_manager->raise_exception("store expects the first argument sort to be an array");
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
     if (arity != num_parameters+1) {
         std::ostringstream buffer;
@@ -281,19 +283,19 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
                << ", instead it was passed " << (arity - 1) << "arguments";
         m_manager->raise_exception(buffer.str().c_str());
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
     ptr_buffer<sort> new_domain; // we need this because of coercions.
     new_domain.push_back(s);
     for (unsigned i = 0; i < num_parameters; ++i) {
         if (!parameters[i].is_ast() || !is_sort(parameters[i].get_ast())) {
             m_manager->raise_exception("expecting sort parameter");
-            return 0;
+            return nullptr;
         }
         if (!m_manager->compatible_sorts(to_sort(parameters[i].get_ast()), domain[i+1])) {
             m_manager->raise_exception("domain sort and parameter do not match");
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
         new_domain.push_back(to_sort(parameters[i].get_ast()));
     }
@@ -305,16 +307,16 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
 func_decl * array_decl_plugin::mk_array_ext(unsigned arity, sort * const * domain, unsigned i) {
     if (arity != 2 || domain[0] != domain[1]) {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
     sort * s = domain[0];
     unsigned num_parameters = s->get_num_parameters();
     if (num_parameters == 0 || i >= num_parameters - 1) {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
     sort * r = to_sort(s->get_parameter(i).get_ast());
-    parameter param(s);
+    parameter param(i);
     return m_manager->mk_func_decl(m_array_ext_sym, arity, domain, r, func_decl_info(m_family_id, OP_ARRAY_EXT, 1, &param));
 }
 
@@ -360,11 +362,11 @@ func_decl * array_decl_plugin::mk_set_union(unsigned arity, sort * const * domai
 
     if (arity == 0) {
         m_manager->raise_exception("union takes at least one argument");
-        return 0;
+        return nullptr;
     }
     sort * s = domain[0];
     if (!check_set_arguments(arity, domain)) {
-        return 0;
+        return nullptr;
     }
     parameter param(s);
     func_decl_info info(m_family_id, OP_SET_UNION, 1, &param);
@@ -379,10 +381,10 @@ func_decl * array_decl_plugin::mk_set_intersect(unsigned arity, sort * const * d
     
     if (arity == 0) {
         m_manager->raise_exception("intersection takes at least one argument");
-        return 0;
+        return nullptr;
     }
     if (!check_set_arguments(arity, domain)) {
-        return 0;
+        return nullptr;
     }
     func_decl_info info(m_family_id, OP_SET_INTERSECT);
     info.set_associative();
@@ -395,10 +397,10 @@ func_decl * array_decl_plugin::mk_set_intersect(unsigned arity, sort * const * d
 func_decl * array_decl_plugin::mk_set_difference(unsigned arity, sort * const * domain) {
     if (arity != 2) {
         m_manager->raise_exception("set difference takes precisely two arguments");
-        return 0;
+        return nullptr;
     }
     if (!check_set_arguments(arity, domain)) {
-        return 0;
+        return nullptr;
     }
     return m_manager->mk_func_decl(m_set_difference_sym, arity, domain, domain[0], 
                                    func_decl_info(m_family_id, OP_SET_DIFFERENCE));
@@ -407,10 +409,10 @@ func_decl * array_decl_plugin::mk_set_difference(unsigned arity, sort * const * 
 func_decl * array_decl_plugin::mk_set_complement(unsigned arity, sort * const * domain) {
     if (arity != 1) {
         m_manager->raise_exception("set complement takes one argument");
-        return 0;
+        return nullptr;
     }
     if (!check_set_arguments(arity, domain)) {
-        return 0;
+        return nullptr;
     }
     return m_manager->mk_func_decl(m_set_complement_sym, arity, domain, domain[0], 
                                    func_decl_info(m_family_id, OP_SET_COMPLEMENT));
@@ -419,10 +421,10 @@ func_decl * array_decl_plugin::mk_set_complement(unsigned arity, sort * const * 
 func_decl * array_decl_plugin::mk_set_subset(unsigned arity, sort * const * domain) {
     if (arity != 2) {
         m_manager->raise_exception("subset takes two arguments");
-        return 0;
+        return nullptr;
     }
     if (!check_set_arguments(arity, domain)) {
-        return 0;
+        return nullptr;
     }
     sort * bool_sort = m_manager->mk_bool_sort();
     return m_manager->mk_func_decl(m_set_subset_sym, arity, domain, bool_sort, 
@@ -454,20 +456,20 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             sort * s = to_sort(parameters[0].get_ast());
             return mk_const(s, arity, domain);
         }
-        else if (range != 0) {
+        else if (range != nullptr) {
             return mk_const(range, arity, domain); 
         }
         else {
             m_manager->raise_exception("array operation requires one sort parameter (the array sort)");
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
     }
     case OP_ARRAY_MAP: {
         if (num_parameters != 1 || !parameters[0].is_ast() || !is_func_decl(parameters[0].get_ast())) {
             m_manager->raise_exception("array operation requires one function declaration parameter (the function to be mapped)");
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
         func_decl * f = to_func_decl(parameters[0].get_ast());
         return mk_map(f, arity, domain);        
@@ -478,7 +480,7 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         }
         if (num_parameters != 1 || !parameters[0].is_int()) {
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
         return mk_array_ext(arity, domain, parameters[0].get_int());
     case OP_ARRAY_DEFAULT:
@@ -504,12 +506,12 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
                   tout << "as-array-bug: " << to_func_decl(parameters[0].get_ast())->get_name() << " " << to_func_decl(parameters[0].get_ast())->get_arity() << std::endl;);
             m_manager->raise_exception("as-array takes one parameter, a function declaration with arity greater than zero");
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
         func_decl * f = to_func_decl(parameters[0].get_ast());
         return mk_as_array(f);
     }
-    default: return 0;
+    default: return nullptr;
     }
 }
 
@@ -522,7 +524,7 @@ void array_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol
 void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
     op_names.push_back(builtin_name("store",OP_STORE));
     op_names.push_back(builtin_name("select",OP_SELECT));
-    if (logic == symbol::null || logic == symbol("HORN")) {
+    if (logic == symbol::null || logic == symbol("HORN") || logic == symbol("ALL")) {
         // none of the SMT2 logics support these extensions
         op_names.push_back(builtin_name("const",OP_CONST_ARRAY));
         op_names.push_back(builtin_name("map",OP_ARRAY_MAP));
@@ -546,7 +548,7 @@ expr * array_decl_plugin::get_some_value(sort * s) {
     return m_manager->mk_app(m_family_id, OP_CONST_ARRAY, 1, &p, 1, &v);
 }
 
-bool array_decl_plugin::is_fully_interp(sort const * s) const {
+bool array_decl_plugin::is_fully_interp(sort * s) const {
     SASSERT(s->is_sort_of(m_family_id, ARRAY_SORT));
     unsigned sz = get_array_arity(s);
     for (unsigned i = 0; i < sz; i++) {
@@ -556,9 +558,9 @@ bool array_decl_plugin::is_fully_interp(sort const * s) const {
     return m_manager->is_fully_interp(get_array_range(s));
 }
 
-func_decl * array_recognizers::get_as_array_func_decl(app * n) const { 
+func_decl * array_recognizers::get_as_array_func_decl(expr * n) const { 
     SASSERT(is_as_array(n)); 
-    return to_func_decl(n->get_decl()->get_parameter(0).get_ast()); 
+    return to_func_decl(to_app(n)->get_decl()->get_parameter(0).get_ast()); 
 }
 
 array_util::array_util(ast_manager& m): 
@@ -591,4 +593,10 @@ sort * array_util::mk_array_sort(unsigned arity, sort* const* domain, sort* rang
     }
     params.push_back(parameter(range));
     return m_manager.mk_sort(m_fid, ARRAY_SORT, params.size(), params.c_ptr());
+}
+
+func_decl* array_util::mk_array_ext(sort *domain, unsigned i) {    
+    sort * domains[2] = { domain, domain };
+    parameter p(i);
+    return m_manager.mk_func_decl(m_fid, OP_ARRAY_EXT, 1, &p, 2, domains);
 }

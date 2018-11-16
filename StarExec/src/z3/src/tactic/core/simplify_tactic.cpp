@@ -16,9 +16,9 @@ Author:
 Notes:
 
 --*/
-#include"simplify_tactic.h"
-#include"th_rewriter.h"
-#include"ast_pp.h"
+#include "tactic/core/simplify_tactic.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_pp.h"
 
 struct simplify_tactic::imp {
     ast_manager &   m_manager;
@@ -101,7 +101,7 @@ void simplify_tactic::operator()(goal_ref const & in,
         (*m_imp)(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
     }
     catch (rewriter_exception & ex) {
         throw tactic_exception(ex.msg());
@@ -111,9 +111,9 @@ void simplify_tactic::operator()(goal_ref const & in,
 
 void simplify_tactic::cleanup() {
     ast_manager & m = m_imp->m();
-    imp * d = alloc(imp, m, m_params);
-    std::swap(d, m_imp);    
-    dealloc(d);
+    params_ref p = std::move(m_params);
+    m_imp->~imp();
+    new (m_imp) imp(m, p);
 }
 
 unsigned simplify_tactic::get_num_steps() const {

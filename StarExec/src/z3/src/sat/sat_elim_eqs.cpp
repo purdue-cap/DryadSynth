@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"sat_elim_eqs.h"
-#include"sat_solver.h"
-#include"trace.h"
+#include "sat/sat_elim_eqs.h"
+#include "sat/sat_solver.h"
+#include "util/trace.h"
 
 namespace sat {
     
@@ -94,7 +94,7 @@ namespace sat {
                 continue;
             }
             if (!c.frozen())
-                m_solver.dettach_clause(c);
+                m_solver.detach_clause(c);
             // apply substitution
             for (i = 0; i < sz; i++) {
                 SASSERT(!m_solver.was_eliminated(c[i].var()));

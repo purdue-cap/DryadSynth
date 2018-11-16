@@ -21,7 +21,7 @@ Notes:
 #ifndef MACRO_SUBSTITUTION_H_
 #define MACRO_SUBSTITUTION_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class macro_substitution {
     ast_manager &                                      m_manager;
@@ -45,7 +45,7 @@ public:
 
     bool empty() const { return m_decl2macro.empty(); }
 
-    void insert(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep = 0);
+    void insert(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep = nullptr);
     void erase(func_decl * f);
     bool contains(func_decl * f) { return m_decl2macro.contains(f); }
     bool find(func_decl * f, quantifier * & q, proof * & pr);

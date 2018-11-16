@@ -19,8 +19,8 @@ Revision History:
 
 #include<utility>
 #include<sstream>
-#include"dl_mk_similarity_compressor.h"
-#include"dl_relation_manager.h"
+#include "muz/rel/dl_mk_similarity_compressor.h"
+#include "muz/rel/dl_relation_manager.h"
 
 namespace datalog {
 
@@ -426,7 +426,7 @@ namespace datalog {
         new_negs.push_back(false);
 
         rule * new_rule = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), 
-            new_negs.c_ptr());
+            new_negs.c_ptr(), r->name());
         m_result_rules.push_back(new_rule);
 
         //TODO: allow for a rule to have multiple parent objects
@@ -531,7 +531,7 @@ namespace datalog {
             }
         }
 
-        rule_set * result = static_cast<rule_set *>(0);
+        rule_set * result = static_cast<rule_set *>(nullptr);
         if (m_modified) {
             result = alloc(rule_set, m_context);
             unsigned fin_rule_cnt = m_result_rules.size();

@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"debug.h"
-#include"hash.h"
+#include "util/debug.h"
+#include "util/hash.h"
 #include <string.h>
 
 static unsigned read_unsigned(const char *s) {
@@ -83,8 +83,8 @@ unsigned string_hash(const char * str, unsigned length, unsigned init_value) {
         Z3_fallthrough;
     case 1 : 
         a+=str[0];
-        Z3_fallthrough;
         /* case 0: nothing left to add */
+        break;
     }
     mix(a,b,c);
     /*-------------------------------------------- report the result */

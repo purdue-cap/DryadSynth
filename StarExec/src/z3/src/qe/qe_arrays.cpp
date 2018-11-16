@@ -18,13 +18,13 @@ Revision History:
 --*/
 
 
-#include "qe_arrays.h"
-#include "rewriter_def.h"
-#include "expr_functors.h"
-#include "expr_safe_replace.h"
-#include "lbool.h"
-#include "ast_util.h"
-#include "ast_pp.h"
+#include "qe/qe_arrays.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/expr_functors.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "util/lbool.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 
 namespace qe {
 
@@ -39,7 +39,7 @@ namespace qe {
             imp*            m_imp;
             
             rw_cfg(ast_manager& m, array_util& a):
-                m(m), a(a), m_lits(m), m_model(0) {}
+                m(m), a(a), m_lits(m), m_model(nullptr) {}
             
             br_status reduce_app(func_decl* f, unsigned n, expr* const* args, expr_ref& result, proof_ref & pr) {
                 if (a.is_select(f) && a.is_store(args[0])) {                    
@@ -110,7 +110,7 @@ namespace qe {
         imp(ast_manager& m): m(m), a(m) {}
         ~imp() {}
 
-        virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
             return false;
         }
 

@@ -25,31 +25,30 @@ Notes:
 
 
 #include <sstream>
-#include "dl_util.h"
-#include "rewriter.h"
-#include "rewriter_def.h"
-#include "var_subst.h"
-#include "util.h"
-#include "pdr_prop_solver.h"
-#include "pdr_context.h"
-#include "pdr_generalizers.h"
-#include "for_each_expr.h"
-#include "dl_rule_set.h"
-#include "unit_subsumption_tactic.h"
-#include "model_smt2_pp.h"
-#include "dl_mk_rule_inliner.h"
-#include "ast_smt2_pp.h"
-#include "qe_lite.h"
-#include "ast_ll_pp.h"
-#include "proof_checker.h"
-#include "smt_value_sort.h"
-#include "proof_utils.h"
-#include "dl_boogie_proof.h"
-#include "scoped_proof.h"
-#include "blast_term_ite_tactic.h"
-#include "model_implicant.h"
-#include "expr_safe_replace.h"
-#include "ast_util.h"
+#include "muz/base/dl_util.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/util.h"
+#include "muz/pdr/pdr_prop_solver.h"
+#include "muz/pdr/pdr_context.h"
+#include "muz/pdr/pdr_generalizers.h"
+#include "ast/for_each_expr.h"
+#include "muz/base/dl_rule_set.h"
+#include "smt/tactic/unit_subsumption_tactic.h"
+#include "model/model_smt2_pp.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "ast/ast_smt2_pp.h"
+#include "qe/qe_lite.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/proofs/proof_checker.h"
+#include "smt/smt_value_sort.h"
+#include "muz/base/dl_boogie_proof.h"
+#include "ast/scoped_proof.h"
+#include "tactic/core/blast_term_ite_tactic.h"
+#include "model/model_implicant.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/ast_util.h"
 
 namespace pdr {
 
@@ -129,7 +128,7 @@ namespace pdr {
                 std::stringstream name_stm;
                 name_stm << m_head->get_name() << '_' << i;
                 func_decl_ref stm(m);
-                stm = m.mk_func_decl(symbol(name_stm.str().c_str()), 0, (sort*const*)0, arg_sort);
+                stm = m.mk_func_decl(symbol(name_stm.str().c_str()), 0, (sort*const*)nullptr, arg_sort);
                 m_sig.push_back(pm.get_o_pred(stm, 0));
             }
         }
@@ -150,30 +149,27 @@ namespace pdr {
     }
 
     datalog::rule const& pred_transformer::find_rule(model_core const& model) const {
-        obj_map<expr, datalog::rule const*>::iterator it = m_tag2rule.begin(), end = m_tag2rule.end();
         TRACE("pdr_verbose",
               datalog::rule_manager& rm = ctx.get_context().get_rule_manager();
-              for (; it != end; ++it) {
-                  expr* pred = it->m_key;
+              for (auto const& kv : m_tag2rule) {
+                  expr* pred = kv.m_key;
                   tout << mk_pp(pred, m) << ":\n";
-                  if (it->m_value) rm.display_smt2(*it->m_value, tout) << "\n";
+                  if (kv.m_value) rm.display_smt2(*kv.m_value, tout) << "\n";
               }
         );
 
-        it = m_tag2rule.begin();
         if (m_tag2rule.size() == 1) {
-            return *it->m_value;
+            return *m_tag2rule.begin()->m_value;
         }
 
         expr_ref vl(m);
-        for (; it != end; ++it) {
-            expr* pred = it->m_key;
+        for (auto const& kv : m_tag2rule) {
+            expr* pred = kv.m_key;
             if (model.eval(to_app(pred)->get_decl(), vl) && m.is_true(vl)) {
-                return *it->m_value;
+                return *kv.m_value;
             }
         }
-        UNREACHABLE();
-        return *((datalog::rule*)0);
+        throw default_exception("could not find rule");
     }
 
     void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& preds) const {
@@ -202,7 +198,7 @@ namespace pdr {
 
     void pred_transformer::simplify_formulas(tactic& tac, expr_ref_vector& v) {
         goal_ref g(alloc(goal, m, false, false, false));
-        for (unsigned j = 0; j < v.size(); ++j) g->assert_expr(v[j].get());
+        for (expr* e : v) g->assert_expr(e);
         model_converter_ref mc;
         proof_converter_ref pc;
         expr_dependency_ref core(m);
@@ -217,9 +213,8 @@ namespace pdr {
     void pred_transformer::simplify_formulas() {
         tactic_ref us = mk_unit_subsumption_tactic(m);
         simplify_formulas(*us, m_invariants);
-        for (unsigned i = 0; i < m_levels.size(); ++i) {
-            simplify_formulas(*us, m_levels[i]);
-        }
+        for (auto & fmls : m_levels) 
+            simplify_formulas(*us, fmls);
     }
 
     expr_ref pred_transformer::get_formulas(unsigned level, bool add_axioms) {
@@ -448,7 +443,7 @@ namespace pdr {
         else if (is_sat == l_false) {
             uses_level = m_solver.assumes_level();
         }
-        m_solver.set_model(0);
+        m_solver.set_model(nullptr);
         return is_sat;
     }
 
@@ -464,7 +459,7 @@ namespace pdr {
         tmp = pm.mk_and(conj);
         prop_solver::scoped_level _sl(m_solver, level);
         m_solver.set_core(core);
-        m_solver.set_model(0);
+        m_solver.set_model(nullptr);
         lbool r = m_solver.check_conjunction_as_assumptions(tmp);
         if (r == l_false) {
             assumes_level = m_solver.assumes_level();
@@ -482,7 +477,7 @@ namespace pdr {
         prop_solver::scoped_level _sl(m_solver, level);
         m_solver.set_core(&core);
         m_solver.set_subset_based_core(true);
-        m_solver.set_model(0);
+        m_solver.set_model(nullptr);
         lbool res = m_solver.check_assumptions_and_formula(lits, fml);
         if (res == l_false) {
             lits.reset();
@@ -575,7 +570,7 @@ namespace pdr {
         // Predicates that are variable representatives. Other predicates at
         // positions the variables occur are made equivalent with these.
         expr_ref_vector conj(m);
-        app_ref_vector& var_reprs = *(alloc(app_ref_vector, m));
+        app_ref_vector var_reprs(m);
         ptr_vector<app> aux_vars;
 
         unsigned ut_size = rule.get_uninterpreted_tail_size();
@@ -584,7 +579,9 @@ namespace pdr {
         init_atom(pts, rule.get_head(), var_reprs, conj, UINT_MAX);
         for (unsigned i = 0; i < ut_size; ++i) {
             if (rule.is_neg_tail(i)) {
-                throw default_exception("PDR does not support negated predicates in rule tails");
+                char const* msg = "PDR does not supported negated predicates in rule tails";
+                IF_VERBOSE(0, verbose_stream() << msg << "\n";);
+                throw default_exception(msg);
             }
             init_atom(pts, rule.get_tail(i), var_reprs, conj, i);
         }
@@ -599,10 +596,16 @@ namespace pdr {
         flatten_and(tail);
         for (unsigned i = 0; i < tail.size(); ++i) {
             expr_ref tmp(m);
-            var_subst(m, false)(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr(), tmp);
+            var_subst vs(m, false);
+            vs(tail[i].get(), var_reprs.size(), (expr*const*)var_reprs.c_ptr(), tmp);
             conj.push_back(tmp);
             TRACE("pdr", tout << mk_pp(tail[i].get(), m) << "\n" << mk_pp(tmp, m) << "\n";);
-            SASSERT(is_ground(tmp));
+            if (!is_ground(tmp)) {
+                std::stringstream msg;
+                msg << "PDR cannot solve non-ground tails: " << tmp;
+                IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
+                throw default_exception(msg.str());
+            }
         }
         expr_ref fml = pm.mk_and(conj);
         th_rewriter rw(m);
@@ -624,7 +627,7 @@ namespace pdr {
             m_rule2transition.insert(&rule, fml.get());
             rules.push_back(&rule);
         }
-        m_rule2inst.insert(&rule, &var_reprs);
+        m_rule2inst.insert(&rule, alloc(app_ref_vector, var_reprs));
         m_rule2vars.insert(&rule, aux_vars);
         TRACE("pdr",
               tout << rule.get_decl()->get_name() << "\n";
@@ -646,7 +649,7 @@ namespace pdr {
         expr_free_vars fv;
         fv(e);
         while (vars.size() < fv.size()) {
-            vars.push_back(0);
+            vars.push_back(nullptr);
         }
         for (unsigned i = 0; i < fv.size(); ++i) {
             if (fv[i] && !vars[i].get()) {
@@ -818,7 +821,7 @@ namespace pdr {
         datalog::rule const& rl2 = pt().find_rule(*mdl);
         SASSERT(is_ini(rl2));
         set_rule(&rl2);
-        pt().get_solver().set_model(0);
+        pt().get_solver().set_model(nullptr);
         return const_cast<datalog::rule*>(m_rule);
     }
 
@@ -888,15 +891,16 @@ namespace pdr {
 
 
     void model_node::dequeue(model_node*& root) {
-        TRACE("pdr", tout << this << " " << state() << "\n";);
-        root = 0;
+        TRACE("pdr", tout << this << " root: " << root << " " << state() << "\n";);
         if (!m_next && !m_prev) return;
         SASSERT(m_next);
         SASSERT(m_prev);
         SASSERT(children().empty());
         if (this == m_next) {
-            // SASSERT(root == this);
-            root = 0;
+            SASSERT(m_prev == this);
+            if (root == this) {
+                root = nullptr;
+            }
         }
         else {
             m_next->m_prev = m_prev;
@@ -906,8 +910,8 @@ namespace pdr {
             }
         }
         TRACE("pdr", tout << "new root: " << root << "\n";);
-        m_prev = 0;
-        m_next = 0;
+        m_prev = nullptr;
+        m_next = nullptr;
     }
 
 
@@ -934,7 +938,7 @@ namespace pdr {
      */
     model_node* model_search::next() {
         if (!m_goal) {
-            return 0;
+            return nullptr;
         }
         else {
             model_node* result = m_goal;
@@ -968,7 +972,7 @@ namespace pdr {
     }
 
     void model_search::enqueue_leaf(model_node* n) {
-        TRACE("pdr_verbose", tout << n << " " << n->state() << " goal: " << m_goal << "\n";);
+        TRACE("pdr_verbose", tout << "node: " << n << " " << n->state() << " goal: " << m_goal << "\n";);
         SASSERT(n->is_open());
         if (!m_goal) {
             m_goal = n;
@@ -1157,7 +1161,7 @@ namespace pdr {
         todo.push_back(m_root);
         while (!todo.empty()) {
             model_node* n = todo.back();
-            model* md = 0;
+            model* md = nullptr;
             if (!n->get_model_ptr()) {
                 if (models.find(n->state(), md)) {
                     TRACE("pdr", tout << n->state() << "\n";);
@@ -1296,7 +1300,7 @@ namespace pdr {
         ptr_vector<model_node> todo;
         proof_ref_vector trail(m);
         datalog::rule_ref_vector rules_trail(rm);
-        proof* pr = 0;
+        proof* pr = nullptr;
         unif.set_normalize(true);
         todo.push_back(m_root);
         update_models();
@@ -1412,7 +1416,7 @@ namespace pdr {
             erase_children(*m_root, false);
             remove_node(*m_root, false);
             dealloc(m_root);
-            m_root = 0;
+            m_root = nullptr;
         }
         m_cache.reset();
     }
@@ -1444,10 +1448,10 @@ namespace pdr {
         : m_fparams(fparams),
           m_params(params),
           m(m),
-          m_context(0),
+          m_context(nullptr),
           m_pm(m_fparams, params.pdr_max_num_contexts(), m),
           m_query_pred(m),
-          m_query(0),
+          m_query(nullptr),
           m_search(m_params.pdr_bfs_model_search()),
           m_last_result(l_undef),
           m_inductive_lvl(0),
@@ -1460,15 +1464,22 @@ namespace pdr {
         reset();
     }
 
-    void context::reset() {
-        TRACE("pdr", tout << "\n";);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
+    void context::reset(decl2rel& rels) {
+        decl2rel::iterator it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
             dealloc(it->m_value);
         }
-        m_rels.reset();
+        rels.reset();
+    }
+
+    void context::reset(bool full) {
+        TRACE("pdr", tout << "reset\n";);
+        reset(m_rels);
+        if (full) {
+            reset(m_rels_tmp);
+        }
         m_search.reset();
-        m_query = 0;
+        m_query = nullptr;
         m_last_result = l_undef;
         m_inductive_lvl = 0;
     }
@@ -1488,6 +1499,7 @@ namespace pdr {
                 e->get_data().m_value->add_rule(pred_rules[i]);
             }
         }
+        TRACE("pdr", tout << "adding rules\n";);
         datalog::rule_set::iterator rit = rules.begin(), rend = rules.end();
         for (; rit != rend; ++rit) {
             datalog::rule* r = *rit;
@@ -1502,6 +1514,7 @@ namespace pdr {
             }
         }
         // Initialize use list dependencies
+        TRACE("pdr", tout << "initialize use list dependencies\n";);
         decl2rel::iterator it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
             func_decl* pred = it->m_key;
@@ -1515,9 +1528,11 @@ namespace pdr {
             }
         }
 
+        TRACE("pdr", tout << "initialize predicate transformers\n";);
         // Initialize the predicate transformers.
         it = rels.begin(), end = rels.end();
         for (; it != end; ++it) {
+            SASSERT(it->m_value);
             pred_transformer& rel = *it->m_value;
             rel.initialize(rels);
             TRACE("pdr", rel.display(tout); );
@@ -1525,25 +1540,28 @@ namespace pdr {
     }
 
     void context::update_rules(datalog::rule_set& rules) {
-        decl2rel rels;
+        TRACE("pdr", tout << "update rules\n";);
+        reset(m_rels_tmp);
         init_core_generalizers(rules);
-        init_rules(rules, rels);
-        decl2rel::iterator it = rels.begin(), end = rels.end();
+        init_rules(rules, m_rels_tmp);
+        decl2rel::iterator it = m_rels_tmp.begin(), end = m_rels_tmp.end();
         for (; it != end; ++it) {
-            pred_transformer* pt = 0;
+            pred_transformer* pt = nullptr;
             if (m_rels.find(it->m_key, pt)) {
                 it->m_value->inherit_properties(*pt);
             }
         }
-        reset();
-        it = rels.begin(), end = rels.end();
+        reset(false);
+        it = m_rels_tmp.begin(), end = m_rels_tmp.end();
         for (; it != end; ++it) {
             m_rels.insert(it->m_key, it->m_value);
         }
+        m_rels_tmp.reset();
+        TRACE("pdr", tout << "done update rules\n";);
     }
 
     unsigned context::get_num_levels(func_decl* p) {
-        pred_transformer* pt = 0;
+        pred_transformer* pt = nullptr;
         if (m_rels.find(p, pt)) {
             return pt->get_num_levels();
         }
@@ -1554,7 +1572,7 @@ namespace pdr {
     }
 
     expr_ref context::get_cover_delta(int level, func_decl* p_orig, func_decl* p) {
-        pred_transformer* pt = 0;
+        pred_transformer* pt = nullptr;
         if (m_rels.find(p, pt)) {
             return pt->get_cover_delta(p_orig, level);
         }
@@ -1565,7 +1583,7 @@ namespace pdr {
     }
 
     void context::add_cover(int level, func_decl* p, expr* property) {
-        pred_transformer* pt = 0;
+        pred_transformer* pt = nullptr;
         if (!m_rels.find(p, pt)) {
             pt = alloc(pred_transformer, *this, get_pdr_manager(), p);
             m_rels.insert(p, pt);
@@ -1705,7 +1723,7 @@ namespace pdr {
 
     void context::validate_search() {
         expr_ref tr = m_search.get_trace(*this);
-		TRACE("pdr", tout << tr << "\n";);
+        TRACE("pdr", tout << tr << "\n";);
         smt::kernel solver(m, get_fparams());
         solver.assert_expr(tr);
         lbool res = solver.check();
@@ -1718,6 +1736,7 @@ namespace pdr {
     }
 
     void context::validate_model() {
+        IF_VERBOSE(1, verbose_stream() << "(pdr.validate_model)\n";);
         std::stringstream msg;
         expr_ref_vector refs(m);
         expr_ref tmp(m);
@@ -1727,11 +1746,10 @@ namespace pdr {
         get_level_property(m_inductive_lvl, refs, rs);
         inductive_property ex(m, mc, rs);
         ex.to_model(model);
-        decl2rel::iterator it = m_rels.begin(), end = m_rels.end();
         var_subst vs(m, false);
         expr_free_vars fv;
-        for (; it != end; ++it) {
-            ptr_vector<datalog::rule> const& rules = it->m_value->rules();
+        for (auto const& kv : m_rels) {
+            ptr_vector<datalog::rule> const& rules = kv.m_value->rules();
             for (unsigned i = 0; i < rules.size(); ++i) {
                 datalog::rule& r = *rules[i];
                 model->eval(r.get_head(), tmp);
@@ -1760,6 +1778,7 @@ namespace pdr {
                 smt::kernel solver(m, get_fparams());
                 solver.assert_expr(tmp);
                 lbool res = solver.check();
+                TRACE("pdr", tout << tmp << " " << res << "\n";);
                 if (res != l_false) {
                     msg << "rule validation failed when checking: " << mk_pp(tmp, m);
                     IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
@@ -1801,7 +1820,7 @@ namespace pdr {
             m_core_generalizers.push_back(alloc(core_multi_generalizer, *this, 0));
         }
         if (!classify.is_bool()) {
-            m.toggle_proof_mode(PGM_FINE);
+            m.toggle_proof_mode(PGM_ENABLED);
             m_fparams.m_arith_bound_prop = BP_NONE;
             m_fparams.m_arith_auto_config_simplex = true;
             m_fparams.m_arith_propagate_eqs = false;
@@ -1811,16 +1830,16 @@ namespace pdr {
                 !m_params.pdr_use_convex_interior_generalizer()) {
                 if (classify.is_dl()) {
                     m_fparams.m_arith_mode = AS_DIFF_LOGIC;
-                    m_fparams.m_arith_expand_eqs = true;
+                    m_fparams.m_arith_eq2ineq = true;
                 }
                 else if (classify.is_utvpi()) {
                     IF_VERBOSE(1, verbose_stream() << "UTVPI\n";);
                     m_fparams.m_arith_mode = AS_UTVPI;
-                    m_fparams.m_arith_expand_eqs = true;
+                    m_fparams.m_arith_eq2ineq = true;
                 }
                 else {
                     m_fparams.m_arith_mode = AS_ARITH;
-                    m_fparams.m_arith_expand_eqs = false;
+                    m_fparams.m_arith_eq2ineq = false;
                 }
             }
         }
@@ -1866,6 +1885,7 @@ namespace pdr {
     }
 
     lbool context::solve() {
+        TRACE("pdr", tout << "solve\n";);
         m_last_result = l_undef;
         try {
             solve_impl();
@@ -1896,7 +1916,7 @@ namespace pdr {
                     verbose_stream() << ex.to_string();
                 });
 
-            // upgrade invariants that are known to be inductive.
+            // upgrade invariants that are known to be inductive.            
             decl2rel::iterator it = m_rels.begin (), end = m_rels.end ();
             for (; m_inductive_lvl > 0 && it != end; ++it) {
                 if (it->m_value->head() != m_query_pred) {
@@ -2006,7 +2026,7 @@ namespace pdr {
     //
     bool context::check_reachability(unsigned level) {
         expr_ref state(m.mk_true(), m);
-        model_node* root = alloc(model_node, 0, state, *m_query, level);
+        model_node* root = alloc(model_node, nullptr, state, *m_query, level);
         m_search.set_root(root);
 
         while (model_node* node = m_search.next()) {
@@ -2081,6 +2101,7 @@ namespace pdr {
             }
             case l_undef: {
                 TRACE("pdr", tout << "unknown state: " << mk_pp(m_pm.mk_and(cube), m) << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "unknown state\n";);
                 throw unknown_exception();
             }
             }
@@ -2215,7 +2236,7 @@ namespace pdr {
         vars.append(aux_vars.size(), aux_vars.c_ptr());
 
         scoped_ptr<expr_replacer> rep;
-        qe_lite qe(m);
+        qe_lite qe(m, m_params.p);
         expr_ref phi1 = m_pm.mk_and(Phi);
         qe(vars, phi1);
         TRACE("pdr", tout << "Eliminated\n" << mk_pp(phi1, m) << "\n";);
@@ -2382,7 +2403,7 @@ namespace pdr {
             if (m_params.print_boogie_certificate()) {
                 datalog::boogie_proof bp(m);
                 bp.set_proof(get_proof());
-                bp.set_model(0);
+                bp.set_model(nullptr);
                 bp.pp(strm);
             }
             else {

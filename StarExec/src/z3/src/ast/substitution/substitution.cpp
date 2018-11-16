@@ -17,10 +17,10 @@ Author:
 Revision History:
 
 --*/
-#include"substitution.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"rewriter.h"
+#include "ast/substitution/substitution.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/rewriter/rewriter.h"
 
 substitution::substitution(ast_manager & m):
     m_manager(m),
@@ -79,13 +79,13 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
 
     // It is incorrect to cache results between different calls if we are applying a substitution
     // modulo a substitution s -> t.
-    if (m_state == INSERT || s != expr_offset(0,0))
+    if (m_state == INSERT || s != expr_offset(nullptr,0))
         reset_cache();
 
     m_state = APPLY;
 
     unsigned         j;
-    expr *           e;
+    expr *           e = nullptr;
     unsigned         off;
     expr_offset      n1;
     bool             visited;
@@ -146,7 +146,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
                 bool has_new_args = false;
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg     = to_app(e)->get_arg(i);
-                    expr * new_arg = 0;
+                    expr * new_arg = nullptr;
                     
                     VERIFY(m_apply_cache.find(expr_offset(arg, off), new_arg));
                     new_args.push_back(new_arg);
@@ -185,10 +185,10 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
             }
             expr_offset body(q->get_expr(), off);
             expr_ref s1_ref(m_manager), t1_ref(m_manager);
-            if (s.get_expr() != 0) {
+            if (s.get_expr() != nullptr) {
                 var_sh(s.get_expr(), num_vars, s1_ref);
             }
-            if (t.get_expr() != 0) {
+            if (t.get_expr() != nullptr) {
                 var_sh(t.get_expr(), num_vars, t1_ref);
             }
             expr_offset s1(s1_ref, s.get_offset());
@@ -214,11 +214,11 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
         }
     }
     SASSERT(m_apply_cache.contains(n));
-    m_apply_cache.find(n, e);
+    VERIFY(m_apply_cache.find(n, e));
     m_new_exprs.push_back(e);
     result = e;
     
-    if (s != expr_offset(0,0))
+    if (s != expr_offset(nullptr,0))
         reset_cache();
     
     TRACE("subst_bug", tout << "END substitution::apply\nresult:\n" << mk_pp(e, m_manager) << "\nref_count: " << e->get_ref_count() << "\n";);

@@ -20,28 +20,28 @@ Revision History:
 #include<iostream>
 #include<time.h>
 #include<signal.h>
-#include"stopwatch.h"
+#include "util/stopwatch.h"
 #ifdef _CYGWIN
 #undef min
 #undef max
 #endif
-#include"smt_params.h"
-#include"arith_decl_plugin.h"
-#include"dl_compiler.h"
-#include"dl_mk_filter_rules.h"
-#include"dl_finite_product_relation.h"
-#include"dl_context.h"
-#include"rel_context.h"
-#include"dl_register_engine.h"
-#include"datalog_parser.h"
-#include"datalog_frontend.h"
-#include"timeout.h"
+#include "smt/params/smt_params.h"
+#include "ast/arith_decl_plugin.h"
+#include "muz/rel/dl_compiler.h"
+#include "muz/transforms/dl_mk_filter_rules.h"
+#include "muz/rel/dl_finite_product_relation.h"
+#include "muz/base/dl_context.h"
+#include "muz/rel/rel_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "muz/fp/datalog_parser.h"
+#include "shell/datalog_frontend.h"
+#include "util/timeout.h"
 
 static stopwatch g_overall_time;
 static stopwatch g_piece_timer;
 static unsigned t_parsing = 0;
 
-static datalog::context * g_ctx = 0;
+static datalog::context * g_ctx = nullptr;
 static datalog::rule_set * g_orig_rules;
 static datalog::instruction_block * g_code;
 static datalog::execution_context * g_ectx;
@@ -257,7 +257,7 @@ unsigned read_datalog(char const * file) {
             true);
         return ERR_MEMOUT;
     }
-    register_on_timeout_proc(0);
+    register_on_timeout_proc(nullptr);
     return 0;
 }
 

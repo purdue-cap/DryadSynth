@@ -32,8 +32,8 @@ Revision History:
 #ifndef DL_MK_SEPARAT_NEGATED_TAILS_H_
 #define DL_MK_SEPARAT_NEGATED_TAILS_H_
 
-#include "dl_rule_transformer.h"
-#include "dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 
@@ -51,7 +51,7 @@ namespace datalog {
 
     public:
         mk_separate_negated_tails(context& ctx, unsigned priority = 21000);
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 }
 

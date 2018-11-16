@@ -16,18 +16,18 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"simplify_tactic.h"
-#include"bit_blaster_tactic.h"
-#include"sat_tactic.h"
-#include"fpa2bv_tactic.h"
-#include"smt_tactic.h"
-#include"propagate_values_tactic.h"
-#include"ackermannize_bv_tactic.h"
-#include"probe_arith.h"
-#include"qfnra_tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "sat/tactic/sat_tactic.h"
+#include "tactic/fpa/fpa2bv_tactic.h"
+#include "smt/tactic/smt_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
+#include "tactic/arith/probe_arith.h"
+#include "tactic/smtlogics/qfnra_tactic.h"
 
-#include"qffp_tactic.h"
+#include "tactic/fpa/qffp_tactic.h"
 
 
 struct is_non_fp_qfnra_predicate {
@@ -66,10 +66,10 @@ struct is_non_fp_qfnra_predicate {
 
 class is_fp_qfnra_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_fp_qfnra_predicate>(g);
     }
-    virtual ~is_fp_qfnra_probe() {}
+    ~is_fp_qfnra_probe() override {}
 };
 
 probe * mk_is_fp_qfnra_probe() {
@@ -141,11 +141,11 @@ struct is_non_qffp_predicate {
 
 class is_qffp_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_qffp_predicate>(g);
     }
 
-    virtual ~is_qffp_probe() {}
+    ~is_qffp_probe() override {}
 };
 
 probe * mk_is_qffp_probe() {

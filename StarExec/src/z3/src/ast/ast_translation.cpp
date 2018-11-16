@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include "arith_decl_plugin.h"
-#include "bv_decl_plugin.h"
-#include "datatype_decl_plugin.h"
-#include "array_decl_plugin.h"
-#include "format.h"
-#include "ast_translation.h"
-#include "ast_ll_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/format.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_ll_pp.h"
 
 ast_translation::~ast_translation() {
     reset_cache();
@@ -37,11 +37,9 @@ void ast_translation::cleanup() {
 }
 
 void ast_translation::reset_cache() {
-    obj_map<ast, ast*>::iterator it  = m_cache.begin();
-    obj_map<ast, ast*>::iterator end = m_cache.end();
-    for (; it != end; ++it) {
-        m_from_manager.dec_ref(it->m_key);
-        m_to_manager.dec_ref(it->m_value);
+    for (auto & kv : m_cache) {
+        m_from_manager.dec_ref(kv.m_key);
+        m_to_manager.dec_ref(kv.m_value);
     }
     m_cache.reset();
 }
@@ -110,7 +108,7 @@ void ast_translation::copy_params(decl * d, unsigned rpos, buffer<parameter> & p
 void ast_translation::mk_sort(sort * s, frame & fr) {
     sort_info * si     = s->get_info();
     sort * new_s;
-    if (si == 0) {
+    if (si == nullptr) {
         // TODO: investigate: this branch is probably unreachable.
         // It became unreachable after we started using mk_uninterpreted_sort for creating uninterpreted sorts,
         // and mk_uninterpreted_sort actually creates a user_sort.
@@ -141,7 +139,7 @@ void ast_translation::mk_func_decl(func_decl * f, frame & fr) {
     sort ** new_domain = reinterpret_cast<sort**>(m_result_stack.c_ptr() + fr.m_rpos + num_extra);
     sort *  new_range  = static_cast<sort*>(m_result_stack.back());  
     func_decl * new_f;
-    if (fi == 0) {
+    if (fi == nullptr) {
         new_f = m_to_manager.mk_func_decl(f->get_name(),
                                           f->get_arity(),
                                           new_domain,
@@ -184,7 +182,7 @@ void ast_translation::mk_func_decl(func_decl * f, frame & fr) {
 }
 
 ast * ast_translation::process(ast const * _n) {
-    if (!_n) return 0;
+    if (!_n) return nullptr;
     SASSERT(m_result_stack.empty());
     SASSERT(m_frame_stack.empty());
     SASSERT(m_extra_children_stack.empty());
@@ -322,7 +320,7 @@ ast * ast_translation::process(ast const * _n) {
 }
 
 expr_dependency * expr_dependency_translation::operator()(expr_dependency * d) {
-    if (d == 0)
+    if (d == nullptr)
         return d;
     m_buffer.reset();
     m_translation.from().linearize(d, m_buffer);

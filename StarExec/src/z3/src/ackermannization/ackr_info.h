@@ -16,11 +16,11 @@ Revision History:
 #ifndef ACKR_INFO_H_
 #define ACKR_INFO_H_
 
-#include"obj_hashtable.h"
-#include"ast.h"
-#include"ref.h"
-#include"expr_replacer.h"
-#include"ast_translation.h"
+#include "util/obj_hashtable.h"
+#include "ast/ast.h"
+#include "util/ref.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/ast_translation.h"
 
 /** \brief
    Information about how a formula is being converted into
@@ -65,7 +65,7 @@ class ackr_info {
         }
 
         inline app* find_term(func_decl* c)  const {
-            app * rv = 0;
+            app * rv = nullptr;
             m_c2t.find(c,rv);
             return rv;
         }

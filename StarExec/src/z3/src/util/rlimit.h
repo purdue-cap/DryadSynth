@@ -19,18 +19,20 @@ Revision History:
 #ifndef RLIMIT_H_
 #define RLIMIT_H_
 
-#include "vector.h"
+#include "util/vector.h"
 
 class reslimit {
     volatile unsigned   m_cancel;
+    bool            m_suspend;
     uint64          m_count;
     uint64          m_limit;
     svector<uint64> m_limits;
     ptr_vector<reslimit> m_children;
 
     void set_cancel(unsigned f);
-    
-public:    
+    friend class scoped_suspend_rlimit;
+
+public:
     reslimit();
     void push(unsigned delta_limit);
     void pop();
@@ -39,10 +41,10 @@ public:
 
     bool inc();
     bool inc(unsigned offset);
-    uint64 count() const; 
+    uint64 count() const;
 
 
-    bool get_cancel_flag() const { return m_cancel > 0; }
+    bool get_cancel_flag() const { return m_cancel > 0 && !m_suspend; }
     char const* get_cancel_msg() const;
     void cancel();
     void reset_cancel();
@@ -60,5 +62,25 @@ public:
     ~scoped_rlimit() { m_limit.pop(); }
 
 };
+
+class scoped_suspend_rlimit {
+    reslimit & m_limit;
+public:
+    scoped_suspend_rlimit(reslimit& r): m_limit(r) {
+        r.m_suspend = true;
+    }
+    ~scoped_suspend_rlimit() {
+        m_limit.m_suspend = false;
+    }
+};
+
+struct scoped_limits {
+    reslimit&  m_limit;
+    unsigned   m_sz;
+    scoped_limits(reslimit& lim): m_limit(lim), m_sz(0) {}
+    ~scoped_limits() { for (unsigned i = 0; i < m_sz; ++i) m_limit.pop_child(); }
+    void push_child(reslimit* lim) { m_limit.push_child(lim); ++m_sz; }
+};
+
 
 #endif

@@ -17,14 +17,14 @@ Revision History:
 
 --*/
 
-#include "qe_arith.h"
-#include "ast_pp.h"
-#include "th_rewriter.h"
-#include "expr_functors.h"
-#include "model_v2_pp.h"
-#include "expr_safe_replace.h"
-#include "obj_pair_hashtable.h"
-#include "qe_datatypes.h"
+#include "qe/qe_arith.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/expr_functors.h"
+#include "model/model_v2_pp.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "util/obj_pair_hashtable.h"
+#include "qe/qe_datatypes.h"
 
 namespace qe {
     
@@ -37,7 +37,7 @@ namespace qe {
         imp(ast_manager& m):
             m(m), dt(m), m_val(m) {}
         
-        virtual bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        bool solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
             return lift_foreign(vars, lits);
         }
 
@@ -151,7 +151,7 @@ namespace qe {
                 return false;
             }
             func_decl* c = a->get_decl();
-            func_decl* rec = dt.get_constructor_recognizer(c);
+            func_decl_ref rec(dt.get_constructor_is(c), m);
             ptr_vector<func_decl> const & acc = *dt.get_constructor_accessors(c);
             SASSERT(acc.size() == a->get_num_args());
             //
@@ -232,7 +232,7 @@ namespace qe {
             func_decl* c = to_app(l)->get_decl();
             ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(c);
             if (!is_app_of(r, c)) {
-                lits.push_back(m.mk_app(dt.get_constructor_recognizer(c), r));
+                lits.push_back(m.mk_app(dt.get_constructor_is(c), r));
             }
             for (unsigned i = 0; i < acc.size(); ++i) {
                 lits.push_back(m.mk_eq(to_app(l)->get_arg(i), access(c, i, acc, r)));

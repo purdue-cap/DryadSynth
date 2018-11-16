@@ -14,13 +14,13 @@
 
  Revision History:
 --*/
-#include"mk_extract_proc.h"
+#include "ast/rewriter/mk_extract_proc.h"
 mk_extract_proc::mk_extract_proc(bv_util & u):
     m_util(u),
     m_high(0),
     m_low(UINT_MAX),
-    m_domain(0),
-    m_f_cached(0) {
+    m_domain(nullptr),
+    m_f_cached(nullptr) {
 }
 
 mk_extract_proc::~mk_extract_proc() {

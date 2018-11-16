@@ -22,15 +22,16 @@ Revision History:
 #ifndef AST_SMT2_PP_H_
 #define AST_SMT2_PP_H_
 
-#include"format.h"
-#include"params.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"fpa_decl_plugin.h"
-#include"dl_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"smt2_util.h"
+#include "ast/format.h"
+#include "util/params.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/fpa_decl_plugin.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "util/smt2_util.h"
 
 class smt2_pp_environment {
 protected:
@@ -50,6 +51,7 @@ public:
     virtual fpa_util & get_futil() = 0;
     virtual seq_util & get_sutil() = 0;
     virtual datalog::dl_decl_util& get_dlutil() = 0;
+    virtual datatype_util& get_dtutil() = 0;
     virtual bool uses(symbol const & s) const = 0; 
     virtual format_ns::format * pp_fdecl(func_decl * f, unsigned & len);
     virtual format_ns::format * pp_bv_literal(app * t, bool use_bv_lits, bool bv_neg);
@@ -74,17 +76,19 @@ class smt2_pp_environment_dbg : public smt2_pp_environment {
     array_util    m_arutil;
     fpa_util      m_futil;
     seq_util      m_sutil;
+    datatype_util m_dtutil;
     datalog::dl_decl_util m_dlutil;
 public:
-    smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_sutil(m), m_dlutil(m) {}
-    virtual ast_manager & get_manager() const { return m_manager; }
-    virtual arith_util & get_autil() { return m_autil; }
-    virtual bv_util & get_bvutil() { return m_bvutil; }
-    virtual seq_util & get_sutil() { return m_sutil; }
-    virtual array_util & get_arutil() { return m_arutil; }
-    virtual fpa_util & get_futil() { return m_futil; }
-    virtual datalog::dl_decl_util& get_dlutil() { return m_dlutil; }
-    virtual bool uses(symbol const & s) const { return false; }
+    smt2_pp_environment_dbg(ast_manager & m):m_manager(m), m_autil(m), m_bvutil(m), m_arutil(m), m_futil(m), m_sutil(m), m_dtutil(m), m_dlutil(m) {}
+    ast_manager & get_manager() const override { return m_manager; }
+    arith_util & get_autil() override { return m_autil; }
+    bv_util & get_bvutil() override { return m_bvutil; }
+    seq_util & get_sutil() override { return m_sutil; }
+    array_util & get_arutil() override { return m_arutil; }
+    fpa_util & get_futil() override { return m_futil; }
+    datalog::dl_decl_util& get_dlutil() override { return m_dlutil; }
+    datatype_util& get_dtutil() override { return m_dtutil; }
+    bool uses(symbol const & s) const override { return false; }
 };
 
 void mk_smt2_format(expr * n, smt2_pp_environment & env, params_ref const & p, 
@@ -94,7 +98,7 @@ void mk_smt2_format(sort * s, smt2_pp_environment & env, params_ref const & p, f
 void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ns::format_ref & r);
 
 std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, 
-                           unsigned num_vars = 0, char const * var_prefix = 0);
+                           unsigned num_vars = 0, char const * var_prefix = nullptr);
 std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
 std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
 
@@ -109,8 +113,8 @@ struct mk_ismt2_pp {
     unsigned           m_indent;
     unsigned           m_num_vars;
     char const *       m_var_prefix;
-    mk_ismt2_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = 0);
-    mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = 0);
+    mk_ismt2_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
+    mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent = 0, unsigned num_vars = 0, char const * var_prefix = nullptr);
 };
 
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p);

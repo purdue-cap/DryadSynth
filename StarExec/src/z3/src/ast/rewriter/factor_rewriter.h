@@ -20,9 +20,9 @@ Notes:
 #ifndef FACTOR_REWRITER_H_
 #define FACTOR_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter.h"
-#include"arith_decl_plugin.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/arith_decl_plugin.h"
 
 class factor_rewriter {
     typedef obj_map<expr,unsigned> powers_t;
@@ -61,7 +61,7 @@ struct factor_rewriter_cfg : public default_rewriter_cfg {
     bool rewrite_patterns() const { return false; }
     bool flat_assoc(func_decl * f) const { return false; }
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         return m_r.mk_app_core(f, num, args, result);
     }
     factor_rewriter_cfg(ast_manager & m):m_r(m) {}

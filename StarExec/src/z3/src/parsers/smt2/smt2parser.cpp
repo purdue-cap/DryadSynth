@@ -16,20 +16,21 @@ Author:
 Revision History:
 
 --*/
-#include"smt2parser.h"
-#include"smt2scanner.h"
-#include"stack.h"
-#include"datatype_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"seq_decl_plugin.h"
-#include"ast_pp.h"
-#include"well_sorted.h"
-#include"pattern_validation.h"
-#include"rewriter.h"
-#include"has_free_vars.h"
-#include"ast_smt2_pp.h"
-#include"parser_params.hpp"
+#include "util/stack.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/seq_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/has_free_vars.h"
+#include "ast/ast_smt2_pp.h"
+#include "parsers/smt2/smt2parser.h"
+#include "parsers/smt2/smt2scanner.h"
+#include "parsers/util/pattern_validation.h"
+#include "parsers/util/parser_params.hpp"
 #include<sstream>
 
 namespace smt2 {
@@ -45,7 +46,7 @@ namespace smt2 {
         struct local {
             expr *           m_term;
             unsigned         m_level;
-            local():m_term(0), m_level(0) {}
+            local():m_term(nullptr), m_level(0) {}
             local(expr * t, unsigned l):m_term(t), m_level(l) {}
         };
         symbol_table<local>  m_env;
@@ -53,6 +54,8 @@ namespace smt2 {
 
         dictionary<int>      m_sort_id2param_idx;
         dictionary<int>      m_dt_name2idx;
+        dictionary<unsigned> m_dt_name2arity;
+        svector<symbol>      m_dt_names;
 
         scoped_ptr<psort_ref_vector>      m_psort_stack;
         scoped_ptr<sort_ref_vector>       m_sort_stack;
@@ -66,7 +69,8 @@ namespace smt2 {
 
         scoped_ptr<bv_util>               m_bv_util;
         scoped_ptr<arith_util>            m_arith_util;
-        scoped_ptr<seq_util>              m_seq_util;
+        scoped_ptr<datatype_util>         m_datatype_util;
+        scoped_ptr<seq_util>              m_seq_util;      
         scoped_ptr<pattern_validator>     m_pattern_validator;
         scoped_ptr<var_shifter>           m_var_shifter;
 
@@ -97,6 +101,8 @@ namespace smt2 {
         symbol               m_define_sort;
         symbol               m_declare_sort;
         symbol               m_declare_datatypes;
+        symbol               m_declare_datatype;
+        symbol               m_par;
         symbol               m_push;
         symbol               m_pop;
         symbol               m_get_value;
@@ -104,11 +110,11 @@ namespace smt2 {
         symbol               m_check_sat_assuming;
         symbol               m_define_fun_rec;
         symbol               m_define_funs_rec;
+        symbol               m_match;
         symbol               m_underscore;
 
         typedef std::pair<symbol, expr*> named_expr;
         named_expr           m_last_named_expr;
-
 
         ast_manager & m() const { return m_ctx.m(); }
         pdecl_manager & pm() const { return m_ctx.pm(); }
@@ -117,7 +123,7 @@ namespace smt2 {
         bool m_ignore_user_patterns;
         bool m_ignore_bad_patterns;
         bool m_display_error_for_vs;
-        
+
         bool ignore_user_patterns() const { return m_ignore_user_patterns; }
         bool ignore_bad_patterns() const  { return m_ignore_bad_patterns; }
         bool use_vs_format() const        { return m_display_error_for_vs; }
@@ -129,26 +135,26 @@ namespace smt2 {
                 m_decl(d), m_spos(spos) {
             }
         };
-        
+
         typedef psort_frame sort_frame;
 
-        enum expr_frame_kind { EF_APP, EF_LET, EF_LET_DECL, EF_QUANT, EF_ATTR_EXPR, EF_PATTERN };
+        enum expr_frame_kind { EF_APP, EF_LET, EF_LET_DECL, EF_MATCH, EF_QUANT, EF_ATTR_EXPR, EF_PATTERN };
 
         struct expr_frame {
             expr_frame_kind m_kind;
             expr_frame(expr_frame_kind k):m_kind(k) {}
         };
-        
+
         struct app_frame : public expr_frame {
             symbol   m_f;
             unsigned m_expr_spos;
             unsigned m_param_spos;
             bool     m_as_sort;
             app_frame(symbol const & f, unsigned expr_spos, unsigned param_spos, bool as_sort):
-                expr_frame(EF_APP), 
-                m_f(f), 
-                m_expr_spos(expr_spos), 
-                m_param_spos(param_spos), 
+                expr_frame(EF_APP),
+                m_f(f),
+                m_expr_spos(expr_spos),
+                m_param_spos(param_spos),
                 m_as_sort(as_sort) {}
         };
 
@@ -163,10 +169,14 @@ namespace smt2 {
             unsigned m_sort_spos;
             unsigned m_expr_spos;
             quant_frame(bool forall, unsigned pat_spos, unsigned nopat_spos, unsigned sym_spos, unsigned sort_spos, unsigned expr_spos):
-                expr_frame(EF_QUANT), m_forall(forall), m_weight(1), 
-                m_pat_spos(pat_spos), m_nopat_spos(nopat_spos), 
+                expr_frame(EF_QUANT), m_forall(forall), m_weight(1),
+                m_pat_spos(pat_spos), m_nopat_spos(nopat_spos),
                 m_sym_spos(sym_spos), m_sort_spos(sort_spos),
                 m_expr_spos(expr_spos) {}
+        };
+
+        struct match_frame : public expr_frame {
+            match_frame():expr_frame(EF_MATCH) {}
         };
 
         struct let_frame : public expr_frame {
@@ -175,7 +185,7 @@ namespace smt2 {
             unsigned m_expr_spos;
             let_frame(unsigned sym_spos, unsigned expr_spos):expr_frame(EF_LET), m_in_decls(true), m_sym_spos(sym_spos), m_expr_spos(expr_spos) {}
         };
-        
+
         struct let_decl_frame : public expr_frame {
             let_decl_frame():expr_frame(EF_LET_DECL) {}
         };
@@ -186,9 +196,9 @@ namespace smt2 {
             unsigned     m_expr_spos;
             symbol       m_last_symbol;
             attr_expr_frame(expr_frame * prev, unsigned sym_spos, unsigned expr_spos):
-                expr_frame(EF_ATTR_EXPR), 
-                m_prev(prev), 
-                m_sym_spos(sym_spos), 
+                expr_frame(EF_ATTR_EXPR),
+                m_prev(prev),
+                m_sym_spos(sym_spos),
                 m_expr_spos(expr_spos) {}
         };
 
@@ -212,31 +222,31 @@ namespace smt2 {
         }
 
         psort_ref_vector & psort_stack() {
-            if (m_psort_stack.get() == 0)
+            if (m_psort_stack.get() == nullptr)
                 m_psort_stack = alloc(psort_ref_vector, pm());
             return *(m_psort_stack.get());
         }
 
         sort_ref_vector & sort_stack() {
-            if (m_sort_stack.get() == 0)
+            if (m_sort_stack.get() == nullptr)
                 m_sort_stack = alloc(sort_ref_vector, m());
             return *(m_sort_stack.get());
         }
 
         expr_ref_vector & expr_stack() {
-            if (m_expr_stack.get() == 0)
+            if (m_expr_stack.get() == nullptr)
                 m_expr_stack = alloc(expr_ref_vector, m());
             return *(m_expr_stack.get());
         }
-        
+
         template<typename T>
         static unsigned size(scoped_ptr<T> & v) {
-            return v.get() == 0 ? 0 : v->size();
+            return v.get() == nullptr ? 0 : v->size();
         }
-        
+
         template<typename T>
         static void shrink(scoped_ptr<T> & v, unsigned old_sz) {
-            if (v.get() == 0) {
+            if (v.get() == nullptr) {
                 SASSERT(old_sz == 0);
             }
             else {
@@ -245,54 +255,60 @@ namespace smt2 {
         }
 
         expr_ref_vector & pattern_stack() {
-            if (m_pattern_stack.get() == 0)
+            if (m_pattern_stack.get() == nullptr)
                 m_pattern_stack = alloc(expr_ref_vector, m());
             return *(m_pattern_stack.get());
         }
 
         expr_ref_vector & nopattern_stack() {
-            if (m_nopattern_stack.get() == 0)
+            if (m_nopattern_stack.get() == nullptr)
                 m_nopattern_stack = alloc(expr_ref_vector, m());
             return *(m_nopattern_stack.get());
         }
-       
+
         svector<symbol> & symbol_stack() {
             return m_symbol_stack;
         }
 
         sexpr_ref_vector & sexpr_stack() {
-            if (m_sexpr_stack.get() == 0)
+            if (m_sexpr_stack.get() == nullptr)
                 m_sexpr_stack = alloc(sexpr_ref_vector, sm());
             return *(m_sexpr_stack.get());
         }
 
         arith_util & autil() {
-            if (m_arith_util.get() == 0)
+            if (m_arith_util.get() == nullptr)
                 m_arith_util = alloc(arith_util, m());
             return *(m_arith_util.get());
         }
 
+        datatype_util & dtutil() {
+            if (m_datatype_util.get() == nullptr)
+                m_datatype_util = alloc(datatype_util, m());
+            return *(m_datatype_util.get());
+        }
+
         seq_util & sutil() {
-            if (m_seq_util.get() == 0)
+            if (m_seq_util.get() == nullptr)
                 m_seq_util = alloc(seq_util, m());
             return *(m_seq_util.get());
         }
 
         bv_util & butil() {
-            if (m_bv_util.get() == 0)
+            if (m_bv_util.get() == nullptr)
                 m_bv_util = alloc(bv_util, m());
             return *(m_bv_util.get());
         }
 
         pattern_validator & pat_validator() {
-            if (m_pattern_validator.get() == 0) {
+            if (m_pattern_validator.get() == nullptr) {
                 m_pattern_validator = alloc(pattern_validator, m());
             }
             return *(m_pattern_validator.get());
         }
 
         var_shifter & shifter() {
-            if (m_var_shifter.get() == 0)
+            if (m_var_shifter.get() == nullptr)
                 m_var_shifter = alloc(var_shifter, m());
             return *(m_var_shifter.get());
         }
@@ -328,7 +344,7 @@ namespace smt2 {
         bool sync_after_error() {
             while (true) {
                 try {
-                    while (curr_is_rparen()) 
+                    while (curr_is_rparen())
                         next();
                     if (m_num_open_paren < 0)
                         m_num_open_paren = 0;
@@ -337,7 +353,7 @@ namespace smt2 {
                     SASSERT(m_num_open_paren >= 0);
                     while (m_num_open_paren > 0 || !curr_is_lparen()) {
                         TRACE("sync", tout << "sync(): curr: " << curr() << "\n";
-                              tout << "m_num_open_paren: " << m_num_open_paren << ", line: " << m_scanner.get_line() << ", pos: " 
+                              tout << "m_num_open_paren: " << m_num_open_paren << ", line: " << m_scanner.get_line() << ", pos: "
                               << m_scanner.get_pos() << "\n";);
                         if (curr() == scanner::EOF_TOKEN) {
                             return false;
@@ -365,9 +381,16 @@ namespace smt2 {
             }
             throw parser_exception(msg);
         }
-        
+
         symbol const & curr_id() const { return m_scanner.get_id(); }
         rational curr_numeral() const { return m_scanner.get_number(); }
+        unsigned curr_unsigned() {
+            rational n = curr_numeral();
+            if (!n.is_unsigned())
+                throw parser_exception("invalid indexed identifier, index is too big to fit in an unsigned machine integer");
+            return n.get_unsigned();
+        }
+
 
         bool curr_is_identifier() const { return curr() == scanner::SYMBOL_TOKEN; }
         bool curr_is_keyword() const { return curr() == scanner::KEYWORD_TOKEN; }
@@ -379,6 +402,7 @@ namespace smt2 {
 
         bool curr_id_is_underscore() const { SASSERT(curr_is_identifier()); return curr_id() == m_underscore; }
         bool curr_id_is_as() const { SASSERT(curr_is_identifier()); return curr_id() == m_as; }
+        bool curr_id_is_match() const { SASSERT(curr_is_identifier()); return curr_id() == m_match; }
         bool curr_id_is_forall() const { SASSERT(curr_is_identifier()); return curr_id() == m_forall; }
         bool curr_id_is_exists() const { SASSERT(curr_is_identifier()); return curr_id() == m_exists; }
         bool curr_id_is_bang() const { SASSERT(curr_is_identifier()); return curr_id() == m_bang; }
@@ -401,19 +425,29 @@ namespace smt2 {
         void check_int(char const * msg) { if (!curr_is_int()) throw parser_exception(msg); }
         void check_int_or_float(char const * msg) { if (!curr_is_int() && !curr_is_float()) throw parser_exception(msg); }
         void check_float(char const * msg) { if (!curr_is_float()) throw parser_exception(msg); }
+        symbol check_identifier_next(char const * msg) { check_identifier(msg); symbol s = curr_id(); next(); return s; }
+
+
+        char const * m_current_file;
+        void set_current_file(char const * s) { m_current_file = s; }
 
         void error(unsigned line, unsigned pos, char const * msg) {
             m_ctx.set_cancel(false);
             if (use_vs_format()) {
                 m_ctx.diagnostic_stream() << "Z3(" << line << ", " << pos << "): ERROR: " << msg;
                 if (msg[strlen(msg)-1] != '\n')
-                    m_ctx.diagnostic_stream() << std::endl; 
+                    m_ctx.diagnostic_stream() << std::endl;
             }
             else {
-                m_ctx.regular_stream() << "(error \"line " << line << " column " << pos << ": " << escaped(msg, true) << "\")" << std::endl;
+                m_ctx.regular_stream() << "(error \"";
+                if (m_current_file) m_ctx.regular_stream() << m_current_file << ": ";
+                m_ctx.regular_stream()<< "line " << line << " column " << pos << ": " << escaped(msg, true) << "\")" << std::endl;
             }
             if (m_ctx.exit_on_error()) {
-                exit(1);
+                // WORKAROUND: ASan's LeakSanitizer reports many false positives when
+                // calling `exit()` so call `_Exit()` instead which avoids invoking leak
+                // checking.
+                _Exit(1);
             }
         }
 
@@ -431,7 +465,7 @@ namespace smt2 {
                 m_ctx.regular_stream() << "(error : " << escaped(msg, true) << "\")" << std::endl;
             }
         }
-        
+
         void unknown_sort(symbol id, char const* context = "") {
             std::string msg = context;
             if (context[0]) msg += ": ";
@@ -444,10 +478,10 @@ namespace smt2 {
             unsigned num_parens = 0;
             do {
                 switch (curr()) {
-                case scanner::LEFT_PAREN: 
-                    num_parens++; 
+                case scanner::LEFT_PAREN:
+                    num_parens++;
                     break;
-                case scanner::RIGHT_PAREN: 
+                case scanner::RIGHT_PAREN:
                     if (num_parens == 0)
                         throw parser_exception("invalid s-expression, unexpected ')'");
                     num_parens--;
@@ -535,22 +569,22 @@ namespace smt2 {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
             psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == 0)
+            if (d == nullptr)
                 unknown_sort(id, context);
             if (!d->has_var_params() && d->get_num_params() != 0)
                 throw parser_exception("sort constructor expects parameters");
             sort * r = d->instantiate(pm());
-            if (r == 0)
+            if (r == nullptr)
                 throw parser_exception("invalid sort application");
             next();
             return r;
         }
 
-        psort * parse_psort_name(bool ignore_unknow_sort = false) {
+        psort * parse_psort_name(bool ignore_unknown_sort = false) {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
             psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d != 0) {
+            if (d != nullptr) {
                 if (!d->has_var_params() && d->get_num_params() != 0)
                     throw parser_exception("sort constructor expects parameters");
                 next();
@@ -563,11 +597,11 @@ namespace smt2 {
                     return pm().mk_psort_var(m_sort_id2param_idx.size(), idx);
                 }
                 else {
-                    if (ignore_unknow_sort)
-                        return 0;
-                    unknown_sort(id); 
-                    UNREACHABLE();
-                    return 0;
+                    if (!ignore_unknown_sort) {
+                        unknown_sort(id);
+                        UNREACHABLE();
+                    }
+                    return nullptr;
                 }
             }
         }
@@ -576,25 +610,21 @@ namespace smt2 {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id_is_underscore());
             next();
-            check_identifier("invalid indexed sort, symbol expected");
-            symbol id = curr_id();
+            symbol id = check_identifier_next("invalid indexed sort, symbol expected");
             psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == 0) 
+            if (d == nullptr)
                 unknown_sort(id);
-            next();
             sbuffer<unsigned> args;
             while (!curr_is_rparen()) {
                 check_int("invalid indexed sort, integer or ')' expected");
-                rational n = curr_numeral();
-                if (!n.is_unsigned())
-                    throw parser_exception("invalid indexed sort, index is too big to fit in an unsigned machine integer");
-                args.push_back(n.get_unsigned());
+                unsigned u = curr_unsigned();
+                args.push_back(u);
                 next();
             }
             if (args.empty())
                 throw parser_exception("invalid indexed sort, index expected");
             sort * r = d->instantiate(pm(), args.size(), args.c_ptr());
-            if (r == 0)
+            if (r == nullptr)
                 throw parser_exception("invalid sort application");
             next();
             return r;
@@ -604,13 +634,14 @@ namespace smt2 {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
             psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == 0) 
-                unknown_sort(id);
+            if (d == nullptr) {
+                unknown_sort(id);                                
+            }
             next();
             void * mem      = m_stack.allocate(sizeof(psort_frame));
             new (mem) psort_frame(*this, d, psort_stack().size());
         }
-        
+
         void pop_psort_app_frame() {
             SASSERT(curr_is_rparen());
             psort_frame * fr = static_cast<psort_frame*>(m_stack.top());
@@ -623,6 +654,7 @@ namespace smt2 {
                 TRACE("smt2parser", tout << "num: " << num << ", d->get_num_params(): " << d->get_num_params() << "\n";);
                 throw parser_exception("invalid number of parameters to sort constructor");
             }
+
             psort * r = pm().mk_psort_app(m_sort_id2param_idx.size(), d, num, psort_stack().c_ptr() + spos);
             psort_stack().shrink(spos);
             psort_stack().push_back(r);
@@ -630,13 +662,13 @@ namespace smt2 {
             next();
         }
 
-        void parse_psort() {
+        void parse_psort(bool ignore_unknown_sort = false) {
             unsigned stack_pos  = psort_stack().size();
             (void)stack_pos;
             unsigned num_frames = 0;
             do {
                 if (curr_is_identifier()) {
-                    psort_stack().push_back(parse_psort_name());
+                    psort_stack().push_back(parse_psort_name(false));
                 }
                 else if (curr_is_rparen()) {
                     if (num_frames == 0)
@@ -647,7 +679,7 @@ namespace smt2 {
                 else {
                     check_lparen_next("invalid sort, symbol, '_' or '(' expected");
                     if (!curr_is_identifier())
-                        throw parser_exception("invalid sort, symbol or '_' expected"); 
+                        throw parser_exception("invalid sort, symbol or '_' expected");
                     if (curr_id_is_underscore()) {
                         psort_stack().push_back(pm().mk_psort_cnst(parse_indexed_sort()));
                     }
@@ -665,13 +697,13 @@ namespace smt2 {
             SASSERT(curr_is_identifier());
             symbol id = curr_id();
             psort_decl * d = m_ctx.find_psort_decl(id);
-            if (d == 0) 
+            if (d == nullptr)
                 unknown_sort(id);
             next();
             void * mem      = m_stack.allocate(sizeof(sort_frame));
             new (mem) sort_frame(*this, d, sort_stack().size());
         }
-        
+
         void pop_sort_app_frame() {
             SASSERT(curr_is_rparen());
             sort_frame * fr = static_cast<sort_frame*>(m_stack.top());
@@ -685,7 +717,7 @@ namespace smt2 {
                 throw parser_exception("invalid number of parameters to sort constructor");
             }
             sort * r = d->instantiate(pm(), num, sort_stack().c_ptr() + spos);
-            if (r == 0)
+            if (r == nullptr)
                 throw parser_exception("invalid sort application");
             sort_stack().shrink(spos);
             sort_stack().push_back(r);
@@ -710,8 +742,8 @@ namespace smt2 {
                 }
                 else {
                     check_lparen_next("invalid sort, symbol, '_' or '(' expected");
-                    if (!curr_is_identifier()) 
-                        throw parser_exception(std::string(context) + " invalid sort, symbol or '_' expected"); 
+                    if (!curr_is_identifier())
+                        throw parser_exception(std::string(context) + " invalid sort, symbol or '_' expected");
                     if (curr_id_is_underscore()) {
                         sort_stack().push_back(parse_indexed_sort());
                     }
@@ -726,7 +758,7 @@ namespace smt2 {
         }
 
         unsigned parse_sorts(char const* context) {
-            unsigned sz = 0;            
+            unsigned sz = 0;
             check_lparen_next(context);
             while (!curr_is_rparen()) {
                 parse_sort(context);
@@ -739,43 +771,46 @@ namespace smt2 {
         unsigned parse_symbols() {
             unsigned sz = 0;
             check_lparen_next("invalid list of symbols, '(' expected");
-            while (!curr_is_rparen()) {
-                check_identifier("invalid list of symbols, symbol or ')' expected");
-                m_symbol_stack.push_back(curr_id());
-                next();
+            while (!curr_is_rparen()) {                
+                m_symbol_stack.push_back(check_identifier_next("invalid list of symbols, symbol or ')' expected"));
                 sz++;
             }
             next();
             return sz;
         }
 
+        ptype parse_ptype() {
+            SASSERT(curr_is_identifier());
+            psort * p = parse_psort_name(true);
+            ptype result;
+            if (p != nullptr) {
+                result = ptype(p);
+            }
+            else {
+                // parse_psort_name failed, identifier was not consumed.
+                int idx;
+                if (m_dt_name2idx.find(curr_id(), idx)) {
+                    result = ptype(idx);
+                }
+                else {
+                    result = ptype(curr_id());
+                }
+                SASSERT(curr_is_identifier());
+                next();
+            }
+            return result;
+        }
+
         // [ '(' identifier sort ')' ]+
         void parse_accessor_decls(paccessor_decl_ref_buffer & a_decls) {
             while (!curr_is_rparen()) {
                 check_lparen_next("invalid datatype declaration, '(' or ')' expected");
-                check_identifier("invalid accessor declaration, symbol (accessor name) expected");
-                symbol a_name = curr_id();
-                next();
-                if (curr_is_identifier()) {
-                    psort * p = parse_psort_name(true);
-                    if (p != 0) {
-                        a_decls.push_back(pm().mk_paccessor_decl(m_sort_id2param_idx.size(), a_name, ptype(p)));
-                    }
-                    else {
-                        // parse_psort_name failed, identifier was not consumed.
-                        int idx;
-                        if (m_dt_name2idx.find(curr_id(), idx)) {
-                            a_decls.push_back(pm().mk_paccessor_decl(m_sort_id2param_idx.size(), a_name, ptype(idx)));
-                        }
-                        else {
-                            a_decls.push_back(pm().mk_paccessor_decl(m_sort_id2param_idx.size(), a_name, ptype(curr_id())));
-                        }
-                        SASSERT(curr_is_identifier());
-                        next();
-                    }
+                symbol a_name = check_identifier_next("invalid accessor declaration, symbol (accessor name) expected");
+                if (curr_is_identifier()) {                    
+                    a_decls.push_back(pm().mk_paccessor_decl(m_sort_id2param_idx.size(), a_name, parse_ptype()));
                 }
                 else {
-                    parse_psort();
+                    parse_psort(true);
                     a_decls.push_back(pm().mk_paccessor_decl(m_sort_id2param_idx.size(), a_name, ptype(psort_stack().back())));
                     psort_stack().pop_back();
                 }
@@ -793,7 +828,7 @@ namespace smt2 {
                     symbol r_name(r_str.c_str());
                     next();
                     TRACE("datatype_parser_bug", tout << ct_name << " " << r_name << "\n";);
-                    ct_decls.push_back(pm().mk_pconstructor_decl(m_sort_id2param_idx.size(), ct_name, r_name, 0, 0));
+                    ct_decls.push_back(pm().mk_pconstructor_decl(m_sort_id2param_idx.size(), ct_name, r_name, 0, nullptr));
                 }
                 else {
                     check_lparen_next("invalid datatype declaration, '(' or ')' expected");
@@ -812,46 +847,54 @@ namespace smt2 {
             if (ct_decls.empty())
                 throw parser_exception("invalid datatype declaration, datatype does not have any constructors");
         }
-
+        
         void parse_declare_datatypes() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_declare_datatypes);
             next();
             unsigned line = m_scanner.get_line();
             unsigned pos  = m_scanner.get_pos();
-            parse_sort_decl_params();
             m_dt_name2idx.reset();
+            bool is_smt2_6 = parse_sort_decl_or_params();
             unsigned i = 0;
             pdatatype_decl_ref_buffer new_dt_decls(pm());
             check_lparen_next("invalid datatype declaration, '(' expected");
+            pdatatype_decl_ref d(pm());                
             while (!curr_is_rparen()) {
-                check_lparen_next("invalid datatype declaration, '(' or ')' expected");
-                check_identifier("invalid datatype declaration, symbol (datatype name) expected");
-                symbol dt_name = curr_id();
-                next();
-                m_dt_name2idx.insert(dt_name, i);
                 pconstructor_decl_ref_buffer new_ct_decls(pm());
-                parse_constructor_decls(new_ct_decls);
-                new_dt_decls.push_back(pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr()));
-                check_rparen_next("invalid datatype declaration, ')' expected");
+                if (is_smt2_6) {
+                    if (i >= m_dt_names.size()) {
+                        throw parser_exception("invalid datatype declaration, too many data-type bodies defined");
+                    }
+                    symbol dt_name = m_dt_names[i];
+                    parse_datatype_dec(nullptr, new_ct_decls);
+                    d = pm().mk_pdatatype_decl(m_dt_name2arity.find(dt_name), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
+                }
+                else {
+                    check_lparen_next("invalid datatype declaration, '(' or ')' expected");
+                    symbol dt_name = check_identifier_next("invalid datatype declaration, symbol (datatype name) expected");
+                    m_dt_name2idx.insert(dt_name, i);
+                    parse_constructor_decls(new_ct_decls);
+                    d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
+                    check_rparen_next("invalid datatype declaration, ')' expected");
+                }
+                new_dt_decls.push_back(d);
                 i++;
+            }
+            if (i < m_dt_names.size()) {
+                throw parser_exception("invalid datatype declaration, too few datatype definitions compared to declared sorts");
             }
             next();
             check_rparen("invalid datatype declaration");
             unsigned sz = new_dt_decls.size();
             if (sz == 0) {
-            m_ctx.print_success();
-        next();
+                m_ctx.print_success();
+                next();
                 return;
-        }
+            }
             else if (sz == 1) {
-                symbol missing;
-                if (new_dt_decls[0]->has_missing_refs(missing)) {
-                    std::string err_msg = "invalid datatype declaration, unknown sort '";
-                    err_msg += missing.str();
-                    err_msg += "'";
-                    throw parser_exception(err_msg, line, pos);
-                }
+                check_missing(new_dt_decls[0], line, pos);
+                new_dt_decls[0]->commit(pm());
             }
             else {
                 SASSERT(sz > 1);
@@ -864,42 +907,108 @@ namespace smt2 {
                     err_msg += "'";
                     throw parser_exception(err_msg, line, pos);
                 }
+                dts->commit(pm());
                 m_ctx.insert_aux_pdecl(dts.get());
             }
             for (unsigned i = 0; i < sz; i++) {
                 pdatatype_decl * d = new_dt_decls[i];
-                SASSERT(d != 0);
                 symbol duplicated;
-                if (d->has_duplicate_accessors(duplicated)) {
-                    std::string err_msg = "invalid datatype declaration, repeated accessor identifier '";
-                    err_msg += duplicated.str();
-                    err_msg += "'";
-                    throw parser_exception(err_msg, line, pos);
+                check_duplicate(d, line, pos);
+                if (!is_smt2_6) {
+                    // datatypes are inserted up front in SMT2.6 mode, so no need to re-insert them.
+                    m_ctx.insert(d);
                 }
-                m_ctx.insert(d);
-                if (d->get_num_params() == 0) {
-                    // if datatype is not parametric... then force instantiation to register accessor, recognizers and constructors...
-                    sort_ref s(m());
-                    s = d->instantiate(pm(), 0, 0);
-                }
-            }
+            }                
             TRACE("declare_datatypes", tout << "i: " << i << " new_dt_decls.size(): " << sz << "\n";
-                  for (unsigned i = 0; i < sz; i++) tout << new_dt_decls[i]->get_name() << "\n";);
+                  for (unsigned j = 0; j < new_dt_decls.size(); ++j) tout << new_dt_decls[j]->get_name() << "\n";);
             m_ctx.print_success();
-        next();
+            next();
+        }
+
+        // ( declare-datatype symbol datatype_dec) 
+        void parse_declare_datatype() {
+            SASSERT(curr_is_identifier());
+            SASSERT(curr_id() == m_declare_datatype);
+            next();
+            unsigned line = m_scanner.get_line();
+            unsigned pos  = m_scanner.get_pos();
+            symbol dt_name = curr_id();
+            next();
+
+            m_dt_name2idx.reset();
+            m_dt_name2idx.insert(dt_name, 0);
+
+            m_sort_id2param_idx.reset();
+
+            pdatatype_decl_ref d(pm());                
+            pconstructor_decl_ref_buffer new_ct_decls(pm());
+            parse_datatype_dec(&dt_name, new_ct_decls);
+            d = pm().mk_pdatatype_decl(m_sort_id2param_idx.size(), dt_name, new_ct_decls.size(), new_ct_decls.c_ptr());
+            
+            check_missing(d, line, pos);
+            check_duplicate(d, line, pos);
+
+            d->commit(pm());
+            check_rparen_next("invalid end of datatype declaration, ')' expected");
+            m_ctx.print_success();
+        }
+
+
+        // datatype_dec ::= ( constructor_dec+ ) | ( par ( symbol+ ) ( constructor_dec+ ) )
+
+        void parse_datatype_dec(symbol* dt_name, pconstructor_decl_ref_buffer & ct_decls) {
+            check_lparen_next("invalid datatype declaration, '(' expected");
+            if (curr_id() == m_par) {
+                next();
+                parse_sort_decl_params();
+                check_lparen_next("invalid constructor declaration after par, '(' expected");
+                unsigned sz = m_sort_id2param_idx.size();
+                if (sz > 0 && dt_name) {
+                    m_ctx.insert(pm().mk_psort_dt_decl(sz, *dt_name));
+                }
+                parse_constructor_decls(ct_decls);
+                check_rparen_next("invalid datatype declaration, ')' expected");
+            }
+            else {
+                if (dt_name) {
+                    m_ctx.insert(pm().mk_psort_dt_decl(0, *dt_name));
+                }
+                parse_constructor_decls(ct_decls);
+            }
+            check_rparen_next("invalid datatype declaration, ')' expected");
+        }
+
+        void check_missing(pdatatype_decl* d, unsigned line, unsigned pos) {
+            symbol missing;
+            if (d->has_missing_refs(missing)) {
+                std::string err_msg = "invalid datatype declaration, unknown sort '";
+                err_msg += missing.str();
+                err_msg += "'";
+                throw parser_exception(err_msg, line, pos);
+            }
+        }
+
+        void check_duplicate(pdatatype_decl* d, unsigned line, unsigned pos) {
+            symbol duplicated;
+            if (d->has_duplicate_accessors(duplicated)) {
+                std::string err_msg = "invalid datatype declaration, repeated accessor identifier '";
+                err_msg += duplicated.str();
+                err_msg += "'";
+                throw parser_exception(err_msg, line, pos);
+            }
         }
 
         void name_expr(expr * n, symbol const & s) {
             TRACE("name_expr", tout << "naming: " << s << " ->\n" << mk_pp(n, m()) << "\n";);
             if (!is_ground(n) && has_free_vars(n))
                 throw parser_exception("invalid named expression, expression contains free variables");
-            m_ctx.insert(s, 0, n);
+            m_ctx.insert(s, 0, nullptr, n);
             m_last_named_expr.first  = s;
             m_last_named_expr.second = n;
         }
 
         bool in_quant_ctx(attr_expr_frame * fr) {
-            return fr != 0 && fr->m_prev != 0 && fr->m_prev->m_kind == EF_QUANT;
+            return fr != nullptr && fr->m_prev != nullptr && fr->m_prev->m_kind == EF_QUANT;
         }
 
         void check_in_quant_ctx(attr_expr_frame * fr) {
@@ -912,7 +1021,7 @@ namespace smt2 {
                 return;
             if (fr->m_last_symbol == m_pattern) {
                 expr * pat = expr_stack().back();
-                if (pat == 0) {
+                if (pat == nullptr) {
                     if (!ignore_bad_patterns())
                         throw parser_exception("invalid empty pattern");
                 }
@@ -949,7 +1058,7 @@ namespace smt2 {
         }
 
         // parse expression state
-        enum pe_state { 
+        enum pe_state {
             PES_EXPR,  // expecting <expr>
             PES_DECL,  // expecting (<id> <expr>)
             PES_PATTERN,
@@ -966,10 +1075,8 @@ namespace smt2 {
                 fr->m_last_symbol = symbol::null;
                 TRACE("consume_attributes", tout << "id: " << id << ", expr_stack().size(): " << expr_stack().size() << "\n";);
                 if (id == m_named) {
-                    next();
-                    check_identifier("invalid attribute value, symbol expected");
-                    name_expr(expr_stack().back(), curr_id());
-                    next();
+                    next();                    
+                    name_expr(expr_stack().back(), check_identifier_next("invalid attribute value, symbol expected"));
                 }
                 else if (id == m_lblpos || id == m_lblneg) {
                     next();
@@ -985,18 +1092,13 @@ namespace smt2 {
                     check_in_quant_ctx(fr);
                     next();
                     check_int("invalid weight attribute, integer expected");
-                    rational n = curr_numeral();
-                    if (!n.is_unsigned())
-                        throw parser_exception("invalid weight attribute, value is too big to fit in an unsigned machine integer");
-                    store_weight(fr, n.get_unsigned());
+                    store_weight(fr, curr_unsigned());
                     next();
                 }
                 else if (id == m_skid) {
                     check_in_quant_ctx(fr);
-                    next();
-                    check_identifier("invalid attribute value, symbol expected");
-                    store_skid(fr, curr_id());
-                    next();
+                    next();                    
+                    store_skid(fr, check_identifier_next("invalid attribute value, symbol expected"));
                 }
                 else if (id == m_qid) {
                     check_in_quant_ctx(fr);
@@ -1015,7 +1117,7 @@ namespace smt2 {
                     else {
                         // just consume pattern
                         next();
-                        consume_sexpr(); 
+                        consume_sexpr();
                     }
                 }
                 else if (id == m_nopattern) {
@@ -1036,7 +1138,7 @@ namespace smt2 {
                     str << "unknown attribute " << id;
                     warning_msg("%s", str.str().c_str());
                     next();
-                    // just consume the 
+                    // just consume the
                     consume_sexpr();
                 }
                 if (curr_is_rparen())
@@ -1051,13 +1153,13 @@ namespace smt2 {
             switch (fr->m_kind) {
             case EF_LET:
                 return static_cast<let_frame*>(fr)->m_in_decls ? PES_DECL : PES_EXPR;
-            case EF_ATTR_EXPR: 
+            case EF_ATTR_EXPR:
                 return consume_attributes(static_cast<attr_expr_frame*>(fr));
             default:
                 return PES_EXPR;
             }
         }
-        
+
         void parse_numeral(bool is_int) {
             SASSERT(!is_int || curr_is_int());
             SASSERT(is_int || curr_is_float());
@@ -1092,10 +1194,10 @@ namespace smt2 {
                 if (!ignore_bad_patterns())
                     throw parser_exception("invalid pattern, '(' expected");
                 consume_sexpr();
-                expr_stack().push_back(0); // empty pattern
+                expr_stack().push_back(nullptr); // empty pattern
                 return;
             }
-            
+
             if (curr_is_lparen()) {
                 // multi-pattern
                 void * mem      = m_stack.allocate(sizeof(pattern_frame));
@@ -1104,7 +1206,7 @@ namespace smt2 {
             }
             else if (curr_is_rparen()) {
                 next();
-                expr_stack().push_back(0); // empty pattern
+                expr_stack().push_back(nullptr); // empty pattern
             }
             else {
                 // unary pattern
@@ -1112,7 +1214,7 @@ namespace smt2 {
                 // when Simplify benchmarks were converted into SMT2 ones.
                 if (curr_is_identifier()) {
                     symbol id = curr_id();
-                    func_decl * f = 0;
+                    func_decl * f = nullptr;
                     try {
                         f = m_ctx.find_func_decl(id);
                     }
@@ -1124,7 +1226,7 @@ namespace smt2 {
                         while (!curr_is_rparen())
                             consume_sexpr();
                         next();
-                        expr_stack().push_back(0); // empty pattern
+                        expr_stack().push_back(nullptr); // empty pattern
                         return; // no frame is created
                     }
                 }
@@ -1180,19 +1282,232 @@ namespace smt2 {
             return num;
         }
 
+        void push_let_frame() {
+            next();
+            check_lparen_next("invalid let declaration, '(' expected");
+            void * mem = m_stack.allocate(sizeof(let_frame));
+            new (mem) let_frame(symbol_stack().size(), expr_stack().size());
+            m_num_expr_frames++;
+        }
+
+        void push_bang_frame(expr_frame * curr) {
+            TRACE("consume_attributes", tout << "begin bang, expr_stack.size(): " << expr_stack().size() << "\n";);
+            next();
+            void * mem = m_stack.allocate(sizeof(attr_expr_frame));
+            new (mem) attr_expr_frame(curr, symbol_stack().size(), expr_stack().size());
+            m_num_expr_frames++;
+        }
+
+
         void push_quant_frame(bool is_forall) {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id_is_forall() || curr_id_is_exists());
             SASSERT(!is_forall || curr_id_is_forall());
             SASSERT(is_forall || curr_id_is_exists());
-            next(); 
+            next();
             void * mem      = m_stack.allocate(sizeof(quant_frame));
-            new (mem) quant_frame(is_forall, pattern_stack().size(), nopattern_stack().size(), symbol_stack().size(), 
+            new (mem) quant_frame(is_forall, pattern_stack().size(), nopattern_stack().size(), symbol_stack().size(),
                                   sort_stack().size(), expr_stack().size());
             m_num_expr_frames++;
             unsigned num_vars = parse_sorted_vars();
             if (num_vars == 0)
                 throw parser_exception("invalid quantifier, list of sorted variables is empty");
+        }
+
+        /**
+         * SMT-LIB 2.6 pattern matches are of the form
+         * (match t ((p1 t1) ... (pm+1 tm+1)))         
+         */
+        void push_match_frame() {
+            SASSERT(curr_is_identifier());
+            SASSERT(curr_id() == m_match);
+            next();
+            void * mem = m_stack.allocate(sizeof(match_frame));
+            new (mem) match_frame();
+            unsigned num_frames = m_num_expr_frames;
+
+            parse_expr();
+            expr_ref t(expr_stack().back(), m());
+            expr_stack().pop_back();
+            expr_ref_vector patterns(m()), cases(m());
+            sort* srt = m().get_sort(t);
+
+            check_lparen_next("pattern bindings should be enclosed in a parenthesis");
+            while (!curr_is_rparen()) {
+                m_env.begin_scope();
+                unsigned num_bindings = m_num_bindings;
+                check_lparen_next("invalid pattern binding, '(' expected");
+                parse_match_pattern(srt);  
+                patterns.push_back(expr_stack().back());
+                expr_stack().pop_back();
+                parse_expr();
+                cases.push_back(expr_stack().back());
+                expr_stack().pop_back();
+                m_num_bindings = num_bindings;
+                m_env.end_scope();
+                check_rparen_next("invalid pattern binding, ')' expected");
+            }
+            next();
+            m_num_expr_frames = num_frames + 1;
+            expr_stack().push_back(compile_patterns(t, patterns, cases));
+        }
+
+        void pop_match_frame(match_frame* fr) {
+            m_stack.deallocate(fr);
+            m_num_expr_frames--;
+        }
+
+        expr_ref compile_patterns(expr* t, expr_ref_vector const& patterns, expr_ref_vector const& cases) {
+            expr_ref result(m());
+            var_subst sub(m(), false);
+            TRACE("parse_expr", tout << "term\n" << expr_ref(t, m()) << "\npatterns\n" << patterns << "\ncases\n" << cases << "\n";);
+            check_patterns(patterns, m().get_sort(t));
+            for (unsigned i = patterns.size(); i > 0; ) {
+                --i;
+                expr_ref_vector subst(m());
+                expr_ref cond = bind_match(t, patterns[i], subst);
+                expr_ref new_case(m());
+                if (subst.empty()) {
+                    new_case = cases[i];
+                }
+                else {
+                    sub(cases[i], subst.size(), subst.c_ptr(), new_case);
+                    inv_var_shifter inv(m());
+                    inv(new_case, subst.size(), new_case);
+                }
+                if (result) {
+                    result = m().mk_ite(cond, new_case, result);
+                }
+                else {
+                    // pattern match binding is ignored.
+                    result = new_case;
+                }
+            }
+            TRACE("parse_expr", tout << result << "\n";);
+            return result;
+        }
+
+        void check_patterns(expr_ref_vector const& patterns, sort* s) {
+            if (!dtutil().is_datatype(s)) 
+                throw parser_exception("pattern matching is only supported for algebraic datatypes");
+            ptr_vector<func_decl> const& cons = *dtutil().get_datatype_constructors(s);
+            for (expr * arg : patterns) if (is_var(arg)) return;
+            if (patterns.size() < cons.size()) 
+                throw parser_exception("non-exhaustive pattern match");
+            ast_fast_mark1 marked;
+            for (expr * arg : patterns) 
+                marked.mark(to_app(arg)->get_decl(), true);
+            for (func_decl * f : cons) 
+                if (!marked.is_marked(f)) 
+                    throw parser_exception("a constructor is missing from pattern match");        
+        }
+
+        // compute match condition and substitution
+        // t is shifted by size of subst.
+        expr_ref bind_match(expr* t, expr* pattern, expr_ref_vector& subst) {
+            expr_ref tsh(m());
+            if (is_var(pattern)) {
+                shifter()(t, 1, tsh);
+                subst.push_back(tsh);
+                return expr_ref(m().mk_true(), m());
+            }
+            else {
+                SASSERT(is_app(pattern));
+                func_decl * f = to_app(pattern)->get_decl();
+                func_decl * r = dtutil().get_constructor_is(f);
+                ptr_vector<func_decl> const * acc = dtutil().get_constructor_accessors(f);
+                shifter()(t, acc->size(), tsh);
+                for (func_decl* a : *acc) {
+                    subst.push_back(m().mk_app(a, tsh));
+                }
+                return expr_ref(m().mk_app(r, t), m());
+            }
+        }
+
+        /**
+         * parse a match pattern
+         * (C x1 .... xn)
+         * C
+         * _
+         * x
+         */
+
+        bool parse_constructor_pattern(sort * srt) {
+            if (!curr_is_lparen()) {
+                return false;
+            }
+            next();
+            svector<symbol> vars;
+            expr_ref_vector args(m());
+            symbol C(check_identifier_next("constructor symbol expected"));
+            while (!curr_is_rparen()) {
+                symbol v(check_identifier_next("variable symbol expected"));
+                if (v != m_underscore && vars.contains(v)) {
+                    throw parser_exception("unexpected repeated variable in pattern expression");
+                } 
+                vars.push_back(v);
+            }                
+            next();
+            
+            // now have C, vars
+            // look up constructor C, 
+            // create bound variables based on constructor type.
+            // store expression in expr_stack().
+            // ensure that bound variables are adjusted to vars
+            
+            func_decl* f = m_ctx.find_func_decl(C, 0, nullptr, vars.size(), nullptr, srt);
+            if (!f) {
+                throw parser_exception("expecting a constructor that has been declared");
+            }
+            if (!dtutil().is_constructor(f)) {
+                throw parser_exception("expecting a constructor");
+            }
+            if (f->get_arity() != vars.size()) {
+                throw parser_exception("mismatching number of variables supplied to constructor");
+            }
+            m_num_bindings += vars.size();
+            for (unsigned i = 0; i < vars.size(); ++i) {
+                var * v = m().mk_var(i, f->get_domain(i));
+                args.push_back(v);
+                if (vars[i] != m_underscore) {
+                    m_env.insert(vars[i], local(v, m_num_bindings));
+                }
+            }
+            expr_stack().push_back(m().mk_app(f, args.size(), args.c_ptr()));
+            return true;
+        }
+
+        void parse_match_pattern(sort* srt) {
+            if (parse_constructor_pattern(srt)) {
+                // done
+            }
+            else if (curr_id() == m_underscore) {
+                // we have a wild-card.                
+                // store dummy variable in expr_stack()
+                next();
+                var* v = m().mk_var(0, srt);
+                expr_stack().push_back(v);
+            }
+            else {
+                symbol xC(check_identifier_next("constructor symbol or variable expected"));            
+                // check if xC is a constructor, otherwise make it a variable
+                // of sort srt.
+                try {
+                    func_decl* f = m_ctx.find_func_decl(xC, 0, nullptr, 0, nullptr, srt);
+                    if (!dtutil().is_constructor(f)) {
+                        throw parser_exception("expecting a constructor, got a previously declared function");
+                    }
+                    if (f->get_arity() > 0) {
+                        throw parser_exception("constructor expects arguments, but no arguments were supplied in pattern");
+                    }
+                    expr_stack().push_back(m().mk_const(f));
+                }
+                catch (cmd_exception &) {
+                    var* v = m().mk_var(0, srt);
+                    expr_stack().push_back(v);
+                    m_env.insert(xC, local(v, m_num_bindings++));            
+                }
+            }
         }
 
         symbol parse_indexed_identifier_core() {
@@ -1203,10 +1518,8 @@ namespace smt2 {
             unsigned num_indices = 0;
             while (!curr_is_rparen()) {
                 if (curr_is_int()) {
-                    rational n = curr_numeral();
-                    if (!n.is_unsigned())
-                        throw parser_exception("invalid indexed identifier, index is too big to fit in an unsigned machine integer");
-                    m_param_stack.push_back(parameter(n.get_unsigned()));
+                    unsigned u = curr_unsigned();
+                    m_param_stack.push_back(parameter(u));
                     next();
                 }
                 else if (curr_is_identifier() || curr_is_lparen()) {
@@ -1229,11 +1542,11 @@ namespace smt2 {
                 next();
                 return r;
             }
-            check_lparen_next("invalid (indexed) identifier, '(_' or symbol expected"); 
+            check_lparen_next("invalid (indexed) identifier, '(_' or symbol expected");
             return parse_indexed_identifier_core();
         }
 
-        // parse: 
+        // parse:
         //    'as' <identifier> <sort> ')'
         //    '_'  <identifier> <num>+ ')'
         //    'as' <identifier '(' '_' <identifier> (<num>|<func-decl-ref>)+ ')' <sort> ')'
@@ -1255,7 +1568,7 @@ namespace smt2 {
             }
         }
 
-        // parse: 
+        // parse:
         //    <identifier>
         //    '(' 'as' <identifier> <sort> ')'
         //    '(' '_'  <identifier> <num>+ ')'
@@ -1281,8 +1594,8 @@ namespace smt2 {
             throw parser_exception(msg.c_str());
         }
 
-        rational m_last_bv_numeral; // for bv, bvbin, bvhex 
-        
+        rational m_last_bv_numeral; // for bv, bvbin, bvhex
+
         // return true if *s == [0-9]+
         bool is_bv_decimal(char const * s) {
             TRACE("is_bv_num", tout << "is_bv_decimal: " << s << "\n";);
@@ -1321,7 +1634,7 @@ namespace smt2 {
                 return false;
             return true;
         }
-        
+
         // return true if *s == hex[0-9,a-f,A-F]+
         bool is_bv_hex(char const * s) {
             SASSERT(*s == 'h');
@@ -1329,7 +1642,7 @@ namespace smt2 {
             if (*s != 'e') return false;
             ++s;
             if (*s != 'x') return false;
-            ++s; 
+            ++s;
             rational & n = m_last_bv_numeral;
             unsigned i = 0;
             n = rational(0);
@@ -1340,7 +1653,7 @@ namespace smt2 {
                 }
                 else if ('a' <= *s && *s <= 'f') {
                     n *= rational(16);
-                    n += rational(10 + (*s - 'a')); 
+                    n += rational(10 + (*s - 'a'));
                 }
                 else if ('A' <= *s && *s <= 'F') {
                     n *= rational(16);
@@ -1357,11 +1670,11 @@ namespace smt2 {
             }
         }
 
-        // Return true if 
+        // Return true if
         //    n == bv[0-9]+  OR
         //    n == bvhex[0-9,a-f,A-F]+ OR
-        //    n == bvbin[0-1]+ 
-        // It store the bit-vector value in m_last_bv_numeral   
+        //    n == bvbin[0-1]+
+        // It store the bit-vector value in m_last_bv_numeral
         bool is_bv_num(symbol const & n) {
             char const * s = n.bare_str();
             if (*s != 'b') return false;
@@ -1405,7 +1718,7 @@ namespace smt2 {
             }
             next();
         }
-        
+
         // if has_as == true, then the sort of t must be equal to sort_stack().pop_back()
         // if that is the case, pop the top of sort_stack()
         void check_qualifier(expr * t, bool has_as) {
@@ -1451,7 +1764,7 @@ namespace smt2 {
                 return;
             }
             expr_ref t_ref(m());
-            m_ctx.mk_app(r, 0, 0, num_indices, m_param_stack.c_ptr() + param_spos, has_as ? sort_stack().back() : 0, t_ref);
+            m_ctx.mk_app(r, 0, nullptr, num_indices, m_param_stack.c_ptr() + param_spos, has_as ? sort_stack().back() : nullptr, t_ref);
             m_param_stack.shrink(param_spos);
             expr_stack().push_back(t_ref.get());
             if (has_as) {
@@ -1488,8 +1801,7 @@ namespace smt2 {
             new (mem) app_frame(f, expr_spos, param_spos, has_as);
             m_num_expr_frames++;
         }
-
-        // return true if a new frame was created.
+        
         void push_expr_frame(expr_frame * curr) {
             SASSERT(curr_is_lparen());
             next();
@@ -1497,11 +1809,7 @@ namespace smt2 {
             if (curr_is_identifier()) {
                 TRACE("push_expr_frame", tout << "push_expr_frame(), curr_id(): " << curr_id() << "\n";);
                 if (curr_id_is_let()) {
-                    next();
-                    check_lparen_next("invalid let declaration, '(' expected");
-                    void * mem = m_stack.allocate(sizeof(let_frame));
-                    new (mem) let_frame(symbol_stack().size(), expr_stack().size());
-                    m_num_expr_frames++;
+                    push_let_frame();
                 }
                 else if (curr_id_is_forall()) {
                     push_quant_frame(true);
@@ -1510,18 +1818,16 @@ namespace smt2 {
                     push_quant_frame(false);
                 }
                 else if (curr_id_is_bang()) {
-                    TRACE("consume_attributes", tout << "begin bang, expr_stack.size(): " << expr_stack().size() << "\n";);
-                    next();
-                    void * mem = m_stack.allocate(sizeof(attr_expr_frame));
-                    new (mem) attr_expr_frame(curr, symbol_stack().size(), expr_stack().size());
-                    m_num_expr_frames++;
+                    push_bang_frame(curr);
                 }
                 else if (curr_id_is_as() || curr_id_is_underscore()) {
-                    TRACE("push_expr_frame", tout << "push_expr_frame(): parse_qualified_name\n";);
                     parse_qualified_name();
                 }
                 else if (curr_id_is_root_obj()) {
                     parse_root_obj();
+                }
+                else if (curr_id_is_match()) {
+                    push_match_frame();
                 }
                 else {
                     push_app_frame();
@@ -1543,12 +1849,12 @@ namespace smt2 {
             unsigned num_args    = expr_stack().size() - fr->m_expr_spos;
             unsigned num_indices = m_param_stack.size() - fr->m_param_spos;
             expr_ref t_ref(m());
-            m_ctx.mk_app(fr->m_f, 
+            m_ctx.mk_app(fr->m_f,
                          num_args,
                          expr_stack().c_ptr() + fr->m_expr_spos,
                          num_indices,
                          m_param_stack.c_ptr() + fr->m_param_spos,
-                         fr->m_as_sort ? sort_stack().back() : 0,
+                         fr->m_as_sort ? sort_stack().back() : nullptr,
                          t_ref);
             expr_stack().shrink(fr->m_expr_spos);
             m_param_stack.shrink(fr->m_param_spos);
@@ -1566,7 +1872,9 @@ namespace smt2 {
                 fr->m_in_decls = false;
                 SASSERT(symbol_stack().size() >= fr->m_sym_spos);
                 SASSERT(expr_stack().size() >= fr->m_expr_spos);
-                SASSERT(symbol_stack().size() - fr->m_sym_spos == expr_stack().size() - fr->m_expr_spos);
+                if (symbol_stack().size() - fr->m_sym_spos != expr_stack().size() - fr->m_expr_spos) {
+                    throw parser_exception("malformed let expression");
+                }
                 unsigned num_decls = expr_stack().size() - fr->m_expr_spos;
                 symbol * sym_it   = symbol_stack().c_ptr() + fr->m_sym_spos;
                 expr ** expr_it   = expr_stack().c_ptr() + fr->m_expr_spos;
@@ -1580,6 +1888,8 @@ namespace smt2 {
                 // the resultant expression is on the top of the stack
                 TRACE("let_frame", tout << "let result expr: " << mk_pp(expr_stack().back(), m()) << "\n";);
                 expr_ref r(m());
+                if (expr_stack().empty())
+                    throw parser_exception("invalid let expression");
                 r = expr_stack().back();
                 expr_stack().pop_back();
                 // remove local declarations from the stack
@@ -1627,7 +1937,7 @@ namespace smt2 {
                 fr->m_qid = symbol(m_scanner.get_line());
             if (!m().is_bool(expr_stack().back()))
                 throw parser_exception("quantifier body must be a Boolean expression");
-            quantifier * new_q = m().mk_quantifier(fr->m_forall, 
+            quantifier * new_q = m().mk_quantifier(fr->m_forall,
                                                    num_decls,
                                                    sort_stack().c_ptr() + fr->m_sort_spos,
                                                    symbol_stack().c_ptr() + fr->m_sym_spos,
@@ -1688,12 +1998,15 @@ namespace smt2 {
             case EF_APP:
                 pop_app_frame(static_cast<app_frame*>(fr));
                 break;
-            case EF_LET: 
+            case EF_LET:
                 pop_let_frame(static_cast<let_frame*>(fr));
                 break;
             case EF_LET_DECL:
                 m_stack.deallocate(static_cast<let_decl_frame*>(fr));
                 m_num_expr_frames--;
+                break;
+            case EF_MATCH:
+                pop_match_frame(static_cast<match_frame*>(fr));
                 break;
             case EF_QUANT:
                 pop_quant_frame(static_cast<quant_frame*>(fr));
@@ -1714,7 +2027,7 @@ namespace smt2 {
         void parse_expr() {
             m_num_expr_frames = 0;
             do {
-                TRACE("parse_expr", tout << "curr(): " << curr() << ", m_num_expr_frames: " << m_num_expr_frames 
+                TRACE("parse_expr", tout << "curr(): " << curr() << ", m_num_expr_frames: " << m_num_expr_frames
                       << ", expr_stack().size(): " << expr_stack().size() << "\n";);
                 if (curr_is_rparen()) {
                     if (m_num_expr_frames == 0)
@@ -1740,7 +2053,7 @@ namespace smt2 {
                             parse_bv_numeral();
                             break;
                         case scanner::LEFT_PAREN:
-                            push_expr_frame(m_num_expr_frames == 0 ? 0 : static_cast<expr_frame*>(m_stack.top()));
+                            push_expr_frame(m_num_expr_frames == 0 ? nullptr : static_cast<expr_frame*>(m_stack.top()));
                             break;
                         case scanner::KEYWORD_TOKEN:
                             throw parser_exception("invalid expression, unexpected keyword");
@@ -1782,8 +2095,8 @@ namespace smt2 {
         }
 
         void parse_sort_decl_params() {
-            check_lparen_next("invalid sort declaration, parameters missing");
             m_sort_id2param_idx.reset();
+            check_lparen_next("invalid sort declaration, parameters missing");
             unsigned i = 0;
             while (!curr_is_rparen()) {
                 check_identifier("invalid sort parameter, symbol or ')' expected");
@@ -1791,29 +2104,65 @@ namespace smt2 {
                 i++;
                 next();
             }
-            next();
+            next();            
+        }
+
+        bool parse_sort_decl_or_params() {
+            m_sort_id2param_idx.reset();
+            m_dt_name2arity.reset();
+            m_dt_name2idx.reset();
+            m_dt_names.reset();
+            check_lparen_next("invalid sort declaration, parameters missing");
+            unsigned i = 0;
+            bool first = true;
+            bool is_decl = false;
+            while (!curr_is_rparen()) {
+                if (first) {
+                    is_decl = curr_is_lparen();
+                    first = false;                    
+                }
+                if (is_decl) {
+                    check_lparen_next("invalid sort declaration, '(' expected");
+                    symbol dt_name = check_identifier_next("invalid sort name, identified expected");
+                    check_int("invalid sort declaration, arity expected");
+                    unsigned u = curr_unsigned();
+                    next();
+                    m_dt_name2idx.insert(dt_name, i);
+                    m_dt_name2arity.insert(dt_name, u);
+                    m_dt_names.push_back(dt_name);
+                    psort_decl * decl = pm().mk_psort_dt_decl(u, dt_name);
+                    m_ctx.insert(decl);
+                    check_rparen("invalid sort declaration, ')' expected");
+                }
+                else {
+                    check_identifier("invalid sort parameter, symbol or ')' expected");
+                    m_sort_id2param_idx.insert(curr_id(), i);
+                }
+                i++;
+                next();
+            }
+            next(); 
+            return is_decl;
         }
 
         void parse_declare_sort() {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_declare_sort);
             next();
-            
+
             check_identifier("invalid sort declaration, symbol expected");
             symbol id = curr_id();
-            if (m_ctx.find_psort_decl(id) != 0)
+            if (m_ctx.find_psort_decl(id) != nullptr)
                 throw parser_exception("invalid sort declaration, sort already declared/defined");
             next();
             if (curr_is_rparen()) {
-                psort_decl * decl = pm().mk_psort_user_decl(0, id, 0);
+                psort_decl * decl = pm().mk_psort_user_decl(0, id, nullptr);
                 m_ctx.insert(decl);
             }
             else {
                 check_int("invalid sort declaration, arity (<numeral>) or ')' expected");
-                rational n = curr_numeral();
-                if (!n.is_unsigned())
-                    throw parser_exception("invalid sort declaration, arity is too big to fit in an unsigned machine integer");                
-                psort_decl * decl = pm().mk_psort_user_decl(n.get_unsigned(), id, 0);
+                unsigned u = curr_unsigned();
+                psort_decl * decl = pm().mk_psort_user_decl(u, id, nullptr);
                 m_ctx.insert(decl);
                 next();
                 check_rparen("invalid sort declaration, ')' expected");
@@ -1828,7 +2177,7 @@ namespace smt2 {
             next();
             check_identifier("invalid sort definition, symbol expected");
             symbol id = curr_id();
-            if (m_ctx.find_psort_decl(id) != 0)
+            if (m_ctx.find_psort_decl(id) != nullptr)
                 throw parser_exception("invalid sort definition, sort already declared/defined");
             next();
             parse_sort_decl_params();
@@ -1858,7 +2207,7 @@ namespace smt2 {
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid function/constant definition, sort mismatch");
-            m_ctx.insert(id, num_vars, expr_stack().back());
+            m_ctx.insert(id, num_vars, sort_stack().c_ptr() + sort_spos, expr_stack().back());
             check_rparen("invalid function/constant definition, ')' expected");
             // restore stacks & env
             symbol_stack().shrink(sym_spos);
@@ -1872,12 +2221,12 @@ namespace smt2 {
         }
 
         void parse_define_fun_rec() {
-            // ( define-fun-rec hfun_defi ) 
+            // ( define-fun-rec hfun_defi )
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_define_fun_rec);
             SASSERT(m_num_bindings == 0);
             next();
-            
+
             expr_ref_vector binding(m());
             svector<symbol> ids;
             func_decl_ref f(m());
@@ -1890,7 +2239,7 @@ namespace smt2 {
         }
 
         void parse_define_funs_rec() {
-            // ( define-funs-rec ( hfun_decin+1 ) ( htermin+1 ) ) 
+            // ( define-funs-rec ( hfun_decin+1 ) ( htermin+1 ) )
             SASSERT(curr_is_identifier());
             SASSERT(curr_id() == m_define_funs_rec);
             SASSERT(m_num_bindings == 0);
@@ -1920,14 +2269,14 @@ namespace smt2 {
 
                 check_lparen("invalid recursive function definition, '(' expected");
                 next();
-            
+
                 parse_rec_fun_decl(f, binding, id);
                 decls.push_back(f);
                 bindings.push_back(binding);
                 ids.push_back(id);
 
                 check_rparen("invalid recursive function definition, ')' expected");
-                next();                
+                next();
             }
             next();
         }
@@ -1950,7 +2299,7 @@ namespace smt2 {
             sort_stack().shrink(sort_spos);
             expr_stack().shrink(expr_spos);
             m_env.end_scope();
-            m_num_bindings = 0;            
+            m_num_bindings = 0;
         }
 
         void parse_rec_fun_bodies(func_decl_ref_vector const& decls, vector<expr_ref_vector> const& bindings, vector<svector<symbol> >const & ids) {
@@ -1963,10 +2312,10 @@ namespace smt2 {
             }
 
             if (i != decls.size()) {
-                throw parser_exception("the number of declarations does not match number of supplied definitions");                    
+                throw parser_exception("the number of declarations does not match number of supplied definitions");
             }
             check_rparen("invalid recursive function definition, ')' expected");
-            next();                
+            next();
         }
 
         void parse_rec_fun_body(func_decl* f, expr_ref_vector const& bindings, svector<symbol> const& ids) {
@@ -1980,19 +2329,19 @@ namespace smt2 {
             for (unsigned i = 0; i < num_vars; ++i) {
                 m_env.insert(ids[i], local(bindings[i], num_vars));
             }
-            parse_expr();            
+            parse_expr();
             body = expr_stack().back();
             expr_stack().pop_back();
             symbol_stack().shrink(sym_spos);
             m_env.end_scope();
-            m_num_bindings = 0;            
+            m_num_bindings = 0;
             if (m().get_sort(body) != f->get_range()) {
                 std::ostringstream buffer;
                 buffer << "invalid function definition, sort mismatch. Expcected "
-                       << mk_pp(f->get_range(), m()) << " but function body has sort " 
+                       << mk_pp(f->get_range(), m()) << " but function body has sort "
                        << mk_pp(m().get_sort(body), m());
                 throw parser_exception(buffer.str().c_str());
-            } 
+            }
             m_ctx.insert_rec_fun(f, bindings, ids, body);
         }
 
@@ -2009,7 +2358,7 @@ namespace smt2 {
             parse_expr();
             if (m().get_sort(expr_stack().back()) != sort_stack().back())
                 throw parser_exception("invalid constant definition, sort mismatch");
-            m_ctx.insert(id, 0, expr_stack().back());
+            m_ctx.insert(id, 0, nullptr, expr_stack().back());
             check_rparen("invalid constant definition, ')' expected");
             expr_stack().pop_back();
             sort_stack().pop_back();
@@ -2114,9 +2463,14 @@ namespace smt2 {
                 m_assert_expr = m_scanner.cached_str(0, m_cache_end);
                 m_scanner.stop_caching();
             }
+            if (expr_stack().empty()) {
+                throw cmd_exception("invalid assert command, expression required as argument");
+            }
             expr * f = expr_stack().back();
-            if (!m().is_bool(f))
+            if (!m().is_bool(f)) {
+                TRACE("smt2parser", tout << expr_ref(f, m()) << "\n";);
                 throw cmd_exception("invalid assert command, term is not Boolean");
+            }
             if (f == m_last_named_expr.second) {
                 m_ctx.assert_expr(m_last_named_expr.first, f);
             }
@@ -2183,9 +2537,9 @@ namespace smt2 {
             SASSERT(curr_id() == m_check_sat_assuming);
             next();
             unsigned spos = expr_stack().size();
-            check_rparen_next("invalid check-sat-assuming command, '(', expected");
+            check_lparen_next("invalid check-sat-assuming command, '(', expected");
             parse_assumptions();
-            check_rparen_next("invalid check-sat-assuming command, ')', expected");            
+            check_rparen_next("invalid check-sat-assuming command, ')', expected");
             m_ctx.check_sat(expr_stack().size() - spos, expr_stack().c_ptr() + spos);
             next();
             expr_stack().shrink(spos);
@@ -2201,7 +2555,7 @@ namespace smt2 {
             m_scanner.start_caching();
             m_cache_end = 0;
             m_cached_strings.resize(0);
-            
+
             check_lparen_next("invalid get-value command, '(' expected");
             while (!curr_is_rparen()) {
                 parse_expr();
@@ -2214,11 +2568,25 @@ namespace smt2 {
             if (m_cached_strings.empty())
                 throw cmd_exception("invalid get-value command, empty list of terms");
             next();
+            unsigned index = 0;
+            if (curr_is_keyword() && (curr_id() == ":model-index" || curr_id() == ":model_index")) {
+                next();
+                check_int("integer index expected to indexed model evaluation");
+                index = curr_unsigned();
+                next();
+            }
+
             check_rparen("invalid get-value command, ')' expected");
-            if (!m_ctx.is_model_available() || m_ctx.get_check_sat_result() == 0)
+            if (!m_ctx.is_model_available() || m_ctx.get_check_sat_result() == nullptr)
                 throw cmd_exception("model is not available");
             model_ref md;
-            m_ctx.get_check_sat_result()->get_model(md);
+            if (index == 0) {
+                m_ctx.get_check_sat_result()->get_model(md);
+            }
+            else {
+                m_ctx.get_opt()->get_box_model(md, index);
+
+            }
             m_ctx.regular_stream() << "(";
             expr ** expr_it  = expr_stack().c_ptr() + spos;
             expr ** expr_end = expr_it + m_cached_strings.size();
@@ -2241,7 +2609,7 @@ namespace smt2 {
             SASSERT(curr_id() == m_reset);
             next();
             check_rparen("invalid reset command, ')' expected");
-            m_ctx.reset(); 
+            m_ctx.reset();
             reset();
             m_ctx.print_success();
             next();
@@ -2295,10 +2663,8 @@ namespace smt2 {
                     next();
                     while (!curr_is_rparen()) {
                         check_int("invalid indexed function declaration reference, integer or ')' expected");
-                        rational n = curr_numeral();
-                        if (!n.is_unsigned())
-                            throw parser_exception("invalid indexed function declaration reference, index is too big to fit in an unsigned machine integer");
-                        indices.push_back(n.get_unsigned());
+                        unsigned u = curr_unsigned();
+                        indices.push_back(u);
                         next();
                     }
                     if (indices.empty())
@@ -2323,17 +2689,15 @@ namespace smt2 {
             }
             next();
         }
-        
+
         void parse_next_cmd_arg() {
             SASSERT(m_curr_cmd != 0);
             cmd_arg_kind k = m_curr_cmd->next_arg_kind(m_ctx);
             switch (k) {
             case CPK_UINT: {
                 check_int("invalid command argument, unsigned integer expected");
-                rational n = curr_numeral();
-                if (!n.is_unsigned())
-                    throw parser_exception("invalid command argument, numeral is too big to fit in an unsigned machine integer"); 
-                m_curr_cmd->set_next_arg(m_ctx, n.get_unsigned());
+                unsigned u = curr_unsigned();
+                m_curr_cmd->set_next_arg(m_ctx, u);
                 next();
                 break;
             }
@@ -2443,9 +2807,9 @@ namespace smt2 {
         void parse_ext_cmd(int line, int pos) {
             symbol s = curr_id();
             m_curr_cmd = m_ctx.find_cmd(s);
-            if (m_curr_cmd == 0) {
+            if (m_curr_cmd == nullptr) {
                 parse_unknown_cmd();
-                return; 
+                return;
             }
             next();
             unsigned arity = m_curr_cmd->get_arity();
@@ -2462,7 +2826,7 @@ namespace smt2 {
                         throw parser_exception("invalid command, argument(s) missing");
                     m_curr_cmd->execute(m_ctx);
                     next();
-                    m_curr_cmd = 0;
+                    m_curr_cmd = nullptr;
                     shrink(m_sort_stack, sort_spos);
                     shrink(m_expr_stack, expr_spos);
                     shrink(m_sexpr_stack, sexpr_spos);
@@ -2475,14 +2839,14 @@ namespace smt2 {
                     return;
                 }
                 else {
-                    if (arity != VAR_ARITY && i == arity) 
+                    if (arity != VAR_ARITY && i == arity)
                         throw parser_exception("invalid command, too many arguments");
                     parse_next_cmd_arg();
                 }
                 i++;
             }
         }
-        
+
         void parse_cmd() {
             SASSERT(curr_is_lparen());
             int line = m_scanner.get_line();
@@ -2531,7 +2895,11 @@ namespace smt2 {
                 return;
             }
             if (s == m_declare_datatypes) {
-                parse_declare_datatypes(); 
+                parse_declare_datatypes();
+                return;
+            }
+            if (s == m_declare_datatype) {
+                parse_declare_datatype();
                 return;
             }
             if (s == m_get_value) {
@@ -2558,12 +2926,12 @@ namespace smt2 {
         }
 
     public:
-        parser(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & p):
-            m_ctx(ctx), 
+        parser(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & p, char const * filename=nullptr):
+            m_ctx(ctx),
             m_params(p),
             m_scanner(ctx, is, interactive),
             m_curr(scanner::NULL_TOKEN),
-            m_curr_cmd(0),
+            m_curr_cmd(nullptr),
             m_num_bindings(0),
             m_let("let"),
             m_bang("!"),
@@ -2590,6 +2958,8 @@ namespace smt2 {
             m_define_sort("define-sort"),
             m_declare_sort("declare-sort"),
             m_declare_datatypes("declare-datatypes"),
+            m_declare_datatype("declare-datatype"),
+            m_par("par"),
             m_push("push"),
             m_pop("pop"),
             m_get_value("get-value"),
@@ -2597,14 +2967,16 @@ namespace smt2 {
             m_check_sat_assuming("check-sat-assuming"),
             m_define_fun_rec("define-fun-rec"),
             m_define_funs_rec("define-funs-rec"),
-            m_underscore("_"),            
-            m_num_open_paren(0) {
+            m_match("match"),
+            m_underscore("_"),
+            m_num_open_paren(0),
+            m_current_file(filename) {
             // the following assertion does not hold if ctx was already attached to an AST manager before the parser object is created.
             // SASSERT(!m_ctx.has_manager());
-            
+
             updt_params();
         }
-        
+
         ~parser() {
             reset_stack();
         }
@@ -2615,27 +2987,27 @@ namespace smt2 {
             m_ignore_bad_patterns  = p.ignore_bad_patterns();
             m_display_error_for_vs = p.error_for_visual_studio();
         }
-  
+
         void reset() {
             reset_stack();
             m_num_bindings    = 0;
-            m_psort_stack     = 0;
-            m_sort_stack      = 0;
-            m_expr_stack      = 0;
-            m_pattern_stack   = 0;
-            m_nopattern_stack = 0;
-            m_sexpr_stack     = 0;
+            m_psort_stack     = nullptr;
+            m_sort_stack      = nullptr;
+            m_expr_stack      = nullptr;
+            m_pattern_stack   = nullptr;
+            m_nopattern_stack = nullptr;
+            m_sexpr_stack     = nullptr;
             m_symbol_stack      .reset();
             m_param_stack       .reset();
             m_env               .reset();
             m_sort_id2param_idx .reset();
             m_dt_name2idx       .reset();
-            
-            m_bv_util           = 0;
-            m_arith_util        = 0;
-            m_seq_util          = 0;
-            m_pattern_validator = 0;
-            m_var_shifter       = 0;
+
+            m_bv_util           = nullptr;
+            m_arith_util        = nullptr;
+            m_seq_util          = nullptr;
+            m_pattern_validator = nullptr;
+            m_var_shifter       = nullptr;
         }
 
         bool operator()() {
@@ -2680,9 +3052,9 @@ namespace smt2 {
                     return !found_errors;
                 }
                 catch (parser_exception & ex) {
-                    if (ex.has_pos()) 
+                    if (ex.has_pos())
                         error(ex.line(), ex.pos(), ex.msg());
-                    else 
+                    else
                         error(ex.msg());
                 }
                 catch (ast_exception & ex) {
@@ -2705,8 +3077,8 @@ namespace smt2 {
     };
 };
 
-bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps) {
-    smt2::parser p(ctx, is, interactive, ps);
+bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive, params_ref const & ps, char const * filename) {
+    smt2::parser p(ctx, is, interactive, ps, filename);
     return p();
 }
 

@@ -19,14 +19,15 @@ Revision History:
 
 
 #include <sstream>
-#include"ast_pp.h"
-#include"bool_rewriter.h"
-#include"rewriter.h"
-#include"rewriter_def.h"
-#include"dl_mk_rule_inliner.h"
-#include"dl_mk_interp_tail_simplifier.h"
-#include"ast_util.h"
+#include "ast/ast_pp.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "muz/transforms/dl_mk_interp_tail_simplifier.h"
+#include "ast/ast_util.h"
 
+#include "muz/base/fixedpoint_params.hpp"
 namespace datalog {
 
     // -----------------------------------
@@ -84,7 +85,7 @@ namespace datalog {
         mk_rule_inliner::remove_duplicate_tails(m_tail, m_neg);
 
         SASSERT(m_tail.size() == m_neg.size());
-        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.c_ptr(), m_neg.c_ptr());
+        res = m_context.get_rule_manager().mk(m_head, m_tail.size(), m_tail.c_ptr(), m_neg.c_ptr(),m_rule->name());
         res->set_accounting_parent_object(m_context, m_rule);
         res->norm_vars(res.get_manager());
     }
@@ -221,20 +222,20 @@ namespace datalog {
         */
         app * detect_equivalence(const arg_pair& p1, const arg_pair& p2, bool inside_disjunction)
         {
-            if (m.is_not(p1.first)==m.is_not(p2.first)) { return 0; }
-            if (m.is_not(p1.second)==m.is_not(p2.second)) { return 0; }
+            if (m.is_not(p1.first)==m.is_not(p2.first)) { return nullptr; }
+            if (m.is_not(p1.second)==m.is_not(p2.second)) { return nullptr; }
 
-            expr * first_bare = 0;
-            if (m.is_not(p1.first, first_bare) && p2.first!=first_bare) { return 0; }
-            if (m.is_not(p2.first, first_bare) && p1.first!=first_bare) { return 0; }
+            expr * first_bare = nullptr;
+            if (m.is_not(p1.first, first_bare) && p2.first!=first_bare) { return nullptr; }
+            if (m.is_not(p2.first, first_bare) && p1.first!=first_bare) { return nullptr; }
             SASSERT(first_bare);
 
-            expr * second_bare = 0;
-            if (m.is_not(p1.second, second_bare) && p2.second!=second_bare) { return 0; }
-            if (m.is_not(p2.second, second_bare) && p1.second!=second_bare) { return 0; }
+            expr * second_bare = nullptr;
+            if (m.is_not(p1.second, second_bare) && p2.second!=second_bare) { return nullptr; }
+            if (m.is_not(p2.second, second_bare) && p1.second!=second_bare) { return nullptr; }
             SASSERT(second_bare);
 
-            if (!m.is_bool(first_bare) || !m.is_bool(second_bare)) { return 0; }
+            if (!m.is_bool(first_bare) || !m.is_bool(second_bare)) { return nullptr; }
 
             //both negations are in the same pair
             bool negs_together = m.is_not(p1.first)==m.is_not(p1.second);
@@ -250,7 +251,7 @@ namespace datalog {
         bool detect_equivalences(expr_ref_vector& v, bool inside_disjunction)
         {
             bool have_pair = false;
-            unsigned prev_pair_idx;
+            unsigned prev_pair_idx = 0;
             arg_pair ap;
 
             unsigned read_idx = 0;
@@ -260,7 +261,7 @@ namespace datalog {
 
                 arg_pair new_ap;
                 if (match_arg_pair(e, new_ap, inside_disjunction)) {
-                    app * neq = 0;
+                    app * neq = nullptr;
                     if (have_pair) {
                         neq = detect_equivalence(ap, new_ap, inside_disjunction);
                     }
@@ -296,21 +297,20 @@ namespace datalog {
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, 
             proof_ref & result_pr)
         {
-
             if (m.is_not(f) && (m.is_and(args[0]) || m.is_or(args[0]))) {
-                SASSERT(num==1);
+                SASSERT(num == 1);
                 expr_ref tmp(m);
                 app* a = to_app(args[0]);
                 m_app_args.reset();
-                for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                    m_brwr.mk_not(a->get_arg(i), tmp);
+                for (expr* arg : *a) {
+                    m_brwr.mk_not(arg, tmp);
                     m_app_args.push_back(tmp);
                 }
                 if (m.is_and(args[0])) {
-                    result = m.mk_or(m_app_args.size(), m_app_args.c_ptr());
+                    result = mk_or(m_app_args); 
                 }
                 else {
-                    result = m.mk_and(m_app_args.size(), m_app_args.c_ptr());
+                    result = mk_and(m_app_args); 
                 }
                 return BR_REWRITE2;
             }
@@ -394,14 +394,12 @@ namespace datalog {
         m_simp(a, simp1_res);
         (*m_rw)(simp1_res.get(), res);
 
-        /*if (simp1_res.get()!=res.get()) {
-            std::cout<<"pre norm:\n"<<mk_pp(simp1_res.get(),m)<<"post norm:\n"<<mk_pp(res.get(),m)<<"\n";
-        }*/
-
         m_simp(res.get(), res);
     }
 
     bool mk_interp_tail_simplifier::propagate_variable_equivalences(rule * r, rule_ref& res) {
+        if (!m_context.get_params ().xform_tail_simplifier_pve ())
+            return false;
         unsigned u_len = r->get_uninterpreted_tail_size();
         unsigned len = r->get_tail_size();
         if (u_len == len) {
@@ -561,7 +559,7 @@ namespace datalog {
             }
 
             SASSERT(m_tail.size() == m_tail_neg.size());
-            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.c_ptr(), m_tail_neg.c_ptr());
+            res = m_context.get_rule_manager().mk(head, m_tail.size(), m_tail.c_ptr(), m_tail_neg.c_ptr(), r->name());
             res->set_accounting_parent_object(m_context, r);
         }
         else {
@@ -603,15 +601,18 @@ namespace datalog {
 
     rule_set * mk_interp_tail_simplifier::operator()(rule_set const & source) {
         if (source.get_num_rules() == 0) {
-            return 0;
+            return nullptr;
         }
 
         rule_set * res = alloc(rule_set, m_context);
         if (transform_rules(source, *res)) {
             res->inherit_predicates(source);
+            TRACE("dl", 
+                  source.display(tout); 
+                  res->display(tout););
         } else {
             dealloc(res);
-            res = 0;
+            res = nullptr;
         }
         return res;
     }

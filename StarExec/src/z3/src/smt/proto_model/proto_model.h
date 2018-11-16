@@ -28,20 +28,19 @@ Revision History:
 #ifndef PROTO_MODEL_H_
 #define PROTO_MODEL_H_
 
-#include"model_core.h"
-#include"model_evaluator.h"
-#include"value_factory.h"
-#include"plugin_manager.h"
-#include"arith_decl_plugin.h"
-#include"func_decl_dependencies.h"
-#include"model.h"
-#include"params.h"
-#include"th_rewriter.h"
+#include "model/model_core.h"
+#include "model/model_evaluator.h"
+#include "smt/proto_model/value_factory.h"
+#include "util/plugin_manager.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/func_decl_dependencies.h"
+#include "model/model.h"
+#include "util/params.h"
+#include "ast/rewriter/th_rewriter.h"
 
 class proto_model : public model_core {
     plugin_manager<value_factory> m_factories;
     user_sort_factory *           m_user_sort_factory;
-    family_id                     m_afid;        //!< array family id: hack for displaying models in V1.x style
     func_decl_set                 m_aux_decls;
     ptr_vector<expr>              m_tmp;
     model_evaluator               m_eval;
@@ -58,21 +57,19 @@ class proto_model : public model_core {
     void remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, func_decl_set const & s);
     void cleanup_func_interp(func_interp * fi, func_decl_set & found_aux_fs);
 
-    bool is_select_of_model_value(expr* e) const;
 
 public:
     proto_model(ast_manager & m, params_ref const & p = params_ref());
-    virtual ~proto_model() {}
+    ~proto_model() override {}
 
     void register_factory(value_factory * f) { m_factories.register_plugin(f); }
 
     bool eval(expr * e, expr_ref & result, bool model_completion = false);
 
-    bool is_as_array(expr * v) const;
     
     value_factory * get_factory(family_id fid);
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
     bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
 
@@ -84,6 +81,7 @@ public:
     // Primitives for building models
     //
     void register_aux_decl(func_decl * f, func_interp * fi);
+    void register_aux_decl(func_decl * f);
     void reregister_decl(func_decl * f, func_interp * new_fi, func_decl * f_aux);
     void compress();
     void cleanup();
@@ -95,9 +93,9 @@ public:
     void freeze_universe(sort * s);
     bool is_finite(sort * s) const;
     obj_hashtable<expr> const & get_known_universe(sort * s) const;
-    virtual ptr_vector<expr> const & get_universe(sort * s) const;
-    virtual unsigned get_num_uninterpreted_sorts() const;
-    virtual sort * get_uninterpreted_sort(unsigned idx) const;
+    ptr_vector<expr> const & get_universe(sort * s) const override;
+    unsigned get_num_uninterpreted_sorts() const override;
+    sort * get_uninterpreted_sort(unsigned idx) const override;
 
     //
     // Complete partial function interps

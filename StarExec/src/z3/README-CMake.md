@@ -5,7 +5,7 @@ of the project written in the ``CMakeLists.txt`` files and emits a build
 system for that project of your choice using one of CMake's "generators".
 This allows CMake to support many different platforms and build tools.
 You can run ``cmake --help`` to see the list of supported "generators"
-on your platform. Example generators include "UNIX Makfiles" and "Visual Studio
+on your platform. Example generators include "UNIX Makefiles" and "Visual Studio
 12 2013".
 
 ## Getting started
@@ -33,34 +33,6 @@ git clean -fx src
 
 which will remove the generated source files.
 
-### Bootstrapping
-
-Most of Z3's CMake files do not live in their correct location. Instead those
-files live in the ``contrib/cmake`` folder and a script is provided that will
-copy (or hard link) the files into their correct location.
-
-To copy the files run
-
-```
-python contrib/cmake/bootstrap.py create
-```
-
-in the root of the repository. Once you have done this you can now build Z3 using CMake.
-Make sure you remember to rerun this command if you pull down new code/rebase/change branch so
-that the copied CMake files are up to date.
-
-To remove the copied files run
-
-```
-python contrib/cmake/bootstrap.py remove
-```
-
-Note if you plan to do development on Z3 you should read the developer
-notes on bootstrapping in this document.
-
-What follows is a brief walk through of how to build Z3 using some
-of the more commonly used CMake generators.
-
 ### Unix Makefiles
 
 Run the following in the top level directory of the Z3 repository.
@@ -72,7 +44,7 @@ cmake -G "Unix Makefiles" ../
 make -j4 # Replace 4 with an appropriate number
 ```
 
-Note that on some platforms "Unix Makesfiles" is the default generator so on those
+Note that on some platforms "Unix Makefiles" is the default generator so on those
 platforms you don't need to pass ``-G "Unix Makefiles"`` command line option to
 ``cmake``.
 
@@ -267,6 +239,8 @@ The following useful options can be passed to CMake whilst configuring.
 * ``CMAKE_INSTALL_PREFIX`` - STRING. The install prefix to use (e.g. ``/usr/local/``).
 * ``CMAKE_INSTALL_PKGCONFIGDIR`` - STRING. The path to install pkgconfig files.
 * ``CMAKE_INSTALL_PYTHON_PKG_DIR`` - STRING. The path to install the z3 python bindings. This can be relative (to ``CMAKE_INSTALL_PREFIX``) or absolute.
+* ``CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR`` - STRING. The path to install CMake package files (e.g. ``/usr/lib/cmake/z3``).
+* ``CMAKE_INSTALL_API_BINDINGS_DOC`` - STRING. The path to install documentation for API bindings.
 * ``ENABLE_TRACING_FOR_NON_DEBUG`` - BOOL. If set to ``TRUE`` enable tracing in non-debug builds, if set to ``FALSE`` disable tracing in non-debug builds. Note in debug builds tracing is always enabled.
 * ``BUILD_LIBZ3_SHARED`` - BOOL. If set to ``TRUE`` build libz3 as a shared library otherwise build as a static library.
 * ``ENABLE_EXAMPLE_TARGETS`` - BOOL. If set to ``TRUE`` add the build targets for building the API examples.
@@ -283,6 +257,20 @@ The following useful options can be passed to CMake whilst configuring.
 * ``INSTALL_JAVA_BINDINGS`` - BOOL. If set to ``TRUE`` and ``BUILD_JAVA_BINDINGS`` is ``TRUE`` then running the ``install`` target will install Z3's Java bindings.
 * ``Z3_JAVA_JAR_INSTALLDIR`` - STRING. The path to directory to install the Z3 Java ``.jar`` file. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
 * ``Z3_JAVA_JNI_LIB_INSTALLDIRR`` - STRING. The path to directory to install the Z3 Java JNI bridge library. This path should be relative to ``CMAKE_INSTALL_PREFIX``.
+* ``INCLUDE_GIT_DESCRIBE`` - BOOL. If set to ``TRUE`` and the source tree of Z3 is a git repository then the output of ``git describe`` will be included in the build.
+* ``INCLUDE_GIT_HASH`` - BOOL. If set to ``TRUE`` and the source tree of Z3 is a git repository then the git hash will be included in the build.
+* ``BUILD_DOCUMENTATION`` - BOOL. If set to ``TRUE`` then documentation for the API bindings can be built by invoking the ``api_docs`` target.
+* ``INSTALL_API_BINDINGS_DOCUMENTATION`` - BOOL. If set to ``TRUE`` and ``BUILD_DOCUMENTATION` is ``TRUE`` then documentation for API bindings will be installed
+    when running the ``install`` target.
+* ``ALWAYS_BUILD_DOCS`` - BOOL. If set to ``TRUE`` and ``BUILD_DOCUMENTATION`` is ``TRUE`` then documentation for API bindings will always be built.
+    Disabling this is useful for faster incremental builds. The documentation can be manually built by invoking the ``api_docs`` target.
+* ``LINK_TIME_OPTIMIZATION`` - BOOL. If set to ``TRUE`` link time optimization will be enabled.
+* ``ENABLE_CFI`` - BOOL. If set to ``TRUE`` will enable Control Flow Integrity security checks. This is only supported by MSVC and Clang and will
+    fail on other compilers. This requires LINK_TIME_OPTIMIZATION to also be enabled.
+* ``API_LOG_SYNC`` - BOOL. If set to ``TRUE`` will enable experimental API log sync feature.
+* ``WARNINGS_AS_ERRORS`` - STRING. If set to ``TRUE`` compiler warnings will be treated as errors. If set to ``False`` compiler warnings will not be treated as errors.
+    If set to ``SERIOUS_ONLY`` a subset of compiler warnings will be treated as errors.
+* ``Z3_C_EXAMPLES_FORCE_CXX_LINKER`` - BOOL. If set to ``TRUE`` the C API examples will request that the C++ linker is used rather than the C linker.
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
 
@@ -316,44 +304,6 @@ link is not created when building under Windows.
 ## Developer/packager notes
 
 These notes are help developers and packagers of Z3.
-
-### Boostrapping the CMake build
-
-Z3's CMake system is experimental and not officially supported. Consequently
-Z3's developers have decided that they do not want the CMake files in the
-``src/`` and ``examples/`` folders. Instead the ``contrib/cmake/bootstrap.py``
-script copies or hard links them into the correct locations. For context
-on this decision see https://github.com/Z3Prover/z3/pull/461 .
-
-The ``contrib/cmake/bootstrap.py create`` command just copies over files which makes
-development harder because you have to copy your modifications over to the
-files in ``contrib/cmake`` for your changes to committed to git. If you are on a UNIX like
-platform you can create hard links instead by running
-
-```
-contrib/cmake/boostrap.py create --hard-link
-```
-
-Using hard links means that modifying any of the "copied" files also modifies the
-file under version control. Using hard links also means that the file modification time
-will appear correct (i.e. the hard-linked "copies" have the same file modification time
-as the corresponding file under version control) which means CMake will correctly reconfigure
-when invoked. This is why using symbolic links is not an option because the file modification
-time of a symbolic link is not the same as the file modification of the file being pointed to.
-
-Unfortunately a downside to using hard links (or just plain copies) is that if
-you pull down new code (i.e. ``git pull``) then some of the CMake files under
-version control may change but the corresponding hard-linked "copies" will not.
-
-This mean that (regardless of whether or not you use hard links) every time you
-pull down new code or change branch or do an interactive rebase you must run
-(with or without ``--hard-link``):
-
-```
-contrb/cmake/boostrap.py create
-```
-
-in order to be sure that the copied CMake files are not out of date.
 
 ### Install/Uninstall
 
@@ -414,6 +364,7 @@ There are a few special targets:
 * ``clean`` all the built targets in the current directory and below
 * ``edit_cache`` will invoke one of the CMake tools (depending on which is available) to let you change configuration options.
 * ``rebuild_cache`` will reinvoke ``cmake`` for the project.
+* ``api_docs`` will build the documentation for the API bindings.
 
 ### Setting build type specific flags
 
@@ -435,3 +386,13 @@ It is tempting use file-globbing in ``CMakeLists.txt`` to find a set for files m
 use them as the sources to build a target. This however is a bad idea because it prevents CMake from knowing when it needs to rerun itself. This is why source file names are explicitly listed in the ``CMakeLists.txt`` so that when changes are made the source files used to build a target automatically triggers a rerun of CMake.
 
 Long story short. Don't use file globbing.
+
+### Serious warning flags
+
+By default the `WARNINGS_AS_ERRORS` flag is set to `SERIOUS_ONLY` which means
+some warnings will be treated as errors. These warnings are controlled by the
+relevant `*_WARNINGS_AS_ERRORS` list defined in
+`cmake/compiler_warnings.cmake`.
+
+Additional warnings should only be added here if the warnings has no false
+positives.

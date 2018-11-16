@@ -9,7 +9,7 @@ Abstract:
 
     Put clauses in the assertion set in
     OOC (one constraint per clause) form.
-    Constraints occuring in formulas that
+    Constraints occurring in formulas that
     are not clauses are ignored.
     The formula can be put into CNF by
     using mk_sat_preprocessor strategy.
@@ -24,7 +24,7 @@ Revision History:
 #ifndef OCCF_TACTIC_H_
 #define OCCF_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

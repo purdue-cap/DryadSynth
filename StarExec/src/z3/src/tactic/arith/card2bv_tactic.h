@@ -19,12 +19,12 @@ Notes:
 #ifndef CARD2BV_TACTIC_H_
 #define CARD2BV_TACTIC_H_
 
-#include"params.h"
-#include"pb_decl_plugin.h"
-#include"th_rewriter.h"
-#include"rewriter.h"
+#include "util/params.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/rewriter.h"
 #include<typeinfo>
-#include"sorting_network.h"
+#include "util/sorting_network.h"
 
 
 class ast_manager;
@@ -79,7 +79,7 @@ namespace pb {
         bool rewrite_patterns() const { return false; }
         bool flat_assoc(func_decl * f) const { return false; }
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             return m_r.mk_app_core(f, num, args, result);
         }
         card2bv_rewriter_cfg(ast_manager & m):m_r(m) {}

@@ -15,9 +15,9 @@ Author:
 Notes:
 
 --*/
-#include"stack.h"
-#include"page.h"
-#include"tptr.h"
+#include "util/stack.h"
+#include "util/page.h"
+#include "util/tptr.h"
 
 inline void stack::store_mark(size_t m) {
     reinterpret_cast<size_t*>(m_curr_ptr)[0] = m;
@@ -62,10 +62,10 @@ inline void stack::store_mark(void * ptr, bool external) {
 }
 
 stack::stack() {
-    m_curr_page    = 0;
-    m_curr_ptr     = 0;
-    m_curr_end_ptr = 0;
-    m_free_pages   = 0;
+    m_curr_page    = nullptr;
+    m_curr_ptr     = nullptr;
+    m_curr_end_ptr = nullptr;
+    m_free_pages   = nullptr;
     allocate_page(0);
     SASSERT(empty());
 }

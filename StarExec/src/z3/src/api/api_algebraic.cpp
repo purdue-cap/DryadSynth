@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Additional APIs for handling Z3 algebraic numbers encoded as 
+    Additional APIs for handling Z3 algebraic numbers encoded as
     Z3_ASTs
 
 Author:
@@ -15,17 +15,16 @@ Author:
     Leonardo de Moura (leonardo) 2012-12-07
 
 Notes:
-    
+
 --*/
-#include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_ast_vector.h"
-#include"algebraic_numbers.h"
-#include"expr2polynomial.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_ast_vector.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "ast/expr2polynomial.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
 
 
 #define CHECK_IS_ALGEBRAIC(ARG, RET) {          \
@@ -74,9 +73,9 @@ extern "C" {
 
     bool Z3_algebraic_is_value_core(Z3_context c, Z3_ast a) {
         api::context * _c = mk_c(c);
-        return 
-            is_expr(a) && 
-            (_c->autil().is_numeral(to_expr(a)) || 
+        return
+            is_expr(a) &&
+            (_c->autil().is_numeral(to_expr(a)) ||
              _c->autil().is_irrational_algebraic_numeral(to_expr(a)));
     }
 
@@ -162,65 +161,65 @@ extern "C" {
     Z3_ast Z3_API Z3_algebraic_add(Z3_context c, Z3_ast a, Z3_ast b) {
         Z3_TRY;
         LOG_Z3_algebraic_add(c, a, b);
-        RESET_ERROR_CODE();                                             
-        CHECK_IS_ALGEBRAIC_X(a, 0);                                       
-        CHECK_IS_ALGEBRAIC_X(b, 0);                                       
+        RESET_ERROR_CODE();
+        CHECK_IS_ALGEBRAIC_X(a, nullptr);
+        CHECK_IS_ALGEBRAIC_X(b, nullptr);
         BIN_OP(+,add);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_algebraic_sub(Z3_context c, Z3_ast a, Z3_ast b) {
         Z3_TRY;
         LOG_Z3_algebraic_sub(c, a, b);
-        RESET_ERROR_CODE();                                             
-        CHECK_IS_ALGEBRAIC_X(a, 0);                                       
-        CHECK_IS_ALGEBRAIC_X(b, 0);                                       
+        RESET_ERROR_CODE();
+        CHECK_IS_ALGEBRAIC_X(a, nullptr);
+        CHECK_IS_ALGEBRAIC_X(b, nullptr);
         BIN_OP(-,sub);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_algebraic_mul(Z3_context c, Z3_ast a, Z3_ast b) {
         Z3_TRY;
         LOG_Z3_algebraic_mul(c, a, b);
-        RESET_ERROR_CODE();                                             
-        CHECK_IS_ALGEBRAIC_X(a, 0);                                       
-        CHECK_IS_ALGEBRAIC_X(b, 0);                                       
+        RESET_ERROR_CODE();
+        CHECK_IS_ALGEBRAIC_X(a, nullptr);
+        CHECK_IS_ALGEBRAIC_X(b, nullptr);
         BIN_OP(*,mul);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_algebraic_div(Z3_context c, Z3_ast a, Z3_ast b) {
         Z3_TRY;
         LOG_Z3_algebraic_div(c, a, b);
         RESET_ERROR_CODE();
-        CHECK_IS_ALGEBRAIC_X(a, 0);
-        CHECK_IS_ALGEBRAIC_X(b, 0);
+        CHECK_IS_ALGEBRAIC_X(a, nullptr);
+        CHECK_IS_ALGEBRAIC_X(b, nullptr);
         if ((is_rational(c, b) && get_rational(c, b).is_zero()) ||
             (!is_rational(c, b) && am(c).is_zero(get_irrational(c, b)))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         BIN_OP(/,div);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_algebraic_root(Z3_context c, Z3_ast a, unsigned k) {
         Z3_TRY;
         LOG_Z3_algebraic_root(c, a, k);
         RESET_ERROR_CODE();
-        CHECK_IS_ALGEBRAIC_X(a, 0);
+        CHECK_IS_ALGEBRAIC_X(a, nullptr);
         if (k % 2 == 0) {
             if ((is_rational(c, a) && get_rational(c, a).is_neg()) ||
                 (!is_rational(c, a) && am(c).is_neg(get_irrational(c, a)))) {
                 SET_ERROR_CODE(Z3_INVALID_ARG);
-                RETURN_Z3(0);
+                RETURN_Z3(nullptr);
             }
         }
         algebraic_numbers::manager & _am = am(c);
         scoped_anum _r(_am);
         if (is_rational(c, a)) {
-            scoped_anum av(_am);                                     
-            _am.set(av, get_rational(c, a).to_mpq());   
+            scoped_anum av(_am);
+            _am.set(av, get_rational(c, a).to_mpq());
             _am.root(av, k, _r);
         }
         else {
@@ -230,19 +229,19 @@ extern "C" {
         expr * r = au(c).mk_numeral(_r, false);
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_ast(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_algebraic_power(Z3_context c, Z3_ast a, unsigned k) {
         Z3_TRY;
         LOG_Z3_algebraic_power(c, a, k);
         RESET_ERROR_CODE();
-        CHECK_IS_ALGEBRAIC_X(a, 0);
+        CHECK_IS_ALGEBRAIC_X(a, nullptr);
         algebraic_numbers::manager & _am = am(c);
         scoped_anum _r(_am);
         if (is_rational(c, a)) {
-            scoped_anum av(_am);                                     
-            _am.set(av, get_rational(c, a).to_mpq());   
+            scoped_anum av(_am);
+            _am.set(av, get_rational(c, a).to_mpq());
             _am.power(av, k, _r);
         }
         else {
@@ -252,7 +251,7 @@ extern "C" {
         expr * r = au(c).mk_numeral(_r, false);
         mk_c(c)->save_ast_trail(r);
         RETURN_Z3(of_ast(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 #define BIN_PRED(RAT_PRED, IRAT_PRED)                                   \
@@ -328,7 +327,7 @@ extern "C" {
         scoped_anum tmp(_am);
         for (unsigned i = 0; i < n; i++) {
             if (is_rational(c, a[i])) {
-                _am.set(tmp, get_rational(c, a[i]).to_mpq());       
+                _am.set(tmp, get_rational(c, a[i]).to_mpq());
                 as.push_back(tmp);
             }
             else if (is_irrational(c, a[i])) {
@@ -346,9 +345,9 @@ extern "C" {
     public:
         vector_var2anum(scoped_anum_vector & as):m_as(as) {}
         virtual ~vector_var2anum() {}
-        virtual algebraic_numbers::manager & m() const { return m_as.m(); }
-        virtual bool contains(polynomial::var x) const { return static_cast<unsigned>(x) < m_as.size(); }
-        virtual algebraic_numbers::anum const & operator()(polynomial::var x) const { return m_as.get(x); }
+        algebraic_numbers::manager & m() const override { return m_as.m(); }
+        bool contains(polynomial::var x) const override { return static_cast<unsigned>(x) < m_as.size(); }
+        algebraic_numbers::anum const & operator()(polynomial::var x) const override { return m_as.get(x); }
     };
 
     Z3_ast_vector Z3_API Z3_algebraic_roots(Z3_context c, Z3_ast p, unsigned n, Z3_ast a[]) {
@@ -358,17 +357,17 @@ extern "C" {
         polynomial::manager & pm = mk_c(c)->pm();
         polynomial_ref _p(pm);
         polynomial::scoped_numeral d(pm.m());
-        expr2polynomial converter(mk_c(c)->m(), pm, 0, true);
+        expr2polynomial converter(mk_c(c)->m(), pm, nullptr, true);
         if (!converter.to_polynomial(to_expr(p), _p, d) ||
             static_cast<unsigned>(max_var(_p)) >= n + 1) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         algebraic_numbers::manager & _am = am(c);
         scoped_anum_vector as(_am);
         if (!to_anum_vector(c, n, a, as)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         scoped_anum_vector roots(_am);
         {
@@ -384,7 +383,7 @@ extern "C" {
             result->m_ast_vector.push_back(au(c).mk_numeral(roots.get(i), false));
         }
         RETURN_Z3(of_ast_vector(result));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     int Z3_API Z3_algebraic_eval(Z3_context c, Z3_ast p, unsigned n, Z3_ast a[]) {
@@ -394,7 +393,7 @@ extern "C" {
         polynomial::manager & pm = mk_c(c)->pm();
         polynomial_ref _p(pm);
         polynomial::scoped_numeral d(pm.m());
-        expr2polynomial converter(mk_c(c)->m(), pm, 0, true);
+        expr2polynomial converter(mk_c(c)->m(), pm, nullptr, true);
         if (!converter.to_polynomial(to_expr(p), _p, d) ||
             static_cast<unsigned>(max_var(_p)) >= n) {
             SET_ERROR_CODE(Z3_INVALID_ARG);

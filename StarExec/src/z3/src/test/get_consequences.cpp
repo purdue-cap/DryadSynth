@@ -3,15 +3,15 @@ Copyright (c) 2016 Microsoft Corporation
 
 --*/
 
-#include "inc_sat_solver.h"
-#include "bv_decl_plugin.h"
-#include "datatype_decl_plugin.h"
-#include "reg_decl_plugins.h"
-#include "ast_pp.h"
-#include "dt2bv_tactic.h"
-#include "tactic.h"
-#include "model_smt2_pp.h"
-#include "fd_solver.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/ast_pp.h"
+#include "tactic/bv/dt2bv_tactic.h"
+#include "tactic/tactic.h"
+#include "model/model_smt2_pp.h"
+#include "tactic/portfolio/fd_solver.h"
 
 static expr_ref mk_const(ast_manager& m, char const* name, sort* s) {
     return expr_ref(m.mk_const(symbol(name), s), m);
@@ -61,13 +61,12 @@ void test2() {
 
     datatype_decl_plugin & dt = *(static_cast<datatype_decl_plugin*>(m.get_plugin(m.get_family_id("datatype"))));
     sort_ref_vector new_sorts(m);
-    constructor_decl* R = mk_constructor_decl(symbol("R"), symbol("is-R"), 0, 0);
-    constructor_decl* G = mk_constructor_decl(symbol("G"), symbol("is-G"), 0, 0);
-    constructor_decl* B = mk_constructor_decl(symbol("B"), symbol("is-B"), 0, 0);
+    constructor_decl* R = mk_constructor_decl(symbol("R"), symbol("is-R"), 0, nullptr);
+    constructor_decl* G = mk_constructor_decl(symbol("G"), symbol("is-G"), 0, nullptr);
+    constructor_decl* B = mk_constructor_decl(symbol("B"), symbol("is-B"), 0, nullptr);
     constructor_decl* constrs[3] = { R, G, B };
-    datatype_decl * enum_sort = mk_datatype_decl(symbol("RGB"), 3, constrs);
-    VERIFY(dt.mk_datatypes(1, &enum_sort, new_sorts));    
-    del_constructor_decls(3, constrs);
+    datatype_decl * enum_sort = mk_datatype_decl(dtutil, symbol("RGB"), 0, nullptr, 3, constrs);
+    VERIFY(dt.mk_datatypes(1, &enum_sort, 0, nullptr, new_sorts));
     sort* rgb = new_sorts[0].get();
 
     expr_ref x = mk_const(m, "x", rgb), y = mk_const(m, "y", rgb), z = mk_const(m, "z", rgb);
@@ -90,7 +89,7 @@ void test2() {
 
     fd_solver->push();
     fd_solver->assert_expr(m.mk_not(m.mk_eq(x, g)));
-    VERIFY(l_false == fd_solver->check_sat(0,0));
+    VERIFY(l_false == fd_solver->check_sat(0,nullptr));
     fd_solver->pop(1);
 
     VERIFY(l_true == fd_solver->get_consequences(asms, vars, conseq));
@@ -102,9 +101,9 @@ void test2() {
     fd_solver->get_model(mr);
     model_smt2_pp(std::cout << "model:\n", m, *mr.get(), 0);
 
-    VERIFY(l_true == fd_solver->check_sat(0,0));
+    VERIFY(l_true == fd_solver->check_sat(0,nullptr));
     fd_solver->get_model(mr);
-    SASSERT(mr.get());
+    ENSURE(mr.get());
     model_smt2_pp(std::cout, m, *mr.get(), 0);
 
 }

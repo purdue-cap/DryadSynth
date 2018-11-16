@@ -20,12 +20,12 @@ Revision History:
 
 --*/
 
-#include "ddnf.h"
-#include "dl_rule_set.h"
-#include "dl_context.h"
-#include "scoped_proof.h"
-#include "bv_decl_plugin.h"
-#include "tbv.h"
+#include "muz/ddnf/ddnf.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_context.h"
+#include "ast/scoped_proof.h"
+#include "ast/bv_decl_plugin.h"
+#include "muz/rel/tbv.h"
 
 namespace datalog {
 
@@ -192,10 +192,15 @@ namespace datalog {
             for (unsigned i = 0; i < new_tbvs.size(); ++i) {
                 tbv const& nt = *new_tbvs[i];
                 IF_VERBOSE(10, m_tbv.display(verbose_stream() << "insert: ", nt); verbose_stream() << "\n";);
-                if (contains(nt)) continue;
-                ddnf_node* n = alloc(ddnf_node, *this, m_tbv, nt, m_noderefs.size());
-                m_noderefs.push_back(n);
-                m_nodes.insert(n);
+                ddnf_node* n;
+                if (contains(nt)) {
+                    n = find(nt);
+                }
+                else {
+                    n = alloc(ddnf_node, *this, m_tbv, nt, m_noderefs.size());
+                    m_noderefs.push_back(n);
+                    m_nodes.insert(n);
+                }
                 insert(*m_root, n, new_tbvs);
             }
             return find(t);
@@ -275,13 +280,17 @@ namespace datalog {
         void insert(ddnf_node& root, ddnf_node* new_n, ptr_vector<tbv const>& new_intersections) {
             tbv const& new_tbv = new_n->get_tbv();
             
+            IF_VERBOSE(10, m_tbv.display(verbose_stream() << "root: ", root.get_tbv()); 
+                       m_tbv.display(verbose_stream() << " new node ", new_tbv); verbose_stream() << "\n";);
             SASSERT(m_tbv.contains(root.get_tbv(), new_tbv));
-            if (&root == new_n) return;
+            if (m_eq(&root, new_n)) return;
             ++m_stats.m_num_inserts;
             bool inserted = false;
             for (unsigned i = 0; i < root.num_children(); ++i) {
                 ddnf_node& child = *(root[i]);
                 ++m_stats.m_num_comparisons;
+                IF_VERBOSE(10, m_tbv.display(verbose_stream() << "child ", child.get_tbv()); 
+                           verbose_stream() << " contains: " << m_tbv.contains(child.get_tbv(), new_tbv) << "\n";);
                 if (m_tbv.contains(child.get_tbv(), new_tbv)) {
                     inserted = true;
                     insert(child, new_n, new_intersections);
@@ -299,11 +308,13 @@ namespace datalog {
                 // checking for subset
                 if (m_tbv.contains(new_tbv, child.get_tbv())) {
                     subset_children.push_back(&child);
+                    IF_VERBOSE(10, m_tbv.display(verbose_stream() << "contains child", child.get_tbv()); verbose_stream() << "\n";);
                     ++m_stats.m_num_comparisons;
                 }
                 else if (m_tbv.intersect(child.get_tbv(), new_tbv, *intr)) {
                     // this means there is a non-full intersection
                     new_intersections.push_back(intr);
+                    IF_VERBOSE(10, m_tbv.display(verbose_stream() << "intersect child ", child.get_tbv()); verbose_stream() << "\n";);
                     intr = m_tbv.allocate();
                     m_stats.m_num_comparisons += 2;
                 }
@@ -451,7 +462,7 @@ namespace datalog {
     private:
 
         ddnf_mgr* insert(unsigned n) {
-            ddnf_mgr* m = 0;
+            ddnf_mgr* m = nullptr;
             if (!m_mgrs.find(n, m)) {
                 m = alloc(ddnf_mgr, n);
                 m_mgrs.insert(n, m);
@@ -662,7 +673,7 @@ namespace datalog {
 
         void dump_rules(rule_set& rules) {
             init_ctx(rules);
-            m_inner_ctx.display_smt2(0, 0, std::cout);
+            m_inner_ctx.display_smt2(0, nullptr, std::cout);
         }
 
         lbool execute_rules(rule_set& rules) {
@@ -704,7 +715,7 @@ namespace datalog {
                 compile_expr(r.get_tail(i), tmp);
                 body.push_back(to_app(tmp));
             }
-            rule* r_new = rm.mk(head, body.size(), body.c_ptr(), 0, r.name(), false);
+            rule* r_new = rm.mk(head, body.size(), body.c_ptr(), nullptr, r.name(), false);
             new_rules.add_rule(r_new);
             IF_VERBOSE(20, r_new->display(m_ctx, verbose_stream()););
             if (old_rules.is_output_predicate(r.get_decl())) {
@@ -764,11 +775,11 @@ namespace datalog {
                 return bv.mk_sort(nb);
             }
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
 
         void compile_expr(expr* e, expr_ref& result) {
-            expr* r = 0;
+            expr* r = nullptr;
             if (m_cache.find(e, r)) {
                 result = r;
                 return;
@@ -836,7 +847,7 @@ namespace datalog {
         }
 
         void compile_eq(expr* e, expr_ref& result, var* v, unsigned hi, unsigned lo, expr* c) {
-            tbv* t = 0;
+            tbv* t = nullptr;
             // TBD: hi, lo are ignored.
             VERIFY(m_expr2tbv.find(e, t));            
             var_ref w(m);

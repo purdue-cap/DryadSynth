@@ -26,9 +26,9 @@ Revision History:
 #define DL_MK_QUANTIFIER_INSTANTIATION_H_
 
 
-#include "dl_rule_transformer.h"
-#include "expr_safe_replace.h"
-#include "union_find.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "util/union_find.h"
 
 
 namespace datalog {
@@ -61,9 +61,9 @@ namespace datalog {
     public:
         mk_quantifier_instantiation(context & ctx, unsigned priority);
 
-        virtual ~mk_quantifier_instantiation();
+        ~mk_quantifier_instantiation() override;
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 

@@ -19,7 +19,7 @@ Revision History:
 #ifndef UINT_MAP_H_
 #define UINT_MAP_H_
 
-#include"vector.h"
+#include "util/vector.h"
 
 /**
    \brief Implement a map from unsigned to T * using vectors
@@ -37,6 +37,11 @@ public:
             v = m_map[k];
             return v != 0;
         }
+    }
+    
+    T * find(unsigned k) const { 
+        SASSERT(k < m_map.size() && m_map[k] != 0); 
+        return m_map[k]; 
     }
 
     void insert(unsigned k, T * v) {

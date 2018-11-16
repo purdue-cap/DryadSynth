@@ -19,12 +19,12 @@ Notes:
 #ifndef BV2INT_REWRITER_H_
 #define BV2INT_REWRITER_H_
 
-#include"ast.h"
-#include"rewriter.h"
-#include"bv_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"params.h"
-#include"goal.h"
+#include "ast/ast.h"
+#include "ast/rewriter/rewriter.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "util/params.h"
+#include "tactic/goal.h"
 
 class bv2int_rewriter_ctx {
     unsigned                 m_max_size;
@@ -103,7 +103,7 @@ struct bv2int_rewriter_cfg : public default_rewriter_cfg {
     bool rewrite_patterns() const { return false; }
     bool flat_assoc(func_decl * f) const { return false; }
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        result_pr = 0;
+        result_pr = nullptr;
         return m_r.mk_app_core(f, num, args, result);
     }
     bv2int_rewriter_cfg(ast_manager & m, bv2int_rewriter_ctx& ctx):m_r(m, ctx) {}

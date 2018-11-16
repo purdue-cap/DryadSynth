@@ -16,28 +16,28 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_util.h"
-#include"well_sorted.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"datatype_decl_plugin.h"
-#include"array_decl_plugin.h"
-#include"pb_decl_plugin.h"
-#include"ast_translation.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt_pp.h"
-#include"ast_smt2_pp.h"
-#include"th_rewriter.h"
-#include"var_subst.h"
-#include"expr_safe_replace.h"
-#include"pp.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"pp_params.hpp"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_util.h"
+#include "ast/well_sorted.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/ast_translation.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "ast/pp.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "ast/pp_params.hpp"
 
 extern bool is_numeral_sort(Z3_context c, Z3_sort ty);
 
@@ -49,11 +49,11 @@ extern "C" {
         RESET_ERROR_CODE();
         if (i < 0 || (size_t)i >= (SIZE_MAX >> PTR_ALIGNMENT)) {
             SET_ERROR_CODE(Z3_IOB);
-            return 0;
+            return nullptr;
         }
         Z3_symbol result = of_symbol(symbol(i));
         return result;
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_symbol Z3_API Z3_mk_string_symbol(Z3_context c, char const * str) {
@@ -61,13 +61,13 @@ extern "C" {
         LOG_Z3_mk_string_symbol(c, str);
         RESET_ERROR_CODE();
         symbol s;
-        if (str == 0 || *str == 0)
+        if (str == nullptr || *str == 0)
             s = symbol::null;
         else
             s = symbol(str);
         Z3_symbol result = of_symbol(s);
         return result;
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_bool Z3_API Z3_is_eq_sort(Z3_context c, Z3_sort s1, Z3_sort s2) {
@@ -82,7 +82,7 @@ extern "C" {
         sort* ty = mk_c(c)->m().mk_uninterpreted_sort(to_symbol(name));
         mk_c(c)->save_ast_trail(ty);
         RETURN_Z3(of_sort(ty));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_bool Z3_API Z3_is_eq_ast(Z3_context c, Z3_ast s1, Z3_ast s2) {
@@ -107,7 +107,7 @@ extern "C" {
 
         mk_c(c)->save_ast_trail(d);
         RETURN_Z3(of_func_decl(d));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_app(Z3_context c, Z3_func_decl d, unsigned num_args, Z3_ast const * args) {
@@ -123,7 +123,7 @@ extern "C" {
         mk_c(c)->save_ast_trail(a);
         check_sorts(c, a);
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_const(Z3_context c, Z3_symbol s, Z3_sort ty) {
@@ -133,7 +133,7 @@ extern "C" {
         app* a = mk_c(c)->m().mk_const(mk_c(c)->m().mk_const_decl(to_symbol(s), to_sort(ty)));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 
@@ -142,7 +142,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_fresh_func_decl(c, prefix, domain_size, domain, range);
         RESET_ERROR_CODE();
-        if (prefix == 0) {
+        if (prefix == nullptr) {
             prefix = "";
         }
 
@@ -153,20 +153,20 @@ extern "C" {
 
         mk_c(c)->save_ast_trail(d);
         RETURN_Z3(of_func_decl(d));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_fresh_const(Z3_context c, const char * prefix, Z3_sort ty) {
         Z3_TRY;
         LOG_Z3_mk_fresh_const(c, prefix, ty);
         RESET_ERROR_CODE();
-        if (prefix == 0) {
+        if (prefix == nullptr) {
             prefix = "";
         }
         app* a = mk_c(c)->m().mk_fresh_const(prefix, to_sort(ty));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_true(Z3_context c) {
@@ -175,7 +175,7 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_ast r = of_ast(mk_c(c)->m().mk_true());
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_mk_false(Z3_context c) {
@@ -184,7 +184,7 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_ast r = of_ast(mk_c(c)->m().mk_false());
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     MK_UNARY(Z3_mk_not, mk_c(c)->get_basic_fid(), OP_NOT, SKIP);
@@ -210,7 +210,7 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_ast r = mk_ite_core(c, t1, t2, t3);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_sort Z3_API Z3_mk_bool_sort(Z3_context c) {
@@ -219,7 +219,7 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->m().get_basic_family_id(), BOOL_SORT));
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_app_to_ast(Z3_context c, Z3_app a) {
@@ -335,7 +335,7 @@ extern "C" {
     Z3_bool Z3_API Z3_is_app(Z3_context c, Z3_ast a) {
         LOG_Z3_is_app(c, a);
         RESET_ERROR_CODE();
-        return a != 0 && is_app(reinterpret_cast<ast*>(a));
+        return a != nullptr && is_app(reinterpret_cast<ast*>(a));
     }
 
     Z3_app Z3_API Z3_to_app(Z3_context c, Z3_ast a) {
@@ -357,7 +357,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_app(reinterpret_cast<ast*>(a))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         RETURN_Z3(of_func_decl(to_app(a)->get_decl()));
     }
@@ -373,11 +373,11 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_app(reinterpret_cast<ast*>(a))) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         if (i >= to_app(a)->get_num_args()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         RETURN_Z3(of_ast(to_app(a)->get_arg(i)));
     }
@@ -466,15 +466,15 @@ extern "C" {
         RESET_ERROR_CODE();
         if (idx >= to_func_decl(d)->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB);
-            return 0;
+            return nullptr;
         }
         parameter const& p = to_func_decl(d)->get_parameters()[idx];
         if (!p.is_symbol()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         return of_symbol(p.get_symbol());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_sort Z3_API Z3_get_decl_sort_parameter(Z3_context c, Z3_func_decl d, unsigned idx) {
@@ -483,15 +483,15 @@ extern "C" {
         RESET_ERROR_CODE();
         if (idx >= to_func_decl(d)->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         parameter const& p = to_func_decl(d)->get_parameters()[idx];
         if (!p.is_ast() || !is_sort(p.get_ast())) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         RETURN_Z3(of_sort(to_sort(p.get_ast())));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_get_decl_ast_parameter(Z3_context c, Z3_func_decl d, unsigned idx) {
@@ -500,15 +500,15 @@ extern "C" {
         RESET_ERROR_CODE();
         if (idx >= to_func_decl(d)->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         parameter const& p = to_func_decl(d)->get_parameters()[idx];
         if (!p.is_ast()) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         RETURN_Z3(of_ast(p.get_ast()));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_func_decl Z3_API Z3_get_decl_func_decl_parameter(Z3_context c, Z3_func_decl d, unsigned idx) {
@@ -517,15 +517,15 @@ extern "C" {
         RESET_ERROR_CODE();
         if (idx >= to_func_decl(d)->get_num_parameters()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         parameter const& p = to_func_decl(d)->get_parameters()[idx];
         if (!p.is_ast() || !is_func_decl(p.get_ast())) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         RETURN_Z3(of_func_decl(to_func_decl(p.get_ast())));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_string Z3_API Z3_get_decl_rational_parameter(Z3_context c, Z3_func_decl d, unsigned idx) {
@@ -551,16 +551,17 @@ extern "C" {
         LOG_Z3_get_sort_name(c, t);
         RESET_ERROR_CODE();
         return of_symbol(to_sort(t)->get_name());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_sort Z3_API Z3_get_sort(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_get_sort(c, a);
         RESET_ERROR_CODE();
+        CHECK_IS_EXPR(a, nullptr);
         Z3_sort r = of_sort(mk_c(c)->m().get_sort(to_expr(a)));
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     unsigned Z3_API Z3_get_arity(Z3_context c, Z3_func_decl d) {
@@ -585,21 +586,21 @@ extern "C" {
         RESET_ERROR_CODE();
         if (i >= to_func_decl(d)->get_arity()) {
             SET_ERROR_CODE(Z3_IOB);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         Z3_sort r = of_sort(to_func_decl(d)->get_domain(i));
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_sort Z3_API Z3_get_range(Z3_context c, Z3_func_decl d) {
         Z3_TRY;
         LOG_Z3_get_range(c, d);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(d, 0);
+        CHECK_VALID_AST(d, nullptr);
         Z3_sort r = of_sort(to_func_decl(d)->get_range());
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_sort_kind Z3_get_sort_kind(Z3_context c, Z3_sort t) {
@@ -687,17 +688,17 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 mk_c(c)->handle_exception(ex);
-                return 0;
+                return nullptr;
             }
         }
         mk_c(c)->save_ast_trail(result);
         return of_ast(result.get());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_simplify(Z3_context c, Z3_ast _a) {
         LOG_Z3_simplify(c, _a);
-        RETURN_Z3(simplify(c, _a, 0));
+        RETURN_Z3(simplify(c, _a, nullptr));
     }
 
     Z3_ast Z3_API Z3_simplify_ex(Z3_context c, Z3_ast _a, Z3_params p) {
@@ -726,7 +727,7 @@ extern "C" {
         th_rewriter::get_param_descrs(d->m_descrs);
         Z3_param_descrs r = of_param_descrs(d);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_update_term(Z3_context c, Z3_ast _a, unsigned num_args, Z3_ast const _args[]) {
@@ -761,7 +762,7 @@ extern "C" {
         }
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_expr(a));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_substitute(Z3_context c,
@@ -776,11 +777,11 @@ extern "C" {
         expr * a = to_expr(_a);
         expr * const * from = to_exprs(_from);
         expr * const * to   = to_exprs(_to);
-        expr * r = 0;
+        expr * r = nullptr;
         for (unsigned i = 0; i < num_exprs; i++) {
             if (m.get_sort(from[i]) != m.get_sort(to[i])) {
                 SET_ERROR_CODE(Z3_SORT_ERROR);
-                RETURN_Z3(of_expr(0));
+                RETURN_Z3(of_expr(nullptr));
             }
             SASSERT(from[i]->get_ref_count() > 0);
             SASSERT(to[i]->get_ref_count() > 0);
@@ -794,7 +795,7 @@ extern "C" {
         mk_c(c)->save_ast_trail(new_a);
         r = new_a.get();
         RETURN_Z3(of_expr(r));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_substitute_vars(Z3_context c,
@@ -812,7 +813,7 @@ extern "C" {
         subst(a, num_exprs, to, new_a);
         mk_c(c)->save_ast_trail(new_a);
         RETURN_Z3(of_expr(new_a.get()));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_API char const * Z3_ast_to_string(Z3_context c, Z3_ast a) {
@@ -831,35 +832,14 @@ extern "C" {
         case Z3_PRINT_LOW_LEVEL:
             buffer << mk_ll_pp(to_ast(a), mk_c(c)->m());
             break;
-        case Z3_PRINT_SMTLIB_COMPLIANT: {
-            ast_smt_pp pp(mk_c(c)->m());
-            pp_params params;
-            pp.set_simplify_implies(params.simplify_implies());
-            ast* a1 = to_ast(a);
-            pp.set_logic(mk_c(c)->fparams().m_logic);
-            if (!is_expr(a1)) {
-                buffer << mk_pp(a1, mk_c(c)->m());
-                break;
-            }
-            if (mk_c(c)->get_print_mode() == Z3_PRINT_SMTLIB_COMPLIANT) {
-                pp.display_expr(buffer, to_expr(a1));
-                break;
-            }
-            if (mk_c(c)->get_print_mode() == Z3_PRINT_SMTLIB2_COMPLIANT) {
-                pp.display_expr_smt2(buffer, to_expr(a1));
-                break;
-            }
-            break;
-        }
-        case Z3_PRINT_SMTLIB2_COMPLIANT: {
+        case Z3_PRINT_SMTLIB2_COMPLIANT: 
             buffer << mk_ismt2_pp(to_ast(a), mk_c(c)->m());
             break;
-        }
         default:
             UNREACHABLE();
         }
         return mk_c(c)->mk_external_string(buffer.str());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_API char const * Z3_sort_to_string(Z3_context c, Z3_sort s) {
@@ -892,12 +872,7 @@ extern "C" {
         for (unsigned i = 0; i < num_assumptions; ++i) {
             pp.add_assumption(to_expr(assumptions[i]));
         }
-        if (mk_c(c)->get_print_mode() == Z3_PRINT_SMTLIB2_COMPLIANT) {
-            pp.display_smt2(buffer, to_expr(formula));
-        }
-        else {
-            pp.display(buffer, to_expr(formula));
-        }
+        pp.display_smt2(buffer, to_expr(formula));
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }
@@ -944,7 +919,6 @@ extern "C" {
             case PR_REWRITE: return Z3_OP_PR_REWRITE;
             case PR_REWRITE_STAR: return Z3_OP_PR_REWRITE_STAR;
             case PR_PULL_QUANT: return Z3_OP_PR_PULL_QUANT;
-            case PR_PULL_QUANT_STAR: return Z3_OP_PR_PULL_QUANT_STAR;
             case PR_PUSH_QUANT: return Z3_OP_PR_PUSH_QUANT;
             case PR_ELIM_UNUSED_VARS: return Z3_OP_PR_ELIM_UNUSED_VARS;
             case PR_DER: return Z3_OP_PR_DER;
@@ -961,9 +935,7 @@ extern "C" {
             case PR_IFF_OEQ: return Z3_OP_PR_IFF_OEQ;
             case PR_NNF_POS: return Z3_OP_PR_NNF_POS;
             case PR_NNF_NEG: return Z3_OP_PR_NNF_NEG;
-            case PR_NNF_STAR: return Z3_OP_PR_NNF_STAR;
             case PR_SKOLEMIZE:  return Z3_OP_PR_SKOLEMIZE;
-            case PR_CNF_STAR: return Z3_OP_PR_CNF_STAR;
             case PR_MODUS_PONENS_OEQ: return Z3_OP_PR_MODUS_PONENS_OEQ;
             case PR_TH_LEMMA: return Z3_OP_PR_TH_LEMMA;
             case PR_HYPER_RESOLVE: return Z3_OP_PR_HYPER_RESOLVE;
@@ -1067,6 +1039,7 @@ extern "C" {
             case OP_BV2INT:    return Z3_OP_BV2INT;
             case OP_CARRY:     return Z3_OP_CARRY;
             case OP_XOR3:      return Z3_OP_XOR3;
+            case OP_BIT2BOOL: return Z3_OP_BIT2BOOL;
             case OP_BSMUL_NO_OVFL: return Z3_OP_BSMUL_NO_OVFL;
             case OP_BUMUL_NO_OVFL: return Z3_OP_BUMUL_NO_OVFL;
             case OP_BSMUL_NO_UDFL: return Z3_OP_BSMUL_NO_UDFL;
@@ -1083,6 +1056,7 @@ extern "C" {
             switch(_d->get_decl_kind()) {
             case OP_DT_CONSTRUCTOR:  return Z3_OP_DT_CONSTRUCTOR;
             case OP_DT_RECOGNISER:   return Z3_OP_DT_RECOGNISER;
+            case OP_DT_IS:           return Z3_OP_DT_IS;
             case OP_DT_ACCESSOR:     return Z3_OP_DT_ACCESSOR;
             case OP_DT_UPDATE_FIELD: return Z3_OP_DT_UPDATE_FIELD;
             default:
@@ -1113,25 +1087,47 @@ extern "C" {
 
         if (mk_c(c)->get_seq_fid() == _d->get_family_id()) {
             switch (_d->get_decl_kind()) {
-            case Z3_OP_SEQ_UNIT: return Z3_OP_SEQ_UNIT;
-            case Z3_OP_SEQ_EMPTY: return Z3_OP_SEQ_EMPTY;
-            case Z3_OP_SEQ_CONCAT: return Z3_OP_SEQ_CONCAT;
-            case Z3_OP_SEQ_PREFIX: return Z3_OP_SEQ_PREFIX;
-            case Z3_OP_SEQ_SUFFIX: return Z3_OP_SEQ_SUFFIX;
-            case Z3_OP_SEQ_CONTAINS: return Z3_OP_SEQ_CONTAINS;
-            case Z3_OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
-            case Z3_OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
-            case Z3_OP_SEQ_AT: return Z3_OP_SEQ_AT;
-            case Z3_OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
-            case Z3_OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
-            case Z3_OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
-            case Z3_OP_SEQ_IN_RE: return Z3_OP_SEQ_IN_RE;
+            case OP_SEQ_UNIT: return Z3_OP_SEQ_UNIT;
+            case OP_SEQ_EMPTY: return Z3_OP_SEQ_EMPTY;
+            case OP_SEQ_CONCAT: return Z3_OP_SEQ_CONCAT;
+            case OP_SEQ_PREFIX: return Z3_OP_SEQ_PREFIX;
+            case OP_SEQ_SUFFIX: return Z3_OP_SEQ_SUFFIX;
+            case OP_SEQ_CONTAINS: return Z3_OP_SEQ_CONTAINS;
+            case OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
+            case OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
+            case OP_SEQ_AT: return Z3_OP_SEQ_AT;
+            case OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
+            case OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
+            case OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
+            case OP_SEQ_IN_RE: return Z3_OP_SEQ_IN_RE;
 
-            case Z3_OP_RE_PLUS: return Z3_OP_RE_PLUS;
-            case Z3_OP_RE_STAR: return Z3_OP_RE_STAR;
-            case Z3_OP_RE_OPTION: return Z3_OP_RE_OPTION;
-            case Z3_OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
-            case Z3_OP_RE_UNION: return Z3_OP_RE_UNION;
+            case _OP_STRING_STRREPL: return Z3_OP_SEQ_REPLACE;
+            case _OP_STRING_CONCAT: return Z3_OP_SEQ_CONCAT;
+            case _OP_STRING_LENGTH: return Z3_OP_SEQ_LENGTH;
+            case _OP_STRING_STRCTN: return Z3_OP_SEQ_CONTAINS;
+            case _OP_STRING_PREFIX: return Z3_OP_SEQ_PREFIX;
+            case _OP_STRING_SUFFIX: return Z3_OP_SEQ_SUFFIX;
+            case _OP_STRING_IN_REGEXP: return Z3_OP_SEQ_IN_RE;
+            case _OP_STRING_TO_REGEXP: return Z3_OP_SEQ_TO_RE;
+            case _OP_STRING_CHARAT: return Z3_OP_SEQ_AT;
+            case _OP_STRING_SUBSTR: return Z3_OP_SEQ_EXTRACT;
+            case _OP_STRING_STRIDOF: return Z3_OP_SEQ_INDEX;
+            case _OP_REGEXP_EMPTY: return Z3_OP_RE_EMPTY_SET;
+            case _OP_REGEXP_FULL_CHAR: return Z3_OP_RE_FULL_SET;
+
+            case OP_STRING_STOI: return Z3_OP_STR_TO_INT;
+            case OP_STRING_ITOS: return Z3_OP_INT_TO_STR;
+
+            case OP_RE_PLUS: return Z3_OP_RE_PLUS;
+            case OP_RE_STAR: return Z3_OP_RE_STAR;
+            case OP_RE_OPTION: return Z3_OP_RE_OPTION;
+            case OP_RE_CONCAT: return Z3_OP_RE_CONCAT;
+            case OP_RE_UNION: return Z3_OP_RE_UNION;
+            case OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
+            case OP_RE_LOOP: return Z3_OP_RE_LOOP;
+            // case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
+            case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_SET;
+            case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
             default:
                 return Z3_OP_INTERNAL;
             }
@@ -1181,16 +1177,8 @@ extern "C" {
             case OP_FPA_TO_SBV: return Z3_OP_FPA_TO_SBV;
             case OP_FPA_TO_REAL: return Z3_OP_FPA_TO_REAL;
             case OP_FPA_TO_IEEE_BV: return Z3_OP_FPA_TO_IEEE_BV;
-            case OP_FPA_INTERNAL_MIN_I: return Z3_OP_FPA_MIN_I;
-            case OP_FPA_INTERNAL_MAX_I: return Z3_OP_FPA_MAX_I;
-            case OP_FPA_INTERNAL_BV2RM:
-            case OP_FPA_INTERNAL_BVWRAP:
-            case OP_FPA_INTERNAL_MIN_UNSPECIFIED:
-            case OP_FPA_INTERNAL_MAX_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-            case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
+            case OP_FPA_BVWRAP: return Z3_OP_FPA_BVWRAP;
+            case OP_FPA_BV2RM: return Z3_OP_FPA_BV2RM;
                 return Z3_OP_UNINTERPRETED;
             default:
                 return Z3_OP_INTERNAL;
@@ -1210,7 +1198,9 @@ extern "C" {
             switch(_d->get_decl_kind()) {
             case OP_PB_LE: return Z3_OP_PB_LE;
             case OP_PB_GE: return Z3_OP_PB_GE;
+            case OP_PB_EQ: return Z3_OP_PB_EQ;
             case OP_AT_MOST_K: return Z3_OP_PB_AT_MOST;
+            case OP_AT_LEAST_K: return Z3_OP_PB_AT_LEAST;
             default: return Z3_OP_INTERNAL;
             }
         }
@@ -1241,17 +1231,17 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_translate(c, a, target);
         RESET_ERROR_CODE();
-        CHECK_VALID_AST(a, 0);
+        CHECK_VALID_AST(a, nullptr);
         if (c == target) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         SASSERT(mk_c(c)->m().contains(to_ast(a)));
         ast_translation translator(mk_c(c)->m(), mk_c(target)->m());
         ast * _result = translator(to_ast(a));
         mk_c(target)->save_ast_trail(_result);
         RETURN_Z3(of_ast(_result));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

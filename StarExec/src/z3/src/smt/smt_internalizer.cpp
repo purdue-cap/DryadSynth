@@ -16,13 +16,13 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"expr_stat.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"ast_smt2_pp.h"
-#include"smt_model_finder.h"
-#include"for_each_expr.h"
+#include "smt/smt_context.h"
+#include "ast/expr_stat.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_model_finder.h"
+#include "ast/for_each_expr.h"
 
 namespace smt {
 
@@ -121,7 +121,7 @@ namespace smt {
         bool visited  = true;
         family_id fid = to_app(n)->get_family_id();
         theory * th   = m_theories.get_plugin(fid);
-        bool def_int  = th == 0 || th->default_internalizer();
+        bool def_int  = th == nullptr || th->default_internalizer();
         if (!def_int) {
             ptr_buffer<expr> descendants;
             get_foreign_descendants(to_app(n), fid, descendants);
@@ -198,19 +198,19 @@ namespace smt {
         if (get_depth(n) > DEEP_EXPR_THRESHOLD) {
             // if the expression is deep, then execute topological sort to avoid
             // stack overflow.
+            // a caveat is that theory internalizers do rely on recursive descent so
+            // internalization over these follows top-down
             TRACE("deep_internalize", tout << "expression is deep: #" << n->get_id() << "\n" << mk_ll_pp(n, m_manager););
             svector<expr_bool_pair> sorted_exprs;
             top_sort_expr(n, sorted_exprs);
-            TRACE("deep_internalize", 
-                  svector<expr_bool_pair>::const_iterator it  = sorted_exprs.begin();
-                  svector<expr_bool_pair>::const_iterator end = sorted_exprs.end();
-                  for (; it != end; ++it) {
-                      tout << "#" << it->first->get_id() << " " << it->second << "\n";
-                  });
-            svector<expr_bool_pair>::const_iterator it  = sorted_exprs.begin();
-            svector<expr_bool_pair>::const_iterator end = sorted_exprs.end();
-            for (; it != end; ++it)
-                internalize(it->first, it->second);
+            TRACE("deep_internalize", for (auto & kv : sorted_exprs) tout << "#" << kv.first->get_id() << " " << kv.second << "\n"; );
+            for (auto & kv : sorted_exprs) {
+                expr* e = kv.first;
+                if (!is_app(e) || 
+                    to_app(e)->get_family_id() == null_family_id || 
+                    to_app(e)->get_family_id() == m_manager.get_basic_family_id()) 
+                    internalize(e, kv.second);
+            }
         }
         SASSERT(m_manager.is_bool(n));
         if (is_gate(m_manager, n)) {
@@ -301,7 +301,7 @@ namespace smt {
             e->mark_as_interpreted();
             app_ref eq(m_manager.mk_eq(fapp, val), m_manager);
             TRACE("assert_distinct", tout << "eq: " << mk_pp(eq, m_manager) << "\n";);
-            assert_default(eq, 0);
+            assert_default(eq, nullptr);
             mark_as_relevant(eq.get());
             // TODO: we may want to hide the auxiliary values val and the function f from the model.
         }
@@ -335,23 +335,6 @@ namespace smt {
         }
     }
 
-    bool find_arg(app * n, expr * t, expr * & other) {
-        SASSERT(n->get_num_args() == 2);
-        if (n->get_arg(0) == t) {
-            other = n->get_arg(1);
-            return true;
-        }
-        else if (n->get_arg(1) == t) {
-            other = n->get_arg(0);
-            return true;
-        }
-        return false;
-    }
-
-    bool check_args(app * n, expr * t1, expr * t2) {
-        SASSERT(n->get_num_args() == 2);
-        return (n->get_arg(0) == t1 && n->get_arg(1) == t2) || (n->get_arg(1) == t1 && n->get_arg(0) == t2);
-    }
 
     /**
        \brief Internalize the given formula into the logical context.
@@ -386,7 +369,7 @@ namespace smt {
                 else {
                     TRACE("internalize_bug", tout << "creating enode for #" << n->get_id() << "\n";);
                     mk_enode(to_app(n), 
-                             true, /* supress arguments, we not not use CC for this kind of enode */
+                             true, /* suppress arguments, we not not use CC for this kind of enode */
                              true, /* bool enode must be merged with true/false, since it is not in the context of a gate */
                              false /* CC is not enabled */ );
                     set_enode_flag(v, false);
@@ -470,7 +453,7 @@ namespace smt {
             // must be associated with an enode.
             if (!e_internalized(n)) {
                 mk_enode(to_app(n), 
-                         true, /* supress arguments, we not not use CC for this kind of enode */
+                         true, /* suppress arguments, we not not use CC for this kind of enode */
                          true  /* bool enode must be merged with true/false, since it is not in the context of a gate */,
                          false /* CC is not enabled */);
             }
@@ -648,7 +631,7 @@ namespace smt {
         set_merge_tf_trail(enode * n):
             m_node(n) {
         }
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             m_node->m_merge_tf = false;
         }
     };
@@ -684,7 +667,7 @@ namespace smt {
         set_enode_flag_trail(bool_var v):
             m_var(v) {
         }
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             bool_var_data & data = ctx.m_bdata[m_var];
             data.reset_enode_flag();
         }
@@ -712,7 +695,7 @@ namespace smt {
     void context::internalize_term(app * n) {
         if (e_internalized(n)) {
             theory * th = m_theories.get_plugin(n->get_family_id());
-            if (th != 0) {
+            if (th != nullptr) {
                 // This code is necessary because some theories may decide
                 // not to create theory variables for a nested application.
                 // Example:
@@ -756,7 +739,7 @@ namespace smt {
         app_ref eq1(mk_eq_atom(n, t), m_manager);
         app_ref eq2(mk_eq_atom(n, e), m_manager);
         mk_enode(n, 
-                 true /* supress arguments, I don't want to apply CC on ite terms */, 
+                 true /* suppress arguments, I don't want to apply CC on ite terms */,
                  false /* it is a term, so it should not be merged with true/false */,
                  false /* CC is not enabled */);
         internalize(c, true);
@@ -814,7 +797,7 @@ namespace smt {
         }
         
         enode * e = mk_enode(n, 
-                             false, /* do not supress args */
+                             false, /* do not suppress args */
                              false, /* it is a term, so it should not be merged with true/false */
                              true);
         apply_sort_cnstr(n, e);
@@ -1051,8 +1034,10 @@ namespace smt {
             lbool   val  = get_assignment(curr);
             switch(val) {
             case l_false:
+                TRACE("simplify_aux_clause_literals", display_literal(tout << get_assign_level(curr) << " " << get_scope_level() << " ", curr); tout << "\n"; );
                 simp_lits.push_back(~curr);
-                break; // ignore literal
+                break; // ignore literal                
+                // fall through
             case l_undef:
                 if (curr == ~prev)
                     return false; // clause is equivalent to true
@@ -1286,7 +1271,7 @@ namespace smt {
         case CLS_AUX: {
             literal_buffer simp_lits;
             if (!simplify_aux_clause_literals(num_lits, lits, simp_lits))
-                return 0; // clause is equivalent to true;
+                return nullptr; // clause is equivalent to true;
             DEBUG_CODE({
                 for (unsigned i = 0; i < simp_lits.size(); i++) {
                     SASSERT(get_assignment(simp_lits[i]) == l_true);
@@ -1299,7 +1284,7 @@ namespace smt {
         }
         case CLS_AUX_LEMMA: {
             if (!simplify_aux_lemma_literals(num_lits, lits))
-                return 0; // clause is equivalent to true
+                return nullptr; // clause is equivalent to true
             // simplify_aux_lemma_literals does not delete literals assigned to false, so
             // it is not necessary to create a unit_resolution_justification
             break;
@@ -1318,14 +1303,14 @@ namespace smt {
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             TRACE("mk_clause", tout << "empty clause... setting conflict\n";);
-            set_conflict(j == 0 ? b_justification::mk_axiom() : b_justification(j));
+            set_conflict(j == nullptr ? b_justification::mk_axiom() : b_justification(j));
             SASSERT(inconsistent());
-            return 0;
+            return nullptr;
         case 1:
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             assign(lits[0], j);
-            return 0;
+            return nullptr;
         case 2:
             if (use_binary_clause_opt(lits[0], lits[1], lemma)) {
                 literal l1 = lits[0];
@@ -1336,7 +1321,7 @@ namespace smt {
                     assign(l1, b_justification(~l2));
 
                 m_stats.m_num_mk_bin_clause++;
-                return 0;
+                return nullptr;
             }
         default: {
             m_stats.m_num_mk_clause++;
@@ -1419,7 +1404,7 @@ namespace smt {
     }
     
     void context::mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params) {
-        justification * js = 0; 
+        justification * js = nullptr;
         TRACE("mk_th_axiom", 
               display_literals_verbose(tout, num_lits, lits);
               tout << "\n";);
@@ -1464,12 +1449,12 @@ namespace smt {
 
     void context::mk_gate_clause(unsigned num_lits, literal * lits) {
         if (m_manager.proofs_enabled()) {
-            proof * pr = mk_clause_def_axiom(num_lits, lits, 0);
+            proof * pr = mk_clause_def_axiom(num_lits, lits, nullptr);
             TRACE("gate_clause", tout << mk_ll_pp(pr, m_manager););
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
         else {
-            mk_clause(num_lits, lits, 0);
+            mk_clause(num_lits, lits, nullptr);
         }
     }
 
@@ -1502,7 +1487,7 @@ namespace smt {
             mk_clause(num_lits, lits, mk_justification(justification_proof_wrapper(*this, pr)));
         }
         else {
-            mk_clause(num_lits, lits, 0);
+            mk_clause(num_lits, lits, nullptr);
         }
     }
 
@@ -1521,7 +1506,7 @@ namespace smt {
             relevancy_eh * eh = m_relevancy_propagator->mk_and_relevancy_eh(n);
             unsigned num = n->get_num_args();
             for (unsigned i = 0; i < num; i++) {
-                // if one child is assigned to false, the the and-parent must be notified
+                // if one child is assigned to false, the and-parent must be notified
                 literal l = get_literal(n->get_arg(i));
                 add_rel_watch(~l, eh);
             }
@@ -1533,7 +1518,7 @@ namespace smt {
             relevancy_eh * eh = m_relevancy_propagator->mk_or_relevancy_eh(n);
             unsigned num = n->get_num_args();
             for (unsigned i = 0; i < num; i++) {
-                // if one child is assigned to true, the the or-parent must be notified
+                // if one child is assigned to true, the or-parent must be notified
                 literal l = get_literal(n->get_arg(i));
                 add_rel_watch(l, eh);
             }
@@ -1627,7 +1612,7 @@ namespace smt {
             SASSERT(m_th_var != null_theory_var);
         }
         
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             theory_var v = m_enode->get_th_var(m_th_id);
             SASSERT(v != null_theory_var);
             SASSERT(m_th_var == v);
@@ -1652,7 +1637,7 @@ namespace smt {
             m_old_th_var(old_var) {
         }
         
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             SASSERT(m_enode->get_th_var(m_th_id) != null_theory_var);
             m_enode->replace_th_var(m_old_th_var, m_th_id);
         }

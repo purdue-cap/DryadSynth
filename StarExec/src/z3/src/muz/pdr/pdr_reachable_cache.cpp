@@ -17,14 +17,14 @@ Revision History:
 
 --*/
 
-#include "pdr_reachable_cache.h"
+#include "muz/pdr/pdr_reachable_cache.h"
 
 namespace pdr {
 
     reachable_cache::reachable_cache(pdr::manager & pm, datalog::PDR_CACHE_MODE cm)
         : m(pm.get_manager()), 
           m_pm(pm), 
-          m_ctx(0),
+          m_ctx(nullptr),
           m_ref_holder(m), 
           m_disj_connector(m),
           m_cache_mode(cm) {

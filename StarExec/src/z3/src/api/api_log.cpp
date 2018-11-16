@@ -15,43 +15,75 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include<fstream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"util.h"
-#include"version.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "util/util.h"
+#include "util/version.h"
 
-std::ostream * g_z3_log = 0;
+std::ostream * g_z3_log = nullptr;
 bool g_z3_log_enabled   = false;
 
 extern "C" {
-    Z3_bool Z3_API Z3_open_log(Z3_string filename) {
-        if (g_z3_log != 0)
-            Z3_close_log();
-        g_z3_log = alloc(std::ofstream, filename);
-        g_z3_log_enabled = true;
-        if (g_z3_log->bad() || g_z3_log->fail()) {
+    void Z3_close_log_unsafe(void) {
+        if (g_z3_log != nullptr) {
             dealloc(g_z3_log);
-            g_z3_log = 0;
-            return Z3_FALSE;
+            g_z3_log_enabled = false;
+            g_z3_log = nullptr;
         }
-        *g_z3_log << "V \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "." << Z3_REVISION_NUMBER << " " << __DATE__ << "\"\n";
-        g_z3_log->flush();
-        return Z3_TRUE;
+    }
+
+    Z3_bool Z3_API Z3_open_log(Z3_string filename) {
+        Z3_bool res = Z3_TRUE;
+
+#ifdef Z3_LOG_SYNC
+        #pragma omp critical (z3_log)
+        {
+#endif
+            if (g_z3_log != nullptr)
+                Z3_close_log_unsafe();
+            g_z3_log = alloc(std::ofstream, filename);
+            if (g_z3_log->bad() || g_z3_log->fail()) {
+                dealloc(g_z3_log);
+                g_z3_log = nullptr;
+                res = Z3_FALSE;
+            }
+            else {
+                *g_z3_log << "V \"" << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "." << Z3_REVISION_NUMBER << " " << __DATE__ << "\"\n";
+                g_z3_log->flush();
+                g_z3_log_enabled = true;
+            }
+#ifdef Z3_LOG_SYNC
+        }
+#endif
+
+        return res;
     }
 
     void Z3_API Z3_append_log(Z3_string str) {
-        if (g_z3_log == 0)
+        if (g_z3_log == nullptr)
             return;
-        _Z3_append_log(static_cast<char const *>(str));
+#ifdef Z3_LOG_SYNC
+        #pragma omp critical (z3_log)
+        {
+#endif
+            if (g_z3_log != nullptr)
+                _Z3_append_log(static_cast<char const *>(str));
+#ifdef Z3_LOG_SYNC
+        }
+#endif
     }
 
     void Z3_API Z3_close_log(void) {
-        if (g_z3_log != 0) {
-            dealloc(g_z3_log);
-            g_z3_log_enabled = false;
-            g_z3_log = 0;
+        if (g_z3_log != nullptr) {
+#ifdef Z3_LOG_SYNC
+            #pragma omp critical (z3_log)
+            {
+#endif
+                Z3_close_log_unsafe();
+#ifdef Z3_LOG_SYNC
+            }
+#endif
         }
     }
 }

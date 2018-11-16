@@ -19,11 +19,11 @@ Revision History:
 #ifndef SMT_ENODE_H_
 #define SMT_ENODE_H_
 
-#include"ast.h"
-#include"smt_types.h"
-#include"smt_eq_justification.h"
-#include"smt_theory_var_list.h"
-#include"approx_set.h"
+#include "ast/ast.h"
+#include "smt/smt_types.h"
+#include "smt/smt_eq_justification.h"
+#include "smt/smt_theory_var_list.h"
+#include "util/approx_set.h"
 
 namespace smt {
     /**
@@ -33,17 +33,17 @@ namespace smt {
         enode *           m_target;
         eq_justification  m_justification;
         trans_justification():
-            m_target(0),
+            m_target(nullptr),
             m_justification(null_eq_justification) {
         }
     };
 
     /** \ brief Use sparse maps in SMT solver.
 
-	Define this to use hash maps rather than vectors over ast
-	nodes. This is useful in the case there are many solvers, each
-	referencing few nodes from a large ast manager. There is some
-	unknown performance penalty for this. */
+    Define this to use hash maps rather than vectors over ast
+    nodes. This is useful in the case there are many solvers, each
+    referencing few nodes from a large ast manager. There is some
+    unknown performance penalty for this. */
 
     // #define SPARSE_MAP
 
@@ -116,7 +116,7 @@ namespace smt {
         
 
         theory_var_list * get_th_var_list() { 
-            return m_th_var_list.get_th_var() == null_theory_var ? 0 : &m_th_var_list; 
+            return m_th_var_list.get_th_var() == null_theory_var ? nullptr : &m_th_var_list;
         }
 
         friend class set_merge_tf_trail;
@@ -306,7 +306,7 @@ namespace smt {
         }
         
         theory_var_list const * get_th_var_list() const { 
-            return m_th_var_list.get_th_var() == null_theory_var ? 0 : &m_th_var_list; 
+            return m_th_var_list.get_th_var() == null_theory_var ? nullptr : &m_th_var_list;
         }
 
         bool has_th_vars() const {

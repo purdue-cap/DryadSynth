@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include"dl_mk_loop_counter.h"
-#include"dl_context.h"
+#include "muz/transforms/dl_mk_loop_counter.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 
@@ -56,7 +56,7 @@ namespace datalog {
 
     app_ref mk_loop_counter::del_arg(app* fn) {        
         expr_ref_vector args(m);
-        func_decl* old_fn = 0, *new_fn = fn->get_decl();
+        func_decl* old_fn = nullptr, *new_fn = fn->get_decl();
         SASSERT(fn->get_num_args() > 0);
         args.append(fn->get_num_args()-1, fn->get_args());
         VERIFY (m_new2old.find(new_fn, old_fn));

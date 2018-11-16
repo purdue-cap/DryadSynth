@@ -33,9 +33,9 @@ Revision History:
 #ifndef SUBSTITUTION_H_
 #define SUBSTITUTION_H_
 
-#include"expr_offset_map.h"
-#include"var_offset_map.h"
-#include"ast_pp.h"
+#include "ast/substitution/expr_offset_map.h"
+#include "ast/substitution/var_offset_map.h"
+#include "ast/ast_pp.h"
 
 /**
    \brief A mapping from (variable,offset) to expr_offset.
@@ -178,7 +178,7 @@ public:
        to the variable x+delta[i]. 
     */
     void apply(unsigned num_actual_offsets, unsigned const * deltas, expr_offset const & n, expr_ref & result) {
-        apply(num_actual_offsets, deltas, n, expr_offset(0, 0), expr_offset(0, 0), result);
+        apply(num_actual_offsets, deltas, n, expr_offset(nullptr, 0), expr_offset(nullptr, 0), result);
     }
     
     /**

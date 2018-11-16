@@ -31,8 +31,8 @@
 #pragma warning(disable:4267)
 #endif
 
-#include "duality_wrapper.h"
-#include "iz3profiling.h"
+#include "duality/duality_wrapper.h"
+#include "interp/iz3profiling.h"
 
 namespace Duality {
   
@@ -55,7 +55,7 @@ namespace Duality {
   
     node::node(){
         time =  0;
-        parent = 0;
+        parent = nullptr;
     }
   
     struct node *current;

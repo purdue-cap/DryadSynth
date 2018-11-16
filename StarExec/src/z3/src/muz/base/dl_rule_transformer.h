@@ -19,10 +19,10 @@ Revision History:
 #ifndef DL_RULE_TRANSFORMER_H_
 #define DL_RULE_TRANSFORMER_H_
 
-#include"map.h"
-#include"vector.h"
-#include"dl_rule.h"
-#include"dl_rule_set.h"
+#include "util/map.h"
+#include "util/vector.h"
+#include "muz/base/dl_rule.h"
+#include "muz/base/dl_rule_set.h"
 
 namespace datalog {
 
@@ -87,7 +87,7 @@ namespace datalog {
            (higher priority plugins will be applied first).
         */
         plugin(unsigned priority, bool can_destratify_negation = false) : m_priority(priority), 
-            m_can_destratify_negation(can_destratify_negation), m_transformer(0) {}
+            m_can_destratify_negation(can_destratify_negation), m_transformer(nullptr) {}
 
     public:
         virtual ~plugin() {}

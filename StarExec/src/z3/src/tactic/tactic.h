@@ -21,13 +21,13 @@ Notes:
 #ifndef TACTIC_H_
 #define TACTIC_H_
 
-#include"goal.h"
-#include"params.h"
-#include"statistics.h"
-#include"model_converter.h"
-#include"proof_converter.h"
-#include"tactic_exception.h"
-#include"lbool.h"
+#include "tactic/goal.h"
+#include "util/params.h"
+#include "util/statistics.h"
+#include "tactic/model_converter.h"
+#include "tactic/proof_converter.h"
+#include "tactic/tactic_exception.h"
+#include "util/lbool.h"
 
 class progress_callback;
 
@@ -119,9 +119,9 @@ void report_tactic_progress(char const * id, unsigned val);
 
 class skip_tactic : public tactic {
 public:
-    virtual void operator()(goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
-    virtual void cleanup() {}
-    virtual tactic * translate(ast_manager & m) { return this; }
+    void operator()(goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
+    void cleanup() override {}
+    tactic * translate(ast_manager & m) override { return this; }
 };
 
 tactic * mk_skip_tactic();
@@ -153,7 +153,7 @@ public:                                                                         
 #define MK_SIMPLE_TACTIC_FACTORY(NAME, ST)  MK_TACTIC_FACTORY(NAME, return ST;)
 
 void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
-lbool check_sat(tactic & t, goal_ref & g, model_ref & md, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown);
+lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown);
 
 // Throws an exception if goal \c in requires proof generation.
 void fail_if_proof_generation(char const * tactic_name, goal_ref const & in);

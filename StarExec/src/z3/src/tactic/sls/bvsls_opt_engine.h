@@ -19,7 +19,7 @@ Notes:
 #ifndef BVSLS_OPT_ENGINE_H_
 #define BVSLS_OPT_ENGINE_H_
 
-#include "sls_engine.h"
+#include "tactic/sls/sls_engine.h"
 
 class bvsls_opt_engine : public sls_engine {
     sls_tracker   & m_hard_tracker;
@@ -61,11 +61,11 @@ protected:
     bool what_if(func_decl * fd, const unsigned & fd_inx, const mpz & temp, 
                  mpz & best_score, unsigned & best_const, mpz & best_value);
 
-    mpz find_best_move(ptr_vector<func_decl> & to_evaluate, mpz score,
+    mpz find_best_move(ptr_vector<func_decl> & to_evaluate, mpz & score,
                        unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move,
                        mpz const & max_score, expr * objective);
 
-    mpz top_score(void) {
+    mpz top_score() {
         mpz res(0);
         obj_hashtable<expr> const & top_exprs = m_obj_tracker.get_top_exprs();
         for (obj_hashtable<expr>::iterator it = top_exprs.begin();

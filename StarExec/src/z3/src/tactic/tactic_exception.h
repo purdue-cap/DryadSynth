@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    Tactic expection object.
+    Tactic exception object.
 
 Author:
 
@@ -19,16 +19,16 @@ Notes:
 #ifndef TACTIC_EXCEPTION_H_
 #define TACTIC_EXCEPTION_H_
 
-#include"z3_exception.h"
-#include"common_msgs.h"
+#include "util/z3_exception.h"
+#include "util/common_msgs.h"
 
 class tactic_exception : public z3_exception {
 protected:
     std::string m_msg;
 public:
     tactic_exception(char const * msg):m_msg(msg) {}
-    virtual ~tactic_exception() {}
-    virtual char const * msg() const { return m_msg.c_str(); }
+    ~tactic_exception() override {}
+    char const * msg() const override { return m_msg.c_str(); }
 };
 
 #define TACTIC_CANCELED_MSG      Z3_CANCELED_MSG

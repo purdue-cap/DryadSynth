@@ -17,14 +17,30 @@ Author:
 Revision History:
 
 --*/
-#include"decl_collector.h"
+#include "ast/decl_collector.h"
+#include "ast/ast_pp.h"
 
 void decl_collector::visit_sort(sort * n) {
     family_id fid = n->get_family_id();
     if (m().is_uninterp(n))
         m_sorts.push_back(n);
-    if (fid == m_dt_fid)
+    if (fid == m_dt_fid) {
         m_sorts.push_back(n);
+        unsigned num_cnstr = m_dt_util.get_datatype_num_constructors(n);
+        for (unsigned i = 0; i < num_cnstr; i++) {
+            func_decl * cnstr = m_dt_util.get_datatype_constructors(n)->get(i);
+            m_todo.push_back(cnstr);
+            ptr_vector<func_decl> const & cnstr_acc = *m_dt_util.get_constructor_accessors(cnstr);
+            unsigned num_cas = cnstr_acc.size();
+            for (unsigned j = 0; j < num_cas; j++) {
+                m_todo.push_back(cnstr_acc.get(j));
+            }
+        }
+    }
+    for (unsigned i = n->get_num_parameters(); i-- > 0; ) {
+        parameter const& p = n->get_parameter(i);
+        if (p.is_ast()) m_todo.push_back(p.get_ast());
+    }
 }
 
 bool decl_collector::is_bool(sort * s) {
@@ -38,42 +54,43 @@ void decl_collector::visit_func(func_decl * n) {
             m_preds.push_back(n);
         else
             m_decls.push_back(n);
-    }        
+    }
 }
 
 decl_collector::decl_collector(ast_manager & m, bool preds):
     m_manager(m),
-    m_sep_preds(preds) {
+    m_sep_preds(preds),
+    m_dt_util(m) {
     m_basic_fid = m_manager.get_basic_family_id();
-    m_dt_fid    = m_manager.mk_family_id("datatype");
+    m_dt_fid = m_dt_util.get_family_id();
 }
 
 void decl_collector::visit(ast* n) {
-    ptr_vector<ast> todo;
-    todo.push_back(n);
-    while (!todo.empty()) {
-        n = todo.back();
-        todo.pop_back();
+    datatype_util util(m());
+    m_todo.push_back(n);
+    while (!m_todo.empty()) {
+        n = m_todo.back();
+        m_todo.pop_back();
         if (!m_visited.is_marked(n)) {
-            m_visited.mark(n, true);                
+            m_visited.mark(n, true);
             switch(n->get_kind()) {
             case AST_APP: {
                 app * a = to_app(n);
-                for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                    todo.push_back(a->get_arg(i));
+                for (expr* arg : *a) {
+                    m_todo.push_back(arg);
                 }
-                todo.push_back(a->get_decl());
+                m_todo.push_back(a->get_decl());
                 break;
-            }                    
+            }
             case AST_QUANTIFIER: {
                 quantifier * q = to_quantifier(n);
                 unsigned num_decls = q->get_num_decls();
                 for (unsigned i = 0; i < num_decls; ++i) {
-                    todo.push_back(q->get_decl_sort(i));
+                    m_todo.push_back(q->get_decl_sort(i));
                 }
-                todo.push_back(q->get_expr());
+                m_todo.push_back(q->get_expr());
                 for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
-                    todo.push_back(q->get_pattern(i));
+                    m_todo.push_back(q->get_pattern(i));
                 }
                 break;
             }
@@ -83,9 +100,9 @@ void decl_collector::visit(ast* n) {
             case AST_FUNC_DECL: {
                 func_decl * d = to_func_decl(n);
                 for (unsigned i = 0; i < d->get_arity(); ++i) {
-                    todo.push_back(d->get_domain(i));
+                    m_todo.push_back(d->get_domain(i));
                 }
-                todo.push_back(d->get_range());
+                m_todo.push_back(d->get_range());
                 visit_func(d);
                 break;
             }
@@ -98,5 +115,44 @@ void decl_collector::visit(ast* n) {
     }
 }
 
+void decl_collector::order_deps() {
+    top_sort<sort> st;
+    for (sort * s : m_sorts) st.insert(s, collect_deps(s));
+    st.topological_sort();
+    m_sorts.reset();
+    for (sort* s : st.top_sorted()) m_sorts.push_back(s);
+}
+
+decl_collector::sort_set* decl_collector::collect_deps(sort* s) {
+    sort_set* set = alloc(sort_set);
+    collect_deps(s, *set);
+    set->remove(s);
+    return set;
+}
+
+void decl_collector::collect_deps(sort* s, sort_set& set) {
+    if (set.contains(s)) return;
+    set.insert(s);
+    if (s->is_sort_of(m_dt_util.get_family_id(), DATATYPE_SORT)) {
+        unsigned num_sorts = m_dt_util.get_datatype_num_parameter_sorts(s);
+        for (unsigned i = 0; i < num_sorts; ++i) {
+            set.insert(m_dt_util.get_datatype_parameter_sort(s, i));
+        }
+        unsigned num_cnstr = m_dt_util.get_datatype_num_constructors(s);
+        for (unsigned i = 0; i < num_cnstr; i++) {
+            func_decl * cnstr = m_dt_util.get_datatype_constructors(s)->get(i);
+            set.insert(cnstr->get_range());
+            for (unsigned j = 0; j < cnstr->get_arity(); ++j) 
+                set.insert(cnstr->get_domain(j));
+        }
+    }
+
+    for (unsigned i = s->get_num_parameters(); i-- > 0; ) {
+        parameter const& p = s->get_parameter(i);
+        if (p.is_ast() && is_sort(p.get_ast())) {
+            set.insert(to_sort(p.get_ast()));
+        }
+    }
+}
 
 

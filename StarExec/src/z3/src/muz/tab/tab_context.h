@@ -19,10 +19,10 @@ Revision History:
 #ifndef TAB_CONTEXT_H_
 #define TAB_CONTEXT_H_
 
-#include "ast.h"
-#include "lbool.h"
-#include "statistics.h"
-#include "dl_engine_base.h"
+#include "ast/ast.h"
+#include "util/lbool.h"
+#include "util/statistics.h"
+#include "muz/base/dl_engine_base.h"
 
 namespace datalog {
     class context;
@@ -32,13 +32,13 @@ namespace datalog {
         imp* m_imp;
     public:
         tab(context& ctx);
-        ~tab();
-        virtual lbool query(expr* query);
-        virtual void cleanup();
-        virtual void reset_statistics();
-        virtual void collect_statistics(statistics& st) const;
-        virtual void display_certificate(std::ostream& out) const;        
-        virtual expr_ref get_answer();
+        ~tab() override;
+        lbool query(expr* query) override;
+        void cleanup() override;
+        void reset_statistics() override;
+        void collect_statistics(statistics& st) const override;
+        void display_certificate(std::ostream& out) const override;
+        expr_ref get_answer() override;
     };
 };
 

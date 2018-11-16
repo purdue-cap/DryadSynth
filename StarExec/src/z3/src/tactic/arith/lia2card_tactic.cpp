@@ -34,15 +34,15 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"cooperate.h"
-#include"bound_manager.h"
-#include"ast_pp.h"
-#include"pb_decl_plugin.h"
-#include"arith_decl_plugin.h"
-#include"rewriter_def.h"
-#include"ast_util.h"
-#include"ast_pp_util.h"
+#include "tactic/tactical.h"
+#include "util/cooperate.h"
+#include "tactic/arith/bound_manager.h"
+#include "ast/ast_pp.h"
+#include "ast/pb_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp_util.h"
 
 class lia2card_tactic : public tactic {
     struct lia_rewriter_cfg : public default_rewriter_cfg {
@@ -112,7 +112,7 @@ class lia2card_tactic : public tactic {
         bool rewrite_patterns() const { return false; }
         bool flat_assoc(func_decl * f) const { return false; }
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             return mk_app_core(f, num, args, result);
         }
         lia_rewriter_cfg(lia2card_tactic& t):m(t.m), t(t), a(m), args(m) {}
@@ -148,23 +148,23 @@ public:
         m_compile_equality(false) {
     }
 
-    virtual ~lia2card_tactic() {
+    ~lia2card_tactic() override {
         dealloc(m_todo);
         dealloc(m_01s);
     }
                 
-    void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_compile_equality = p.get_bool("compile_equality", false);
     }
     
-    virtual void operator()(goal_ref const & g, 
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
                     proof_converter_ref & pc,
-                    expr_dependency_ref & core) {
+                    expr_dependency_ref & core) override {
         SASSERT(g->is_well_sorted());
-        mc = 0; pc = 0; core = 0;
+        mc = nullptr; pc = nullptr; core = nullptr;
         m_01s->reset();
         
         tactic_report report("cardinality-intro", *g);
@@ -176,7 +176,7 @@ public:
         bound_manager::iterator bit = bounds.begin(), bend = bounds.end();
         for (; bit != bend; ++bit) {
             expr* x = *bit;
-            bool s1, s2;
+            bool s1 = false, s2 = false;
             rational lo, hi;
             if (a.is_int(x) && 
                 bounds.has_lower(x, lo, s1) && !s1 && lo.is_zero() &&
@@ -389,16 +389,16 @@ public:
         }
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(lia2card_tactic, m, m_params);
     }
         
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("compile_equality", CPK_BOOL, 
                  "(default:false) compile equalities into pseudo-Boolean equality");
     }
         
-    virtual void cleanup() {        
+    void cleanup() override {
         expr_set* d = alloc(expr_set);
         ptr_vector<expr>* todo = alloc(ptr_vector<expr>);
         std::swap(m_01s, d);

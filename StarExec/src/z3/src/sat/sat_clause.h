@@ -19,10 +19,10 @@ Revision History:
 #ifndef SAT_CLAUSE_H_
 #define SAT_CLAUSE_H_
 
-#include"sat_types.h"
-#include"small_object_allocator.h"
-#include"id_gen.h"
-#include"map.h"
+#include "sat/sat_types.h"
+#include "util/small_object_allocator.h"
+#include "util/id_gen.h"
+#include "util/map.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable : 4200)
@@ -102,16 +102,20 @@ namespace sat {
         unsigned m_val1;
         unsigned m_val2;
     public:
-        bin_clause(literal l1, literal l2, bool learned):m_val1(l1.to_uint()), m_val2((l2.to_uint() << 1) + static_cast<unsigned>(learned)) {}
+        bin_clause(literal l1, literal l2, bool learned) :m_val1(l1.to_uint()), m_val2((l2.to_uint() << 1) + static_cast<unsigned>(learned)) {}
         literal get_literal1() const { return to_literal(m_val1); }
         literal get_literal2() const { return to_literal(m_val2 >> 1); }
         bool is_learned() const { return (m_val2 & 1) == 1; }
+        bool operator==(const bin_clause & other) const {
+            return (m_val1 == other.m_val1 && m_val2 == other.m_val2) ||
+                   (m_val1 == other.m_val2 && m_val2 == other.m_val1);
+        }
     };
 
     class tmp_clause {
         clause * m_clause;
     public:
-        tmp_clause():m_clause(0) {}
+        tmp_clause():m_clause(nullptr) {}
         ~tmp_clause() { if (m_clause) dealloc_svect(m_clause); }
         clause * get() const { return m_clause; }
         void set(unsigned num_lits, literal const * lits, bool learned);

@@ -18,11 +18,11 @@ Notes:
 
 --*/
 
-#include "solver.h"
-#include "mus.h"
-#include "ast_pp.h"
-#include "ast_util.h"
-#include "model_evaluator.h"
+#include "solver/solver.h"
+#include "solver/mus.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "model/model_evaluator.h"
 
 
 struct mus::imp {
@@ -89,6 +89,7 @@ struct mus::imp {
     lbool get_mus1(expr_ref_vector& mus) {
         ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
         ptr_vector<expr> core_exprs;
+        TRACE("mus", m_solver.display(tout););
         while (!unknown.empty()) { 
             IF_VERBOSE(12, verbose_stream() << "(mus reducing core: " << unknown.size() << " new core: " << mus.size() << ")\n";);
             TRACE("mus", display_vec(tout << "core:  ", unknown); display_vec(tout << "mus:   ", mus););
@@ -135,7 +136,7 @@ struct mus::imp {
 
     // use correction sets
     lbool get_mus2(expr_ref_vector& mus) {
-        expr* lit = 0;
+        expr* lit = nullptr;
         lbool is_sat;
         ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
         while (!unknown.empty()) { 
@@ -162,7 +163,7 @@ struct mus::imp {
         expr_ref_vector  nmcs(m);
         expr_set core, min_core, nmcs_set;
         bool min_core_valid = false;
-        expr* min_lit = 0;
+        expr* min_lit = nullptr;
         while (!unknown.empty()) {
             expr* lit = unknown.back();
             unknown.pop_back();

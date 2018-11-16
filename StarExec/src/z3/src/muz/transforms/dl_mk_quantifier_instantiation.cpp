@@ -23,9 +23,11 @@ Revision History:
 
 --*/
 
-#include "dl_mk_quantifier_instantiation.h"
-#include "dl_context.h"
-#include "pattern_inference.h"
+#include "muz/transforms/dl_mk_quantifier_instantiation.h"
+#include "muz/base/dl_context.h"
+#include "ast/pattern/pattern_inference.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_util.h"
 
 
 namespace datalog {
@@ -70,7 +72,7 @@ namespace datalog {
         if (q->get_num_patterns() == 0) {
             proof_ref new_pr(m);
             pattern_inference_params params;
-            pattern_inference infer(m, params);
+            pattern_inference_rw infer(m, params);
             infer(q, qe, new_pr);
             q = to_quantifier(qe);
         }
@@ -137,7 +139,7 @@ namespace datalog {
             return;
         }
         expr* arg = pat->get_arg(i);
-        ptr_vector<expr>* terms = 0;
+        ptr_vector<expr>* terms = nullptr;
     
         if (m_funs.find(to_app(arg)->get_decl(), terms)) {
             for (unsigned k = 0; k < terms->size(); ++k) {
@@ -183,7 +185,7 @@ namespace datalog {
             }
             if (is_app(e)) {
                 app* ap = to_app(e);
-                ptr_vector<expr>* terms = 0;
+                ptr_vector<expr>* terms = nullptr;
                 if (!m_funs.find(ap->get_decl(), terms)) {
                     terms = alloc(ptr_vector<expr>);
                     m_funs.insert(ap->get_decl(), terms);
@@ -232,7 +234,7 @@ namespace datalog {
         
         rule_set added_rules(m_ctx);
         proof_ref pr(m); 
-        rm.mk_rule(fml, pr, added_rules);
+        rm.mk_rule(fml, pr, added_rules, r.name());
         if (r.get_proof()) {
             // use def-axiom to encode that new rule is a weakening of the original.
             proof* p1 = r.get_proof();
@@ -248,7 +250,7 @@ namespace datalog {
         
     rule_set * mk_quantifier_instantiation::operator()(rule_set const & source) {
         if (!m_ctx.instantiate_quantifiers()) {
-            return 0;
+            return nullptr;
         }
         bool has_quantifiers = false;
         unsigned sz = source.get_num_rules();
@@ -257,11 +259,11 @@ namespace datalog {
             rule& r = *source.get_rule(i);
             has_quantifiers = has_quantifiers || rm.has_quantifiers(r);   
             if (r.has_negation()) {
-                return 0;
+                return nullptr;
             }
         }
         if (!has_quantifiers) {
-            return 0;
+            return nullptr;
         }
 
         expr_ref_vector conjs(m);
@@ -289,7 +291,7 @@ namespace datalog {
         }
         else {
             dealloc(result);
-            result = 0;
+            result = nullptr;
         }
         return result;
     }

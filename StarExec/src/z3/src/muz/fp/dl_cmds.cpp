@@ -15,22 +15,22 @@ Author:
 Notes:
 
 --*/
-#include"cmd_context.h"
-#include"dl_cmds.h"
-#include"dl_external_relation.h"
-#include"dl_context.h"
-#include"dl_register_engine.h"
-#include"dl_decl_plugin.h"
-#include"dl_instruction.h"
-#include"dl_compiler.h"
-#include"dl_rule.h"
-#include"ast_pp.h"
-#include"parametric_cmd.h"
-#include"cancel_eh.h"
-#include"scoped_ctrl_c.h"
-#include"scoped_timer.h"
-#include"trail.h"
-#include"fixedpoint_params.hpp"
+#include "cmd_context/cmd_context.h"
+#include "muz/fp/dl_cmds.h"
+#include "muz/rel/dl_external_relation.h"
+#include "muz/base/dl_context.h"
+#include "muz/fp/dl_register_engine.h"
+#include "ast/dl_decl_plugin.h"
+#include "muz/rel/dl_instruction.h"
+#include "muz/rel/dl_compiler.h"
+#include "muz/base/dl_rule.h"
+#include "ast/ast_pp.h"
+#include "cmd_context/parametric_cmd.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/scoped_timer.h"
+#include "util/trail.h"
+#include "muz/base/fixedpoint_params.hpp"
 #include<iomanip>
 
 
@@ -56,7 +56,7 @@ struct dl_context {
         m_cmd(ctx),
         m_collected_cmds(collected_cmds),
         m_ref_count(0),
-        m_decl_plugin(0),
+        m_decl_plugin(nullptr),
         m_trail(*this) {}
     
     void inc_ref() {
@@ -88,7 +88,7 @@ struct dl_context {
     }
     
     void reset() {
-        m_context = 0;
+        m_context = nullptr;
     }
 
     void register_predicate(func_decl* pred, unsigned num_kinds, symbol const* kinds) {
@@ -164,12 +164,12 @@ public:
         cmd("rule"),
         m_dl_ctx(dl_ctx),       
         m_arg_idx(0),
-        m_t(0),
+        m_t(nullptr),
         m_bound(UINT_MAX) {}
-    virtual char const * get_usage() const { return "(forall (q) (=> (and body) head)) :optional-name :optional-recursion-bound"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "add a Horn rule."; }
-    virtual unsigned get_arity() const { return VAR_ARITY; }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
+    char const * get_usage() const override { return "(forall (q) (=> (and body) head)) :optional-name :optional-recursion-bound"; }
+    char const * get_descr(cmd_context & ctx) const override { return "add a Horn rule."; }
+    unsigned get_arity() const override { return VAR_ARITY; }
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         switch(m_arg_idx) {
         case 0: return CPK_EXPR;
         case 1: return CPK_SYMBOL;
@@ -177,23 +177,24 @@ public:
         default: return CPK_SYMBOL;
         }
     }
-    virtual void set_next_arg(cmd_context & ctx, expr * t) {
+    void set_next_arg(cmd_context & ctx, expr * t) override {
         m_t = t;
         m_arg_idx++;
     }
-    virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
+    void set_next_arg(cmd_context & ctx, symbol const & s) override {
         m_name = s;
         m_arg_idx++;
     }
-    virtual void set_next_arg(cmd_context & ctx, unsigned bound) {
+    void set_next_arg(cmd_context & ctx, unsigned bound) override {
         m_bound = bound;
         m_arg_idx++;
     }
-    virtual void reset(cmd_context & ctx) { m_dl_ctx->reset(); prepare(ctx); }
-    virtual void prepare(cmd_context& ctx) { m_arg_idx = 0; m_name = symbol::null; m_bound = UINT_MAX; }
-    virtual void finalize(cmd_context & ctx) { 
+    void reset(cmd_context & ctx) override { m_dl_ctx->reset(); prepare(ctx); m_t = nullptr; }
+    void prepare(cmd_context& ctx) override { m_arg_idx = 0; m_name = symbol::null; m_bound = UINT_MAX; }
+    void finalize(cmd_context & ctx) override {
     }
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
+        if (!m_t) throw cmd_exception("invalid rule, expected formula");
         m_dl_ctx->add_rule(m_t, m_name, m_bound);
     }
 };
@@ -205,19 +206,19 @@ public:
     dl_query_cmd(dl_context * dl_ctx):
         parametric_cmd("query"),
         m_dl_ctx(dl_ctx),
-        m_target(0) {
+        m_target(nullptr) {
     }
-    virtual char const * get_usage() const { return "predicate"; }
-    virtual char const * get_main_descr() const { 
+    char const * get_usage() const override { return "predicate"; }
+    char const * get_main_descr() const override {
         return "pose a query to a predicate based on the Horn rules."; 
     }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
-        if (m_target == 0) return CPK_FUNC_DECL;
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_target == nullptr) return CPK_FUNC_DECL;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
-    virtual void set_next_arg(cmd_context & ctx, func_decl* t) {
+    void set_next_arg(cmd_context & ctx, func_decl* t) override {
         m_target = t;
         if (t->get_family_id() != null_family_id) {
             throw cmd_exception("Invalid query argument, expected uinterpreted function name, but argument is interpreted");
@@ -228,14 +229,14 @@ public:
         }
     }
 
-    virtual void prepare(cmd_context & ctx) { 
+    void prepare(cmd_context & ctx) override {
         ctx.m(); // ensure manager is initialized.
         parametric_cmd::prepare(ctx);
-        m_target   = 0; 
+        m_target   = nullptr;
     }
 
-    virtual void execute(cmd_context& ctx) {
-        if (m_target == 0) {
+    void execute(cmd_context& ctx) override {
+        if (m_target == nullptr) {
             throw cmd_exception("invalid query command, argument expected");
         }
         if (m_dl_ctx->collect_query(m_target)) {
@@ -317,10 +318,10 @@ public:
         }
         dlctx.cleanup();
         print_statistics(ctx);
-        m_target = 0;
+        m_target = nullptr;
     }
 
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         m_dl_ctx->dlctx().collect_params(p);
     }
    
@@ -374,12 +375,9 @@ class dl_declare_rel_cmd : public cmd {
     unsigned         m_arg_idx;
     mutable unsigned m_query_arg_idx;
     symbol           m_rel_name;
-    scoped_ptr<sort_ref_vector>  m_domain;
+    ptr_vector<sort> m_domain;
     svector<symbol>  m_kinds;
 
-    void ensure_domain(cmd_context& ctx) {
-        if (!m_domain) m_domain = alloc(sort_ref_vector, ctx.m());
-    }
 
 public:
     dl_declare_rel_cmd(dl_context * dl_ctx):
@@ -387,30 +385,30 @@ public:
         m_dl_ctx(dl_ctx),
         m_domain(0) {}
 
-    virtual char const * get_usage() const { return "<symbol> (<arg1 sort> ...) <representation>*"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "declare new relation"; }
-    virtual unsigned get_arity() const { return VAR_ARITY; }
+    char const * get_usage() const override { return "<symbol> (<arg1 sort> ...) <representation>*"; }
+    char const * get_descr(cmd_context & ctx) const override { return "declare new relation"; }
+    unsigned get_arity() const override { return VAR_ARITY; }
 
-    virtual void prepare(cmd_context & ctx) {
+    void prepare(cmd_context & ctx) override {
         ctx.m(); // ensure manager is initialized.
         m_arg_idx = 0; 
         m_query_arg_idx = 0; 
-        m_domain = 0;
+        m_domain.reset();
         m_kinds.reset();
     }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         switch(m_query_arg_idx++) {
         case 0: return CPK_SYMBOL;     // relation name
         case 1: return CPK_SORT_LIST;  // arguments
         default: return CPK_SYMBOL;    // optional representation specification
         }
     }
-    virtual void set_next_arg(cmd_context & ctx, unsigned num, sort * const * slist) {
-        ensure_domain(ctx);
-        m_domain->append(num, slist);
+    void set_next_arg(cmd_context & ctx, unsigned num, sort * const * slist) override {
+        m_domain.reset();
+        m_domain.append(num, slist);
         m_arg_idx++;
     }
-    virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
+    void set_next_arg(cmd_context & ctx, symbol const & s) override {
         if(m_arg_idx==0) {
             m_rel_name = s;
         }
@@ -420,18 +418,16 @@ public:
         }
         m_arg_idx++;
     }
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         if(m_arg_idx<2) {
             throw cmd_exception("at least 2 arguments expected");
         }
-        ensure_domain(ctx);
         ast_manager& m = ctx.m();
 
         func_decl_ref pred(
-            m.mk_func_decl(m_rel_name, m_domain->size(), m_domain->c_ptr(), m.mk_bool_sort()), m);
+            m.mk_func_decl(m_rel_name, m_domain.size(), m_domain.c_ptr(), m.mk_bool_sort()), m);
         ctx.insert(pred);
         m_dl_ctx->register_predicate(pred, m_kinds.size(), m_kinds.c_ptr());
-        m_domain = 0;
     }
 
 };
@@ -448,15 +444,15 @@ public:
         m_dl_ctx(dl_ctx)
     {}
     
-    virtual char const * get_usage() const { return "<symbol> <sort>"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "declare constant as variable"; }
-    virtual unsigned get_arity() const { return 2; }
+    char const * get_usage() const override { return "<symbol> <sort>"; }
+    char const * get_descr(cmd_context & ctx) const override { return "declare constant as variable"; }
+    unsigned get_arity() const override { return 2; }
 
-    virtual void prepare(cmd_context & ctx) {
+    void prepare(cmd_context & ctx) override {
         ctx.m(); // ensure manager is initialized.
         m_arg_idx = 0; 
     }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { 
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         SASSERT(m_arg_idx <= 1);
         if (m_arg_idx == 0) {
             return CPK_SYMBOL;  
@@ -464,19 +460,19 @@ public:
         return CPK_SORT; 
     }
 
-    virtual void set_next_arg(cmd_context & ctx, sort* s) {
+    void set_next_arg(cmd_context & ctx, sort* s) override {
         m_var_sort = s;
         ++m_arg_idx;
     }
 
-    virtual void set_next_arg(cmd_context & ctx, symbol const & s) {
+    void set_next_arg(cmd_context & ctx, symbol const & s) override {
         m_var_name = s;   
         ++m_arg_idx;
     }
 
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         ast_manager& m = ctx.m();
-        func_decl_ref var(m.mk_func_decl(m_var_name, 0, static_cast<sort*const*>(0), m_var_sort), m);
+        func_decl_ref var(m.mk_func_decl(m_var_name, 0, static_cast<sort*const*>(nullptr), m_var_sort), m);
         ctx.insert(var);
         m_dl_ctx->dlctx().register_variable(var);
     }
@@ -493,10 +489,10 @@ public:
       m_dl_ctx(dl_ctx)
     {}
 
-    virtual char const * get_usage() const { return ""; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "push the fixedpoint context"; }
-    virtual unsigned get_arity() const { return 0; }
-    virtual void execute(cmd_context & ctx) {
+    char const * get_usage() const override { return ""; }
+    char const * get_descr(cmd_context & ctx) const override { return "push the fixedpoint context"; }
+    unsigned get_arity() const override { return 0; }
+    void execute(cmd_context & ctx) override {
         m_dl_ctx->push();
     }
 };
@@ -512,10 +508,10 @@ public:
       m_dl_ctx(dl_ctx)
     {}
 
-    virtual char const * get_usage() const { return ""; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "pop the fixedpoint context"; }
-    virtual unsigned get_arity() const { return 0; }
-    virtual void execute(cmd_context & ctx) {
+    char const * get_usage() const override { return ""; }
+    char const * get_descr(cmd_context & ctx) const override { return "pop the fixedpoint context"; }
+    unsigned get_arity() const override { return 0; }
+    void execute(cmd_context & ctx) override {
         m_dl_ctx->pop();
     }
 };
@@ -532,7 +528,7 @@ static void install_dl_cmds_aux(cmd_context& ctx, dl_collected_cmds* collected_c
 }
 
 void install_dl_cmds(cmd_context & ctx) {
-    install_dl_cmds_aux(ctx, 0);
+    install_dl_cmds_aux(ctx, nullptr);
 }
 
 void install_dl_collect_cmds(dl_collected_cmds& collected_cmds, cmd_context & ctx) {

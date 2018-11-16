@@ -19,11 +19,11 @@ Revision History:
 #ifndef THEORY_ARITH_AUX_H_
 #define THEORY_ARITH_AUX_H_
 
-#include"inf_eps_rational.h"
-#include"theory_arith.h"
-#include"smt_farkas_util.h"
-#include"th_rewriter.h"
-#include"filter_model_converter.h"
+#include "util/inf_eps_rational.h"
+#include "smt/theory_arith.h"
+#include "smt/smt_farkas_util.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/filter_model_converter.h"
 
 namespace smt {
 
@@ -279,7 +279,7 @@ namespace smt {
                 return it;
             }
         }
-        return 0;
+        return nullptr;
     }
 
     template<typename Ext>
@@ -357,7 +357,7 @@ namespace smt {
 
     template<typename Ext>
     parameter * theory_arith<Ext>::antecedents_t::params(char const* name) {
-        if (empty()) return 0;
+        if (empty()) return nullptr;
         init();
         m_params[0] = parameter(symbol(name));
         return m_params.c_ptr();
@@ -417,8 +417,8 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::atom::display(theory_arith<Ext> const& th, std::ostream& out) const {
         literal l(get_bool_var(), !m_is_true);
-        out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << get_k() << " ";
-        out << l << ":";
+        // out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << get_k() << " ";
+        // out << l << ":";
         th.get_context().display_detailed_literal(out, l);
     }
 
@@ -444,19 +444,19 @@ namespace smt {
     template<typename Ext>
     bool theory_arith<Ext>::at_bound(theory_var v) const {
         bound * l = lower(v);
-        if (l != 0 && get_value(v) == l->get_value())
+        if (l != nullptr && get_value(v) == l->get_value())
             return true;
         bound * u = upper(v);
-        return u != 0 && get_value(v) == u->get_value();
+        return u != nullptr && get_value(v) == u->get_value();
     }
 
     template<typename Ext>
     bool theory_arith<Ext>::is_fixed(theory_var v) const {
         bound * l = lower(v);
-        if (l == 0)
+        if (l == nullptr)
             return false;
         bound * u = upper(v);
-        if (u == 0) 
+        if (u == nullptr)
             return false;
         return l->get_value() == u->get_value();
     }
@@ -483,7 +483,7 @@ namespace smt {
         while (true) {
             column const & c = m_columns[v];
             if (c.size() == 0)
-                return 0;
+                return nullptr;
             int quasi_base_rid = -1;
             typename svector<col_entry>::const_iterator it  = c.begin_entries();
             typename svector<col_entry>::const_iterator end = c.end_entries();
@@ -533,7 +533,7 @@ namespace smt {
     typename theory_arith<Ext>::col_entry const * theory_arith<Ext>::get_row_for_eliminating(theory_var v) const {
         column const & c = m_columns[v];
         if (c.size() == 0)
-            return 0;
+            return nullptr;
         typename svector<col_entry>::const_iterator it  = c.begin_entries();
         typename svector<col_entry>::const_iterator end = c.end_entries();
         for (; it != end; ++it) {
@@ -556,7 +556,7 @@ namespace smt {
                 return it;
             }
         }
-        return 0;
+        return nullptr;
     }
 
     template<typename Ext>
@@ -1458,7 +1458,7 @@ namespace smt {
             normalize_gain(min_gain.get_rational(), max_gain);
         }
 
-        if (is_int(x_i) && !max_gain.is_rational()) {
+        if (is_int(x_i) && !max_gain.is_int()) {
             max_gain = inf_numeral(floor(max_gain));
             normalize_gain(min_gain.get_rational(), max_gain);
         }
@@ -1483,7 +1483,7 @@ namespace smt {
             }
         }
         TRACE("opt",
-              tout << "v" << x_i << " a_ij " << a_ij << " "
+              tout << "v" << x_i << (is_int(x_i)?" int":" real") << " a_ij " << a_ij << " "
               << "min gain: " << min_gain << " " 
               << "max gain: " << max_gain << " tighter: "
               << (is_tighter?"true":"false") << "\n";);
@@ -1696,6 +1696,7 @@ namespace smt {
                   if (lower(x_j)) tout << "lower x_j: " << lower_bound(x_j) << " ";
                   tout << "value x_j: " << get_value(x_j) << "\n";
                   );
+
             pivot<true>(x_i, x_j, a_ij, false);
                         
             SASSERT(is_non_base(x_i));
@@ -2105,6 +2106,7 @@ namespace smt {
     
     template<typename Ext>
     void theory_arith<Ext>::mutate_assignment() {
+        SASSERT(m_to_patch.empty());
         remove_fixed_vars_from_base();
         int num_vars = get_num_vars();
         m_var_value_table.reset();
@@ -2130,12 +2132,9 @@ namespace smt {
         }
         if (candidates.empty())
             return;
-        typename sbuffer<theory_var>::iterator it  = candidates.begin();
-        typename sbuffer<theory_var>::iterator end = candidates.end();
         m_tmp_var_set.reset();
         m_tmp_var_set2.reset();
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (theory_var v : candidates) {
             SASSERT(!is_fixed(v));
             if (is_base(v)) {
                 row & r = m_rows[get_var_row(v)];
@@ -2201,16 +2200,19 @@ namespace smt {
         int num       = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
             enode * n        = get_enode(v);
-            TRACE("func_interp_bug", tout << "#" << n->get_owner_id() << " -> " << m_value[v] << "\n";);
-            if (!is_relevant_and_shared(n))
+            TRACE("func_interp_bug", tout << mk_pp(n->get_owner(), get_manager()) << " -> " << m_value[v] << " root #" << n->get_root()->get_owner_id() << " " << is_relevant_and_shared(n) << "\n";);
+            if (!is_relevant_and_shared(n)) {
                 continue;
+            }
             theory_var other = null_theory_var;
             other = m_var_value_table.insert_if_not_there(v);
-            if (other == v)
+            if (other == v) {
                 continue;
+            }
             enode * n2 = get_enode(other);
-            if (n->get_root() == n2->get_root())
+            if (n->get_root() == n2->get_root()) {
                 continue;
+            }
             TRACE("func_interp_bug", tout << "adding to assume_eq queue #" << n->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
             m_assume_eq_candidates.push_back(std::make_pair(other, v));
             result = true;

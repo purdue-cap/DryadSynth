@@ -17,10 +17,10 @@ Revision History:
 
 --*/
 
-#include "replace_proof_converter.h"
-#include "expr_functors.h"
-#include "ast_pp.h"
-#include "for_each_expr.h"
+#include "tactic/replace_proof_converter.h"
+#include "ast/expr_functors.h"
+#include "ast/ast_pp.h"
+#include "ast/for_each_expr.h"
 
 /**
    \brief Replace expressions by other expressions.
@@ -39,7 +39,7 @@ public:
     replace_map(ast_manager& m): map_proc(m) {}
 
     void insert(expr* src, expr* dst) {
-        m_map.insert(src, dst, 0);
+        m_map.insert(src, dst, nullptr);
     }
 
     void operator()(var* v) { visit(v); }

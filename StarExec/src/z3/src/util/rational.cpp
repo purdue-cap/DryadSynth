@@ -17,13 +17,13 @@ Revision History:
 
 --*/
 #include<sstream>
-#include"util.h"
-#include"rational.h"
+#include "util/util.h"
+#include "util/rational.h"
 #ifdef _WINDOWS
 #include<strsafe.h>
 #endif
 
-synch_mpq_manager *  rational::g_mpq_manager = 0;
+synch_mpq_manager *  rational::g_mpq_manager = nullptr;
 rational             rational::m_zero;
 rational             rational::m_one;
 rational             rational::m_minus_one;
@@ -80,6 +80,6 @@ void rational::finalize() {
     m_one.~rational();
     m_minus_one.~rational();
     dealloc(g_mpq_manager);
-    g_mpq_manager = 0;
+    g_mpq_manager = nullptr;
 }
 

@@ -17,8 +17,8 @@ Notes:
 #ifndef CMD_CONTEXT_TYPES_H_
 #define CMD_CONTEXT_TYPES_H_
 
-#include"symbol.h"
-#include"z3_exception.h"
+#include "util/symbol.h"
+#include "util/z3_exception.h"
 #include<sstream>
 class rational;
 class expr;
@@ -91,8 +91,8 @@ public:
     virtual void reset(cmd_context & ctx) {}
     virtual void finalize(cmd_context & ctx) {}
     virtual symbol get_name() const { return m_name; }
-    virtual char const * get_usage() const { return 0; }
-    virtual char const * get_descr(cmd_context & ctx) const { return 0; }
+    virtual char const * get_usage() const { return nullptr; }
+    virtual char const * get_descr(cmd_context & ctx) const { return nullptr; }
     virtual unsigned get_arity() const { return 0; }
 
     // command invocation

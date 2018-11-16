@@ -16,7 +16,7 @@ Abstract:
     Remarks:
       - The semantics of division by zero is not specified. Thus,
         uninterpreted functions are used.  An ExRCF procedure may
-        treat the unintepreted function applications as fresh
+        treat the uninterpreted function applications as fresh
         constants.  Then, in any model produced by this procedure,
         the interpretation for division by zero must be checked.
 
@@ -48,7 +48,7 @@ Revision History:
 #ifndef PURIFY_ARITH_TACTIC_H_
 #define PURIFY_ARITH_TACTIC_H_
 
-#include"params.h"
+#include "util/params.h"
 class ast_manager;
 class tactic;
 

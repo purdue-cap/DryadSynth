@@ -19,8 +19,8 @@ Revision History:
 #ifndef SMT_ALMOST_CG_TABLE_H_
 #define SMT_ALMOST_CG_TABLE_H_
 
-#include"smt_enode.h"
-#include"map.h"
+#include "smt/smt_enode.h"
+#include "util/map.h"
 
 namespace smt {
     
@@ -57,7 +57,7 @@ namespace smt {
         table   m_table;
 
     public:
-        almost_cg_table(enode * r1 = 0, enode * r2 = 0);
+        almost_cg_table(enode * r1 = nullptr, enode * r2 = nullptr);
         void reset(enode * r1, enode * r2) { m_r1 = r1->get_root(); m_r2 = r2->get_root(); reset(); }
         void reset();
         void insert(enode *);

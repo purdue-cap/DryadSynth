@@ -19,8 +19,8 @@ Notes:
 #ifndef POLYNOMIAL_VAR2VALUE_H_
 #define POLYNOMIAL_VAR2VALUE_H_
 
-#include"polynomial.h"
-#include"scoped_numeral_vector.h"
+#include "math/polynomial/polynomial.h"
+#include "util/scoped_numeral_vector.h"
 
 namespace polynomial {
 
@@ -32,9 +32,9 @@ namespace polynomial {
     public:
         simple_var2value(ValManager & m):m_vs(m) {}
         void push_back(var x, typename ValManager::numeral const & v) { m_xs.push_back(x); m_vs.push_back(v); }
-        virtual ValManager & m() const { return m_vs.m(); }
-        virtual bool contains(var x) const { return std::find(m_xs.begin(), m_xs.end(), x) != m_xs.end(); }
-        virtual typename ValManager::numeral const & operator()(var x) const {
+        ValManager & m() const override { return m_vs.m(); }
+        bool contains(var x) const override { return std::find(m_xs.begin(), m_xs.end(), x) != m_xs.end(); }
+        typename ValManager::numeral const & operator()(var x) const override {
             for (unsigned i = 0; i < m_xs.size(); i++)
                 if (m_xs[i] == x)
                     return m_vs[i];

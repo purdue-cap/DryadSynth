@@ -19,11 +19,11 @@ Revision History:
 #ifndef fpa_decl_plugin_H_
 #define fpa_decl_plugin_H_
 
-#include"ast.h"
-#include"id_gen.h"
-#include"arith_decl_plugin.h"
-#include"bv_decl_plugin.h"
-#include"mpf.h"
+#include "ast/ast.h"
+#include "util/id_gen.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/bv_decl_plugin.h"
+#include "util/mpf.h"
 
 enum fpa_sort_kind {
     FLOATING_POINT_SORT,
@@ -86,18 +86,8 @@ enum fpa_op_kind {
     /* Extensions */
     OP_FPA_TO_IEEE_BV,
 
-    /* Internal use only */
-    OP_FPA_INTERNAL_BVWRAP,
-    OP_FPA_INTERNAL_BV2RM,
-
-    OP_FPA_INTERNAL_MIN_I,
-    OP_FPA_INTERNAL_MAX_I,
-    OP_FPA_INTERNAL_MIN_UNSPECIFIED,
-    OP_FPA_INTERNAL_MAX_UNSPECIFIED,
-    OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED,
-    OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED,
-    OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED,
-    OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED,
+    OP_FPA_BVWRAP,
+    OP_FPA_BV2RM,
 
     LAST_FLOAT_OP
 };
@@ -164,40 +154,16 @@ class fpa_decl_plugin : public decl_plugin {
     func_decl * mk_to_ieee_bv(decl_kind k, unsigned num_parameters, parameter const * parameters,
                               unsigned arity, sort * const * domain, sort * range);
 
-    func_decl * mk_internal_bv2rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
+    func_decl * mk_bv2rm(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                   unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_internal_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
+    func_decl * mk_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_internal_bv_unwrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                      unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_internal_to_ubv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                               unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_internal_to_sbv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                               unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_internal_to_real_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                                unsigned arity, sort * const * domain, sort * range);
-    func_decl * mk_internal_to_ieee_bv_unspecified(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                                   unsigned arity, sort * const * domain, sort * range);
 
-    virtual void set_manager(ast_manager * m, family_id id);
+    void set_manager(ast_manager * m, family_id id) override;
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
 
-    virtual bool is_considered_uninterpreted(func_decl * f) {
-        if (f->get_family_id() != get_family_id())
-            return false;
-        switch (f->get_decl_kind())
-        {
-        case OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED:
-        case OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED:
-            return true;
-        default:
-            return false;
-        }
-        return false;
-    }
+    bool is_considered_uninterpreted(func_decl * f) override { return false; }
 
 public:
     fpa_decl_plugin();
@@ -205,18 +171,18 @@ public:
     bool is_float_sort(sort * s) const { return is_sort_of(s, m_family_id, FLOATING_POINT_SORT); }
     bool is_rm_sort(sort * s) const { return is_sort_of(s, m_family_id, ROUNDING_MODE_SORT); }
 
-    virtual ~fpa_decl_plugin();
-    virtual void finalize();
+    ~fpa_decl_plugin() override;
+    void finalize() override;
 
-    virtual decl_plugin * mk_fresh();
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
-    virtual expr * get_some_value(sort * s);
-    virtual bool is_value(app* e) const;
-    virtual bool is_unique_value(app* e) const;
+    decl_plugin * mk_fresh() override;
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
+    expr * get_some_value(sort * s) override;
+    bool is_value(app* e) const override;
+    bool is_unique_value(app* e) const override;
 
     mpf_manager & fm() { return m_fm; }
     func_decl * mk_numeral_decl(mpf const & v);
@@ -231,8 +197,8 @@ public:
         return m_values[id];
     }
 
-    virtual void del(parameter const & p);
-    virtual parameter translate(parameter const & p, decl_plugin & target);
+    void del(parameter const & p) override;
+    parameter translate(parameter const & p, decl_plugin & target) override;
 };
 
 class fpa_util {
@@ -251,6 +217,7 @@ public:
     family_id get_fid() const { return m_fid; }
     family_id get_family_id() const { return m_fid; }
     arith_util & au() { return m_a_util; }
+    bv_util & bu() { return m_bv_util; }
     fpa_decl_plugin & plugin() { return *m_plugin; }
 
     sort * mk_float_sort(unsigned ebits, unsigned sbits);
@@ -288,11 +255,16 @@ public:
     app * mk_nzero(sort * s) { return mk_nzero(get_ebits(s), get_sbits(s)); }
 
     bool is_nan(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_nan(v); }
+    bool is_inf(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_inf(v); }
     bool is_pinf(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pinf(v); }
     bool is_ninf(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_ninf(v); }
     bool is_zero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_zero(v); }
     bool is_pzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pzero(v); }
     bool is_nzero(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_nzero(v); }
+    bool is_normal(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_normal(v); }
+    bool is_subnormal(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_denormal(v); }
+    bool is_positive(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_pos(v); }
+    bool is_negative(expr * n) { scoped_mpf v(fm()); return is_numeral(n, v) && fm().is_neg(v); }
 
     app * mk_fp(expr * sgn, expr * exp, expr * sig) {
         SASSERT(m_bv_util.is_bv(sgn) && m_bv_util.get_bv_size(sgn) == 1);
@@ -370,35 +342,18 @@ public:
 
     app * mk_bv2rm(expr * bv3) {
         SASSERT(m_bv_util.is_bv(bv3) && m_bv_util.get_bv_size(bv3) == 3);
-        return m().mk_app(m_fid, OP_FPA_INTERNAL_BV2RM, 0, 0, 1, &bv3, mk_rm_sort());
+        return m().mk_app(m_fid, OP_FPA_BV2RM, 0, nullptr, 1, &bv3, mk_rm_sort());
     }
-    app * mk_internal_to_ubv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
-    app * mk_internal_to_sbv_unspecified(unsigned ebits, unsigned sbits, unsigned width);
-    app * mk_internal_to_ieee_bv_unspecified(unsigned ebits, unsigned sbits);
-    app * mk_internal_to_real_unspecified(unsigned ebits, unsigned sbits);
 
-    bool is_bvwrap(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BVWRAP); }
-    bool is_bvwrap(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_BVWRAP; }
-    bool is_bv2rm(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_BV2RM); }
-    bool is_bv2rm(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_BV2RM; }
+    bool is_bvwrap(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_BVWRAP); }
+    bool is_bv2rm(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_BV2RM); }
+    bool is_to_ubv(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_UBV); }
+    bool is_to_sbv(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_TO_SBV); }
 
-    bool is_min_interpreted(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_MIN_I); }
-    bool is_min_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_MIN_UNSPECIFIED); }
-    bool is_max_interpreted(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_MAX_I); }
-    bool is_max_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_MAX_UNSPECIFIED); }
-    bool is_to_ubv_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED); }
-    bool is_to_sbv_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED); }
-    bool is_to_ieee_bv_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED); }
-    bool is_to_real_unspecified(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED); }
-
-    bool is_min_interpreted(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_MIN_I; }
-    bool is_min_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_MIN_UNSPECIFIED; }
-    bool is_max_interpreted(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_MAX_I; }
-    bool is_max_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_MAX_UNSPECIFIED; }
-    bool is_to_ubv_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_TO_UBV_UNSPECIFIED; }
-    bool is_to_sbv_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_TO_SBV_UNSPECIFIED; }
-    bool is_to_ieee_bv_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_TO_IEEE_BV_UNSPECIFIED; }
-    bool is_to_real_unspecified(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_INTERNAL_TO_REAL_UNSPECIFIED; }
+    bool is_bvwrap(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BVWRAP; }
+    bool is_bv2rm(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_BV2RM; }
+    bool is_to_ubv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_UBV; }
+    bool is_to_sbv(func_decl const * f) const { return f->get_family_id() == get_family_id() && f->get_decl_kind() == OP_FPA_TO_SBV; }
 
     bool contains_floats(ast * a);
 };

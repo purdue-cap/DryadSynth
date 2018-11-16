@@ -20,8 +20,8 @@ Revision History:
 #ifndef DL_MK_EXPLANATIONS_H_
 #define DL_MK_EXPLANATIONS_H_
 
-#include "dl_context.h"
-#include "dl_rule_transformer.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -76,7 +76,7 @@ namespace datalog {
             return get_union_decl(m_context);
         }
 
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
 
         static expr* get_explanation(relation_base const& r);
     };

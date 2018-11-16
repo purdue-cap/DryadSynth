@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include"smt_params.h"
-#include"smt_params_helper.hpp"
-#include"model_params.hpp"
-#include"gparams.h"
+#include "smt/params/smt_params.h"
+#include "smt/params/smt_params_helper.hpp"
+#include "model/model_params.hpp"
+#include "util/gparams.h"
 
 void smt_params::updt_local_params(params_ref const & _p) {
     smt_params_helper p(_p);
@@ -31,6 +31,8 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_restart_strategy = static_cast<restart_strategy>(p.restart_strategy());
     m_restart_factor = p.restart_factor();
     m_case_split_strategy = static_cast<case_split_strategy>(p.case_split());
+    m_theory_case_split = p.theory_case_split();
+    m_theory_aware_branching = p.theory_aware_branching();
     m_delay_units = p.delay_units();
     m_delay_units_threshold = p.delay_units_threshold();
     m_preprocess = _p.get_bool("preprocess", true); // hidden parameter
@@ -39,6 +41,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_max_conflicts = p.max_conflicts();
     m_core_validate = p.core_validate();
     m_logic = _p.get_sym("logic", m_logic);
+    m_string_solver = p.string_solver();
     model_params mp(_p);
     m_model_compact = mp.compact();
     if (_p.get_bool("arith.greatest_error_pivot", false))
@@ -46,6 +49,9 @@ void smt_params::updt_local_params(params_ref const & _p) {
     else if (_p.get_bool("arith.least_error_pivot", false))
         m_arith_pivot_strategy = ARITH_PIVOT_LEAST_ERROR;
     theory_array_params::updt_params(_p);
+    m_dump_benchmarks = false;
+    m_dump_min_time = 0.5;
+    m_dump_recheck = false;
 }
 
 void smt_params::updt_params(params_ref const & p) {

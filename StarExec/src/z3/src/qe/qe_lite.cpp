@@ -17,65 +17,51 @@ Revision History:
 
 
 --*/
-#include "qe_lite.h"
-#include "expr_abstract.h"
-#include "used_vars.h"
-#include "occurs.h"
-#include "rewriter_def.h"
-#include "ast_pp.h"
-#include "ast_ll_pp.h"
-#include "ast_smt2_pp.h"
-#include "tactical.h"
-#include "bool_rewriter.h"
-#include "var_subst.h"
-#include "uint_set.h"
-#include "ast_util.h"
-#include "th_rewriter.h"
-#include "for_each_expr.h"
-#include "expr_safe_replace.h"
-#include "cooperate.h"
-#include "datatype_decl_plugin.h"
+#include "qe/qe_lite.h"
+#include "ast/expr_abstract.h"
+#include "ast/used_vars.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/uint_set.h"
+#include "ast/ast_util.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "util/cooperate.h"
+#include "ast/datatype_decl_plugin.h"
 
-class is_variable_proc {
-public:
-    virtual bool operator()(expr* e) const = 0;
-};
-
-class is_variable_test : public is_variable_proc {
-    enum is_var_kind { BY_VAR_SET, BY_VAR_SET_COMPLEMENT, BY_NUM_DECLS };
-    uint_set m_var_set;
-    unsigned m_num_decls;
-    is_var_kind m_var_kind;
-public:
-    is_variable_test(uint_set const& vars, bool index_of_bound) :
-        m_var_set(vars), 
-        m_num_decls(0), 
-        m_var_kind(index_of_bound?BY_VAR_SET:BY_VAR_SET_COMPLEMENT) {}
-
-    is_variable_test(unsigned num_decls) :
-        m_num_decls(num_decls),
-        m_var_kind(BY_NUM_DECLS) {}
-
-    virtual bool operator()(expr* e) const {
-        if (!is_var(e)) {
-            return false;
-        }
-        unsigned idx = to_var(e)->get_idx();
-        switch(m_var_kind) {
-        case BY_VAR_SET:
-            return m_var_set.contains(idx);
-        case BY_VAR_SET_COMPLEMENT:
-            return !m_var_set.contains(idx);
-        case BY_NUM_DECLS:
-            return idx < m_num_decls;
-        }
-        UNREACHABLE();
-        return false;
-    }
-};
-
+#include "qe/qe_vartest.h"
 
 namespace eq {
+
+    bool occurs_var(unsigned idx, expr* e) {
+        ptr_buffer<expr> todo;
+        todo.push_back(e);        
+        ast_mark mark;
+        while (!todo.empty()) {
+            expr* e = todo.back();
+            todo.pop_back();
+            if (mark.is_marked(e)) continue;
+            mark.mark(e, true);
+            if (is_var(e)) {
+                if (to_var(e)->get_idx() == idx) return true;
+            }
+            else if (is_app(e)) {
+                todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            }
+            else if (is_quantifier(e)) {
+                quantifier* q = to_quantifier(e);
+                if (occurs_var(idx + q->get_num_decls(), q->get_expr())) return true;
+            }
+        }
+        return false;
+    }
+
     class der {
         ast_manager &   m;
         arith_util      a;
@@ -83,40 +69,42 @@ namespace eq {
         is_variable_proc* m_is_variable;
         var_subst       m_subst;
         expr_ref_vector m_new_exprs;
-        
+
         ptr_vector<expr> m_map;
         int_vector       m_pos2var;
+        int_vector       m_var2pos;
         ptr_vector<var>  m_inx2var;
         unsigned_vector  m_order;
         expr_ref_vector  m_subst_map;
         expr_ref_buffer  m_new_args;
         th_rewriter      m_rewriter;
-        
+        params_ref       m_params;
+
         void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
             order.reset();
-            
+
             // eliminate self loops, and definitions containing quantifiers.
             bool found = false;
             for (unsigned i = 0; i < definitions.size(); i++) {
                 var * v  = vars[i];
                 expr * t = definitions[i];
-                if (t == 0 || has_quantifiers(t) || occurs(v, t))
+                if (t == nullptr || has_quantifiers(t) || occurs_var(v->get_idx(), t))
                     definitions[i] = 0;
                 else
                     found = true; // found at least one candidate
             }
-            
+
             if (!found)
                 return;
-            
+
             typedef std::pair<expr *, unsigned> frame;
             svector<frame> todo;
-            
+
             expr_fast_mark1 visiting;
             expr_fast_mark2 done;
-            
+
             unsigned vidx, num;
-            
+
             for (unsigned i = 0; i < definitions.size(); i++) {
                 if (definitions[i] == 0)
                     continue;
@@ -137,7 +125,7 @@ namespace eq {
                         vidx = to_var(t)->get_idx();
                         if (fr.second == 0) {
                             CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
-                            // Remark: The size of definitions may be smaller than the number of variables occuring in the quantified formula.
+                            // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                             if (definitions.get(vidx, 0) != 0) {
                                 if (visiting.is_marked(t)) {
                                     // cycle detected: remove t
@@ -193,11 +181,11 @@ namespace eq {
                 }
             }
         }
-        
+
         bool is_variable(expr * e) const {
             return (*m_is_variable)(e);
         }
-        
+
         bool is_neg_var(ast_manager & m, expr * e, var*& v) {
             expr* e1;
             if (m.is_not(e, e1) && is_variable(e1)) {
@@ -208,13 +196,13 @@ namespace eq {
                 return false;
             }
         }
-        
-        
+
+
         /**
-           \brief Return true if e can be viewed as a variable disequality. 
+           \brief Return true if e can be viewed as a variable disequality.
            Store the variable id in v and the definition in t.
            For example:
-           
+
            if e is (not (= (VAR 1) T)), then v assigned to 1, and t to T.
            if e is (iff (VAR 2) T), then v is assigned to 2, and t to (not T).
            (not T) is used because this formula is equivalent to (not (iff (VAR 2) (not T))),
@@ -225,7 +213,7 @@ namespace eq {
             if (m.is_not(e, e1)) {
                 return is_var_eq(e, vs, ts);
             }
-            else if (is_var_eq(e, vs, ts) && vs.size() == 1 && m.is_bool(vs[0])) { 
+            else if (is_var_eq(e, vs, ts) && vs.size() == 1 && m.is_bool(vs[0])) {
                 expr_ref tmp(m);
                 bool_rewriter(m).mk_not(ts[0].get(), tmp);
                 ts[0] = tmp;
@@ -305,7 +293,7 @@ namespace eq {
                 todo.pop_back();
                 if (a.is_add(e)) {
                     for (unsigned i = 0; i < to_app(e)->get_num_args(); ++i) {
-                        todo.push_back(std::make_pair(sign, to_app(e)->get_arg(i)));                        
+                        todo.push_back(std::make_pair(sign, to_app(e)->get_arg(i)));
                     }
                 }
                 else if (is_invertible_mul(is_int, e, a_val)) {
@@ -322,7 +310,7 @@ namespace eq {
             }
             return false;
         }
-        
+
         bool arith_solve(expr * lhs, expr * rhs, expr * eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
             return solve_arith(lhs, rhs, vs, ts);
         }
@@ -339,7 +327,7 @@ namespace eq {
             TRACE("qe_lite", tout << mk_pp(eq, m) << "\n";);
             return true;
         }
-        
+
 
         bool same_vars(ptr_vector<var> const& vs1, ptr_vector<var> const& vs2) const {
             if (vs1.size() != vs2.size()) {
@@ -356,12 +344,12 @@ namespace eq {
         /**
            \brief Return true if e can be viewed as a variable equality.
         */
-        
+
         bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
             expr* lhs, *rhs;
             var* v;
-            
-            // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases    
+
+            // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases
             if (m.is_eq(e, lhs, rhs) || m.is_iff(e, lhs, rhs)) {
                 // (iff (not VAR) t) (iff t (not VAR)) cases
                 if (!is_variable(lhs) && !is_variable(rhs) && m.is_bool(lhs)) {
@@ -384,7 +372,7 @@ namespace eq {
                 }
                 return false;
             }
-            
+
             // (ite cond (= VAR t) (= VAR t2)) case
             expr* cond, *e2, *e3;
             if (m.is_ite(e, cond, e2, e3)) {
@@ -400,7 +388,7 @@ namespace eq {
                 }
                 return false;
             }
-            
+
             // VAR = true case
             if (is_variable(e)) {
                 ts.push_back(m.mk_true());
@@ -408,7 +396,7 @@ namespace eq {
                 TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                 return true;
             }
-            
+
             // VAR = false case
             if (is_neg_var(m, e, v)) {
                 ts.push_back(m.mk_false());
@@ -416,56 +404,56 @@ namespace eq {
                 TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
                 return true;
             }
-            
+
             return false;
         }
-        
-        
+
+
         bool is_var_def(bool check_eq, expr* e, ptr_vector<var>& vs, expr_ref_vector& ts) {
             if (check_eq) {
                 return is_var_eq(e, vs, ts);
             }
             else {
                 return is_var_diseq(e, vs, ts);
-            }    
+            }
         }
-        
+
         void get_elimination_order() {
             m_order.reset();
-            
+
             TRACE("top_sort",
                   tout << "DEFINITIONS: " << std::endl;
                   for(unsigned i = 0; i < m_map.size(); i++)
                       if(m_map[i]) tout << "VAR " << i << " = " << mk_pp(m_map[i], m) << std::endl;
                   );
-            
+
             der_sort_vars(m_inx2var, m_map, m_order);
-            
-            TRACE("qe_lite", 
+
+            TRACE("qe_lite",
                   tout << "Elimination m_order:" << std::endl;
                   for(unsigned i=0; i<m_order.size(); i++)
                       {
                           if (i != 0) tout << ",";
                           tout << m_order[i];
                       }
-                  tout << std::endl;            
+                  tout << std::endl;
                   );
-        }    
-        
+        }
+
         void create_substitution(unsigned sz) {
             m_subst_map.reset();
-            m_subst_map.resize(sz, 0);        
+            m_subst_map.resize(sz, nullptr);
             for (unsigned i = 0; i < m_order.size(); i++) {
-                expr_ref cur(m_map[m_order[i]], m);            
+                expr_ref cur(m_map[m_order[i]], m);
                 // do all the previous substitutions before inserting
                 expr_ref r(m);
-                m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr(), r);            
+                m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr(), r);
                 unsigned inx = sz - m_order[i]- 1;
                 SASSERT(m_subst_map[inx]==0);
                 m_subst_map[inx] = r;
             }
         }
-        
+
         void flatten_args(quantifier* q, unsigned& num_args, expr*const*& args) {
             expr * e = q->get_expr();
             if ((q->is_forall() && m.is_or(e)) ||
@@ -474,15 +462,15 @@ namespace eq {
                 args     = to_app(e)->get_args();
             }
         }
-        
+
         void apply_substitution(quantifier * q, expr_ref & r) {
-            
+
             expr * e = q->get_expr();
             unsigned num_args = 1;
             expr* const* args = &e;
             flatten_args(q, num_args, args);
             bool_rewriter rw(m);
-            
+
             // get a new expression
             m_new_args.reset();
             for(unsigned i = 0; i < num_args; i++) {
@@ -495,7 +483,7 @@ namespace eq {
                 r = q;
                 return;
             }
-            
+
             expr_ref t(m);
             if (q->is_forall()) {
                 rw.mk_or(m_new_args.size(), m_new_args.c_ptr(), t);
@@ -503,9 +491,9 @@ namespace eq {
             else {
                 rw.mk_and(m_new_args.size(), m_new_args.c_ptr(), t);
             }
-            expr_ref new_e(m);    
+            expr_ref new_e(m);
             m_subst(t, m_subst_map.size(), m_subst_map.c_ptr(), new_e);
-            
+
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
             expr_ref_buffer  new_no_patterns(m);
@@ -514,17 +502,17 @@ namespace eq {
                 m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_pat);
                 new_patterns.push_back(new_pat);
             }
-            
+
             for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
                 expr_ref new_nopat(m);
                 m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_nopat);
                 new_no_patterns.push_back(new_nopat);
             }
-            
-            r = m.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(), 
+
+            r = m.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(),
                                     new_no_patterns.size(), new_no_patterns.c_ptr(), new_e);
         }
-        
+
         void reduce_quantifier1(quantifier * q, expr_ref & r, proof_ref & pr) {
             expr * e = q->get_expr();
             is_variable_test is_v(q->get_num_decls());
@@ -532,17 +520,17 @@ namespace eq {
             unsigned num_args = 1;
             expr* const* args = &e;
             flatten_args(q, num_args, args);
-            
+
             unsigned def_count = 0;
             unsigned largest_vinx = 0;
-            
+
             find_definitions(num_args, args, q->is_exists(), def_count, largest_vinx);
-            
+
             if (def_count > 0) {
                 get_elimination_order();
                 SASSERT(m_order.size() <= def_count); // some might be missing because of cycles
-                
-                if (!m_order.empty()) {            
+
+                if (!m_order.empty()) {
                     create_substitution(largest_vinx + 1);
                     apply_substitution(q, r);
                 }
@@ -554,31 +542,33 @@ namespace eq {
                 TRACE("der_bug", tout << "Did not find any diseq\n" << mk_pp(q, m) << "\n";);
                 r = q;
             }
-            
+
             if (m.proofs_enabled()) {
-                pr = r == q ? 0 : m.mk_der(q, r);
-            }    
-        }    
-        
+                pr = r == q ? nullptr : m.mk_der(q, r);
+            }
+        }
+
         void elim_unused_vars(expr_ref& r, proof_ref &pr) {
             if (is_quantifier(r)) {
                 quantifier * q = to_quantifier(r);
-                ::elim_unused_vars(m, q, r);
+
+                ::elim_unused_vars(m, q, m_params, r);
                 if (m.proofs_enabled()) {
                     proof * p1 = m.mk_elim_unused_vars(q, r);
                     pr = m.mk_transitivity(pr, p1);
                 }
             }
         }
-        
+
         void find_definitions(unsigned num_args, expr* const* args, bool is_exists, unsigned& def_count, unsigned& largest_vinx) {
             def_count = 0;
             largest_vinx = 0;
             m_map.reset();
             m_pos2var.reset();
-            m_inx2var.reset();    
+            m_var2pos.reset();
+            m_inx2var.reset();
             m_pos2var.reserve(num_args, -1);
-            
+
             // Find all definitions
             for (unsigned i = 0; i < num_args; i++) {
                 checkpoint();
@@ -591,13 +581,51 @@ namespace eq {
                         unsigned idx = v->get_idx();
                         if (m_map.get(idx, 0) == 0) {
                             m_map.reserve(idx + 1, 0);
-                            m_inx2var.reserve(idx + 1, 0);                
+                            m_inx2var.reserve(idx + 1, 0);
                             m_map[idx] = t;
                             m_inx2var[idx] = v;
                             m_pos2var[i] = idx;
+                            m_var2pos.reserve(idx + 1, -1);
+                            m_var2pos[idx] = i;
                             def_count++;
-                            largest_vinx = std::max(idx, largest_vinx); 
+                            largest_vinx = std::max(idx, largest_vinx);
                             m_new_exprs.push_back(t);
+                        }
+                        else if (!m.is_value(m_map[idx])) {
+                            // check if the new definition is simpler
+                            expr *old_def = m_map[idx];
+
+                            // -- prefer values
+                            if (m.is_value(t)) {
+                                m_pos2var[m_var2pos[idx]] = -1;
+                                m_pos2var[i] = idx;
+                                m_var2pos[idx] = i;
+                                m_map[idx] = t;
+                                m_new_exprs.push_back(t);
+                          }
+                          // -- prefer ground
+                          else if (is_app(t) && to_app(t)->is_ground() &&
+                                   (!is_app(old_def) ||
+                                    !to_app(old_def)->is_ground())) {
+                              m_pos2var[m_var2pos[idx]] = -1;
+                              m_pos2var[i] = idx;
+                              m_var2pos[idx] = i;
+                              m_map[idx] = t;
+                              m_new_exprs.push_back(t);
+                          }
+                          // -- prefer constants
+                          else if (is_uninterp_const(t)
+                                   /* && !is_uninterp_const(old_def) */){
+                              m_pos2var[m_var2pos[idx]] = -1;
+                              m_pos2var[i] = idx;
+                              m_var2pos[idx] = i;
+                              m_map[idx] = t;
+                              m_new_exprs.push_back(t);
+                          }
+                          TRACE ("qe_def",
+                                 tout << "Replacing definition of VAR " << idx << " from "
+                                 << mk_pp(old_def, m) << " to " << mk_pp(t, m)
+                                 << " inferred from: " << mk_pp(args[i], m) << "\n";);
                         }
                     }
                 }
@@ -646,10 +674,10 @@ namespace eq {
                   tmp = m.mk_and(conjs.size(), conjs.c_ptr());
                   tout << "after flatten\n" << mk_pp(tmp, m) << "\n";);
         }
-        
+
         void flatten_constructor(app* c, app* r, expr_ref_vector& conjs) {
             SASSERT(dt.is_constructor(c));
-            
+
             func_decl* d = c->get_decl();
 
             if (dt.is_constructor(r->get_decl())) {
@@ -661,10 +689,10 @@ namespace eq {
                 }
                 else {
                     conjs.push_back(m.mk_false());
-                }                
+                }
             }
             else {
-                func_decl* rec = dt.get_constructor_recognizer(d);
+                func_decl* rec = dt.get_constructor_is(d);
                 conjs.push_back(m.mk_app(rec, r));
                 ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(d);
                 for (unsigned i = 0; i < acc.size(); ++i) {
@@ -674,16 +702,16 @@ namespace eq {
         }
 
         bool is_unconstrained(var* x, expr* t, unsigned i, expr_ref_vector const& conjs) {
-            bool occ = occurs(x, t);
+            bool occ = occurs_var(x->get_idx(), t);
             for (unsigned j = 0; !occ && j < conjs.size(); ++j) {
-                occ = (i != j) && occurs(x, conjs[j]);
+                occ = (i != j) && occurs_var(x->get_idx(), conjs[j]);
             }
             return !occ;
         }
 
         bool remove_unconstrained(expr_ref_vector& conjs) {
             bool reduced = false, change = true;
-            expr* r, *l, *ne;           
+            expr* r, *l, *ne;
             while (change) {
                 change = false;
                 for (unsigned i = 0; i < conjs.size(); ++i) {
@@ -704,21 +732,21 @@ namespace eq {
             }
             return reduced;
         }
-        
+
         bool reduce_var_set(expr_ref_vector& conjs) {
             unsigned def_count = 0;
             unsigned largest_vinx = 0;
             bool reduced = false;
 
             flatten_definitions(conjs);
-            
+
             find_definitions(conjs.size(), conjs.c_ptr(), true, def_count, largest_vinx);
-            
+
             if (def_count > 0) {
                 get_elimination_order();
                 SASSERT(m_order.size() <= def_count); // some might be missing because of cycles
-                
-                if (!m_order.empty()) {            
+
+                if (!m_order.empty()) {
                     expr_ref r(m), new_r(m);
                     r = m.mk_and(conjs.size(), conjs.c_ptr());
                     create_substitution(largest_vinx + 1);
@@ -739,35 +767,36 @@ namespace eq {
 
         void checkpoint() {
             cooperate("der");
-            if (m.canceled()) 
+            if (m.canceled())
                 throw tactic_exception(m.limit().get_cancel_msg());
         }
 
     public:
-        der(ast_manager & m): 
-            m(m), 
+        der(ast_manager & m, params_ref const & p):
+            m(m),
             a(m),
             dt(m),
-            m_is_variable(0), 
-            m_subst(m), 
-            m_new_exprs(m), 
-            m_subst_map(m), 
-            m_new_args(m), 
-            m_rewriter(m) {}
-        
+            m_is_variable(nullptr),
+            m_subst(m),
+            m_new_exprs(m),
+            m_subst_map(m),
+            m_new_args(m),
+            m_rewriter(m),
+            m_params(p) {}
+
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
-        
+
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
-            TRACE("qe_lite", tout << mk_pp(q, m) << "\n";);    
-            pr = 0;
+            TRACE("qe_lite", tout << mk_pp(q, m) << "\n";);
+            pr = nullptr;
             r  = q;
-            reduce_quantifier(q, r, pr);    
+            reduce_quantifier(q, r, pr);
             if (r != q) {
                 elim_unused_vars(r, pr);
             }
         }
-        
-        void reduce_quantifier(quantifier * q, expr_ref & r, proof_ref & pr) {   
+
+        void reduce_quantifier(quantifier * q, expr_ref & r, proof_ref & pr) {
             r = q;
             // Keep applying reduce_quantifier1 until r doesn't change anymore
             do {
@@ -779,15 +808,15 @@ namespace eq {
                     pr = m.mk_transitivity(pr, curr_pr);
                 }
             } while (q != r && is_quantifier(r));
-            
+
             m_new_exprs.reset();
         }
-        
+
         void operator()(expr_ref_vector& r) {
             while (reduce_var_set(r)) ;
             m_new_exprs.reset();
         }
-        
+
         ast_manager& get_manager() const { return m; }
 
 
@@ -804,7 +833,7 @@ namespace ar {
         is_variable_proc*        m_is_variable;
         ptr_vector<expr>         m_todo;
         expr_mark                m_visited;
-        
+
         bool is_variable(expr * e) const {
             return (*m_is_variable)(e);
         }
@@ -822,12 +851,13 @@ namespace ar {
         }
 
         /**
-           Ex A. A[x] = t & Phi where x \not\in A, t. A \not\in t, x
+           Ex A. A[x] = t & Phi[A] where x \not\in A, t. A \not\in t, x
            =>
            Ex A. Phi[store(A,x,t)]
 
+           (Not implemented)
            Perhaps also:
-           Ex A. store(A,y,z)[x] = t & Phi where x \not\in A, t, y, z, A \not\in y z, t 
+           Ex A. store(A,y,z)[x] = t & Phi[A] where x \not\in A, t, y, z, A \not\in y z, t
            =>
            Ex A, v . (x = y => z = t) & Phi[store(store(A,x,t),y,v)]
 
@@ -856,7 +886,8 @@ namespace ar {
                 expr_safe_replace rep(m);
                 rep.insert(A, B);
                 expr_ref tmp(m);
-                std::cout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";
+                TRACE("qe_lite",
+                      tout << mk_pp(e1, m) << " = " << mk_pp(e2, m) << "\n";);
                 for (unsigned j = 0; j < conjs.size(); ++j) {
                     if (i == j) {
                         conjs[j] = m.mk_true();
@@ -873,7 +904,7 @@ namespace ar {
 
         bool solve_select(expr_ref_vector& conjs, unsigned i, expr* e) {
             expr* e1, *e2;
-            return 
+            return
                 m.is_eq(e, e1, e2) &&
                 (solve_select(conjs, i, e1, e2) ||
                  solve_select(conjs, i, e2, e1));
@@ -887,8 +918,8 @@ namespace ar {
         bool solve_neq_select(expr_ref_vector& conjs, unsigned i, expr* e) {
             expr* e1, *a1, *a2;
             if (m.is_not(e, e1) && m.is_eq(e1, a1, a2)) {
-                if (a.is_select(a1) && 
-                    a.is_select(a2) && 
+                if (a.is_select(a1) &&
+                    a.is_select(a2) &&
                     to_app(a1)->get_num_args() == to_app(a2)->get_num_args()) {
                     expr* e1 = to_app(a1)->get_arg(0);
                     expr* e2 = to_app(a2)->get_arg(0);
@@ -924,7 +955,7 @@ namespace ar {
 
     public:
 
-        der(ast_manager& m): m(m), a(m), m_is_variable(0) {}
+        der(ast_manager& m): m(m), a(m), m_is_variable(nullptr) {}
 
         void operator()(expr_ref_vector& fmls) {
             for (unsigned i = 0; i < fmls.size(); ++i) {
@@ -937,13 +968,13 @@ namespace ar {
         void operator()(expr* e) {}
 
         void set_is_variable_proc(is_variable_proc& proc) { m_is_variable = &proc;}
-        
+
     };
 }; // namespace ar
 
 
 // ------------------------------------------------------------
-// fm_tactic adapted to eliminate designated de-Brujin indices.
+// fm_tactic adapted to eliminate designated de-Bruijn indices.
 
 namespace fm {
     typedef ptr_vector<app> clauses;
@@ -976,27 +1007,27 @@ namespace fm {
             for (; it != end; ++it)
                 it->~rational();
         }
-        
+
         unsigned hash() const { return hash_u(m_id); }
     };
-    
+
     typedef ptr_vector<constraint> constraints;
-    
+
     class constraint_set {
-        unsigned_vector m_id2pos; 
+        unsigned_vector m_id2pos;
         constraints     m_set;
     public:
         typedef constraints::const_iterator iterator;
-        
-        bool contains(constraint const & c) const { 
-            if (c.m_id >= m_id2pos.size()) 
-                return false; 
-            return m_id2pos[c.m_id] != UINT_MAX; 
+
+        bool contains(constraint const & c) const {
+            if (c.m_id >= m_id2pos.size())
+                return false;
+            return m_id2pos[c.m_id] != UINT_MAX;
         }
-        
+
         bool empty() const { return m_set.empty(); }
         unsigned size() const { return m_set.size(); }
-        
+
         void insert(constraint & c) {
             unsigned id  = c.m_id;
             m_id2pos.reserve(id+1, UINT_MAX);
@@ -1006,7 +1037,7 @@ namespace fm {
             m_id2pos[id] = pos;
             m_set.push_back(&c);
         }
-        
+
         void erase(constraint & c) {
             unsigned id = c.m_id;
             if (id >= m_id2pos.size())
@@ -1018,27 +1049,27 @@ namespace fm {
             unsigned last_pos = m_set.size() - 1;
             if (pos != last_pos) {
                 constraint * last_c = m_set[last_pos];
-                m_set[pos] = last_c; 
+                m_set[pos] = last_c;
                 m_id2pos[last_c->m_id] = pos;
             }
             m_set.pop_back();
         }
-        
+
         constraint & erase() {
             SASSERT(!empty());
-            constraint & c = *m_set.back(); 
+            constraint & c = *m_set.back();
             m_id2pos[c.m_id] = UINT_MAX;
             m_set.pop_back();
             return c;
         }
-        
+
         void reset() { m_id2pos.reset(); m_set.reset(); }
         void finalize() { m_id2pos.finalize(); m_set.finalize(); }
-        
+
         iterator begin() const { return m_set.begin(); }
         iterator end() const { return m_set.end(); }
     };
-    
+
     class fm {
         ast_manager &            m;
         is_variable_proc*        m_is_variable;
@@ -1068,24 +1099,24 @@ namespace fm {
         bool                     m_inconsistent;
         expr_dependency_ref      m_inconsistent_core;
         constraint_set           m_sub_todo;
-        
+
         // ---------------------------
         //
         // OCC clause recognizer
         //
         // ---------------------------
-        
+
         bool is_literal(expr * t) const {
             expr * atom;
             return is_uninterp_const(t) || (m.is_not(t, atom) && is_uninterp_const(atom));
         }
-        
+
         bool is_constraint(expr * t) const {
             return !is_literal(t);
         }
-        
+
         bool is_var(expr * t, expr * & x) const {
-            
+
             if ((*m_is_variable)(t)) {
                 x = t;
                 return true;
@@ -1096,24 +1127,24 @@ namespace fm {
             }
             return false;
         }
-        
+
         bool is_var(expr * t) const {
             expr * x;
             return is_var(t, x);
         }
-        
+
         bool is_linear_mon_core(expr * t, expr * & x) const {
             expr * c;
             if (m_util.is_mul(t, c, x) && m_util.is_numeral(c) && is_var(x, x))
                 return true;
             return is_var(t, x);
         }
-        
+
         bool is_linear_mon(expr * t) const {
             expr * x;
             return is_linear_mon_core(t, x);
         }
-        
+
         bool is_linear_pol(expr * t) const {
             unsigned       num_mons;
             expr * const * mons;
@@ -1125,7 +1156,7 @@ namespace fm {
                 num_mons = 1;
                 mons     = &t;
             }
-            
+
             expr_fast_mark2 visited;
             bool all_forbidden = true;
             for (unsigned i = 0; i < num_mons; i++) {
@@ -1141,7 +1172,7 @@ namespace fm {
             }
             return !all_forbidden;
         }
-        
+
         bool is_linear_ineq(expr * t) const {
             bool result = false;
             m.is_not(t, t);
@@ -1153,7 +1184,7 @@ namespace fm {
 
             return result;
         }
-        
+
         bool is_occ(expr * t) {
             if (m_fm_occ && m.is_or(t)) {
                 unsigned num = to_app(t)->get_num_args();
@@ -1176,7 +1207,7 @@ namespace fm {
             }
             return is_linear_ineq(t);
         }
-        
+
         // ---------------------------
         //
         // Memory mng
@@ -1195,12 +1226,12 @@ namespace fm {
             for (unsigned i = 0; i < sz; i++)
                 del_constraint(cs[i]);
         }
-        
+
         void reset_constraints() {
             del_constraints(m_constraints.size(), m_constraints.c_ptr());
             m_constraints.reset();
         }
-        
+
         constraint * mk_constraint(unsigned num_lits, literal * lits, unsigned num_vars, var * xs, rational * as, rational & c, bool strict,
                                    expr_dependency * dep) {
             unsigned sz         = constraint::get_obj_size(num_lits, num_vars);
@@ -1236,15 +1267,15 @@ namespace fm {
             m.inc_ref(dep);
             return cnstr;
         }
-        
+
         // ---------------------------
         //
         // Util
         //
         // ---------------------------
-        
+
         unsigned num_vars() const { return m_is_int.size(); }
-        
+
         // multiply as and c, by the lcm of their denominators
         void mk_int(unsigned num, rational * as, rational & c) {
             rational l = denominator(c);
@@ -1259,7 +1290,7 @@ namespace fm {
                 SASSERT(as[i].is_int());
             }
         }
-        
+
         void normalize_coeffs(constraint & c) {
             if (c.m_num_vars == 0)
                 return;
@@ -1281,7 +1312,7 @@ namespace fm {
             for (unsigned i = 0; i < c.m_num_vars; i++)
                 c.m_as[i] /= g;
         }
-        
+
         void display(std::ostream & out, constraint const & c) const {
             for (unsigned i = 0; i < c.m_num_lits; i++) {
                 literal l = c.m_lits[i];
@@ -1308,10 +1339,10 @@ namespace fm {
             out << c.m_c;
             out << ")";
         }
-        
+
         /**
            \brief Return true if c1 subsumes c2
-       
+
            c1 subsumes c2 If
            1) All literals of c1 are literals of c2
            2) polynomial of c1 == polynomial of c2
@@ -1329,13 +1360,13 @@ namespace fm {
                 return false;
             if (!c1.m_strict && c2.m_strict && c1.m_c == c2.m_c)
                 return false;
-            
+
             m_counter += c1.m_num_lits + c2.m_num_lits;
-            
+
             for (unsigned i = 0; i < c1.m_num_vars; i++) {
                 m_var2pos[c1.m_xs[i]] = i;
             }
-            
+
             bool failed = false;
             for (unsigned i = 0; i < c2.m_num_vars; i++) {
                 unsigned pos1 = m_var2pos[c2.m_xs[i]];
@@ -1344,21 +1375,21 @@ namespace fm {
                     break;
                 }
             }
-            
+
             for (unsigned i = 0; i < c1.m_num_vars; i++) {
                 m_var2pos[c1.m_xs[i]] = UINT_MAX;
             }
-            
+
             if (failed)
                 return false;
-            
+
             for (unsigned i = 0; i < c2.m_num_lits; i++) {
                 literal l = c2.m_lits[i];
                 bvar b    = lit2bvar(l);
                 SASSERT(m_bvar2sign[b] == 0);
                 m_bvar2sign[b] = sign(l) ? -1 : 1;
             }
-            
+
             for (unsigned i = 0; i < c1.m_num_lits; i++) {
                 literal l = c1.m_lits[i];
                 bvar b    = lit2bvar(l);
@@ -1368,19 +1399,19 @@ namespace fm {
                     break;
                 }
             }
-            
+
             for (unsigned i = 0; i < c2.m_num_lits; i++) {
                 literal l = c2.m_lits[i];
                 bvar b    = lit2bvar(l);
                 m_bvar2sign[b] = 0;
             }
-            
+
             if (failed)
                 return false;
-            
+
             return true;
         }
-        
+
         void backward_subsumption(constraint const & c) {
             if (c.m_num_vars == 0)
                 return;
@@ -1422,7 +1453,7 @@ namespace fm {
             }
             cs.set_end(it2);
         }
-        
+
         void subsume() {
             while (!m_sub_todo.empty()) {
                 constraint & c = m_sub_todo.erase();
@@ -1433,16 +1464,16 @@ namespace fm {
         }
 
     public:
-        
+
         // ---------------------------
         //
         // Initialization
         //
         // ---------------------------
-        
+
         fm(ast_manager & _m):
             m(_m),
-            m_is_variable(0),
+            m_is_variable(nullptr),
             m_allocator("fm-elim"),
             m_util(m),
             m_bvar2expr(m),
@@ -1453,11 +1484,11 @@ namespace fm {
             m_counter = 0;
             m_inconsistent = false;
         }
-        
+
         ~fm() {
             reset_constraints();
         }
-        
+
         void updt_params() {
             m_fm_real_only   = false;
             m_fm_limit       = 5000000;
@@ -1466,9 +1497,9 @@ namespace fm {
             m_fm_extra       = 0;
             m_fm_occ         = true;
         }
-        
+
     private:
-        
+
         struct forbidden_proc {
             fm & m_owner;
             forbidden_proc(fm & o):m_owner(o) {}
@@ -1480,7 +1511,7 @@ namespace fm {
             void operator()(app * n) { }
             void operator()(quantifier * n) {}
         };
-        
+
         void init_forbidden_set(expr_ref_vector const & g) {
             m_forbidden_set.reset();
             expr_fast_mark1 visited;
@@ -1488,20 +1519,22 @@ namespace fm {
             unsigned sz = g.size();
             for (unsigned i = 0; i < sz; i++) {
                 expr * f = g[i];
-                if (is_occ(f))
+                if (is_occ(f)) {
+                    TRACE("qe_lite", tout << "OCC: " << mk_ismt2_pp(f, m) << "\n";);
                     continue;
+                }
                 TRACE("qe_lite", tout << "not OCC:\n" << mk_ismt2_pp(f, m) << "\n";);
                 quick_for_each_expr(proc, visited, f);
             }
         }
-        
+
         void init(expr_ref_vector const & g) {
             m_sub_todo.reset();
             m_id_gen.reset();
             reset_constraints();
             m_bvar2expr.reset();
             m_bvar2sign.reset();
-            m_bvar2expr.push_back(0); // bvar 0 is not used
+            m_bvar2expr.push_back(nullptr); // bvar 0 is not used
             m_bvar2sign.push_back(0);
             m_expr2var.reset();
             m_is_int.reset();
@@ -1514,27 +1547,27 @@ namespace fm {
             m_new_fmls.reset();
             m_counter = 0;
             m_inconsistent = false;
-            m_inconsistent_core = 0;
+            m_inconsistent_core = nullptr;
             init_forbidden_set(g);
         }
-        
+
         // ---------------------------
         //
         // Internal data-structures
         //
         // ---------------------------
-        
+
         static bool sign(literal l) { return l < 0; }
         static bvar lit2bvar(literal l) { return l < 0 ? -l : l; }
-        
-        bool is_int(var x) const { 
+
+        bool is_int(var x) const {
             return m_is_int[x] != 0;
         }
-        
+
         bool is_forbidden(var x) const {
             return m_forbidden[x] != 0;
         }
-        
+
         bool all_int(constraint const & c) const {
             for (unsigned i = 0; i < c.m_num_vars; i++) {
                 if (!is_int(c.m_xs[i]))
@@ -1542,7 +1575,7 @@ namespace fm {
             }
             return true;
         }
-        
+
         app * to_expr(constraint const & c) {
             expr * ineq;
             if (c.m_num_vars == 0) {
@@ -1550,7 +1583,7 @@ namespace fm {
                 // 0 <= 0 -- > true
                 if (c.m_c.is_pos() || (!c.m_strict && c.m_c.is_zero()))
                     return m.mk_true();
-                ineq = 0;
+                ineq = nullptr;
             }
             else {
                 bool int_cnstr = all_int(c);
@@ -1577,20 +1610,20 @@ namespace fm {
                     ineq = m_util.mk_le(lhs, rhs);
                 }
             }
-            
+
             if (c.m_num_lits == 0) {
                 if (ineq)
                     return to_app(ineq);
                 else
                     return m.mk_false();
             }
-            
+
             ptr_buffer<expr> lits;
             for (unsigned i = 0; i < c.m_num_lits; i++) {
                 literal l = c.m_lits[i];
                 if (sign(l))
                     lits.push_back(m.mk_not(m_bvar2expr.get(lit2bvar(l))));
-                else 
+                else
                     lits.push_back(m_bvar2expr.get(lit2bvar(l)));
             }
             if (ineq)
@@ -1600,7 +1633,7 @@ namespace fm {
             else
                 return m.mk_or(lits.size(), lits.c_ptr());
         }
-        
+
         var mk_var(expr * t) {
             SASSERT(::is_var(t));
             SASSERT(m_util.is_int(t) || m_util.is_real(t));
@@ -1617,12 +1650,12 @@ namespace fm {
             SASSERT(m_var2expr.size()  == m_is_int.size());
             SASSERT(m_lowers.size()    == m_is_int.size());
             SASSERT(m_uppers.size()    == m_is_int.size());
-            SASSERT(m_forbidden.size() == m_is_int.size()); 
+            SASSERT(m_forbidden.size() == m_is_int.size());
             SASSERT(m_var2pos.size()   == m_is_int.size());
             TRACE("qe_lite", tout << mk_pp(t,m) << " |-> " << x << " forbidden: " << forbidden << "\n";);
             return x;
         }
-        
+
         bvar mk_bvar(expr * t) {
             SASSERT(is_uninterp_const(t));
             SASSERT(m.is_bool(t));
@@ -1634,7 +1667,7 @@ namespace fm {
             SASSERT(p > 0);
             return p;
         }
-        
+
         var to_var(expr * t) {
             var x;
             if (!m_expr2var.find(t, x))
@@ -1644,22 +1677,22 @@ namespace fm {
             TRACE("qe_lite", tout << mk_ismt2_pp(t, m) << " --> " << x << "\n";);
             return x;
         }
-        
+
         bvar to_bvar(expr * t) {
             bvar p;
             if (m_expr2bvar.find(t, p))
                 return p;
             return mk_bvar(t);
         }
-        
+
         literal to_literal(expr * t) {
             if (m.is_not(t, t))
-                return -to_bvar(t); 
+                return -to_bvar(t);
             else
                 return to_bvar(t);
         }
-        
-        
+
+
         void add_constraint(expr * f, expr_dependency * dep) {
             TRACE("qe_lite", tout << mk_pp(f, m) << "\n";);
             SASSERT(!m.is_or(f) || m_fm_occ);
@@ -1711,7 +1744,7 @@ namespace fm {
                         num_mons = 1;
                         mons     = &lhs;
                     }
-                    
+
                     bool all_int = true;
                     for (unsigned j = 0; j < num_mons; j++) {
                         expr * monomial = mons[j];
@@ -1740,9 +1773,9 @@ namespace fm {
                     }
                 }
             }
-            
+
             TRACE("qe_lite", tout << "before mk_constraint: "; for (unsigned i = 0; i < xs.size(); i++) tout << " " << xs[i]; tout << "\n";);
-            
+
             constraint * new_c = mk_constraint(lits.size(),
                                                lits.c_ptr(),
                                                xs.size(),
@@ -1751,15 +1784,15 @@ namespace fm {
                                                c,
                                                strict,
                                                dep);
-            
+
             TRACE("qe_lite", tout << "add_constraint: "; display(tout, *new_c); tout << "\n";);
             VERIFY(register_constraint(new_c));
         }
-        
+
         bool is_false(constraint const & c) const {
             return c.m_num_lits == 0 && c.m_num_vars == 0 && (c.m_c.is_neg() || (c.m_strict && c.m_c.is_zero()));
         }
-        
+
         bool register_constraint(constraint * c) {
             normalize_coeffs(*c);
             if (is_false(*c)) {
@@ -1768,20 +1801,20 @@ namespace fm {
                 TRACE("qe_lite", tout << "is false "; display(tout, *c); tout << "\n";);
                 return false;
             }
-            
+
             bool r = false;
-            
+
             for (unsigned i = 0; i < c->m_num_vars; i++) {
                 var x = c->m_xs[i];
                 if (!is_forbidden(x)) {
                     r = true;
-                    if (c->m_as[i].is_neg()) 
+                    if (c->m_as[i].is_neg())
                         m_lowers[x].push_back(c);
                     else
                         m_uppers[x].push_back(c);
                 }
             }
-            
+
             if (r) {
                 m_sub_todo.insert(*c);
                 m_constraints.push_back(c);
@@ -1794,13 +1827,13 @@ namespace fm {
                 return false;
             }
         }
-        
+
         void init_use_list(expr_ref_vector const & g) {
             unsigned sz = g.size();
             for (unsigned i = 0; !m_inconsistent && i < sz; i++) {
                 expr * f = g[i];
                 if (is_occ(f))
-                    add_constraint(f, 0);
+                    add_constraint(f, nullptr);
                 else
                     m_new_fmls.push_back(f);
             }
@@ -1812,13 +1845,13 @@ namespace fm {
                 return UINT_MAX;
             return static_cast<unsigned>(r);
         }
-        
+
         typedef std::pair<var, unsigned> x_cost;
-    
+
         struct x_cost_lt {
             char_vector const m_is_int;
             x_cost_lt(char_vector & is_int):m_is_int(is_int) {}
-            bool operator()(x_cost const & p1, x_cost const & p2) const { 
+            bool operator()(x_cost const & p1, x_cost const & p2) const {
                 // Integer variables with cost 0 can be eliminated even if they depend on real variables.
                 // Cost 0 == no lower or no upper bound.
                 if (p1.second == 0) {
@@ -1828,7 +1861,7 @@ namespace fm {
                 if (p2.second == 0) return false;
                 bool int1 = m_is_int[p1.first] != 0;
                 bool int2 = m_is_int[p2.first] != 0;
-                return (!int1 && int2) || (int1 == int2 && p1.second < p2.second); 
+                return (!int1 && int2) || (int1 == int2 && p1.second < p2.second);
             }
         };
 
@@ -1842,7 +1875,7 @@ namespace fm {
             }
             // x_cost_lt is not a total order on variables
             std::stable_sort(x_cost_vector.begin(), x_cost_vector.end(), x_cost_lt(m_is_int));
-            TRACE("qe_lite", 
+            TRACE("qe_lite",
                   svector<x_cost>::iterator it2  = x_cost_vector.begin();
                   svector<x_cost>::iterator end2 = x_cost_vector.end();
                   for (; it2 != end2; ++it2) {
@@ -1855,7 +1888,7 @@ namespace fm {
                 xs.push_back(it2->first);
             }
         }
-        
+
         void cleanup_constraints(constraints & cs) {
             unsigned j = 0;
             unsigned sz = cs.size();
@@ -1868,7 +1901,7 @@ namespace fm {
             }
             cs.shrink(j);
         }
-    
+
         // Set all_int = true if all variables in c are int.
         // Set unit_coeff = true if the coefficient of x in c is 1 or -1.
         // If all_int = false, then unit_coeff may not be set.
@@ -1900,8 +1933,8 @@ namespace fm {
                     unit_coeff = false;
             }
         }
-        
-        // An integer variable x may be eliminated, if 
+
+        // An integer variable x may be eliminated, if
         //   1- All variables in the contraints it occur are integer.
         //   2- The coefficient of x in all lower bounds (or all upper bounds) is unit.
         bool can_eliminate(var x) const {
@@ -1915,7 +1948,7 @@ namespace fm {
             analyze(m_uppers[x], x, all_int, u_unit);
             return all_int && (l_unit || u_unit);
         }
-        
+
         void copy_constraints(constraints const & s, clauses & t) {
             constraints::const_iterator it  = s.begin();
             constraints::const_iterator end = s.end();
@@ -1924,23 +1957,23 @@ namespace fm {
                 t.push_back(c);
             }
         }
-        
+
         clauses tmp_clauses;
         void save_constraints(var x) {  }
-        
+
         void mark_constraints_dead(constraints const & cs) {
             constraints::const_iterator it  = cs.begin();
             constraints::const_iterator end = cs.end();
             for (; it != end; ++it)
                 (*it)->m_dead = true;
         }
-        
+
         void mark_constraints_dead(var x) {
             save_constraints(x);
             mark_constraints_dead(m_lowers[x]);
             mark_constraints_dead(m_uppers[x]);
         }
-        
+
         void get_coeff(constraint const & c, var x, rational & a) {
             for (unsigned i = 0; i < c.m_num_vars; i++) {
                 if (c.m_xs[i] == x) {
@@ -1950,11 +1983,11 @@ namespace fm {
             }
             UNREACHABLE();
         }
-        
+
         var_vector       new_xs;
         vector<rational> new_as;
         svector<literal> new_lits;
-        
+
         constraint * resolve(constraint const & l, constraint const & u, var x) {
             m_counter += l.m_num_vars + u.m_num_vars + l.m_num_lits + u.m_num_lits;
             rational a, b;
@@ -1963,14 +1996,14 @@ namespace fm {
             SASSERT(a.is_neg());
             SASSERT(b.is_pos());
             a.neg();
-            
+
             SASSERT(!is_int(x) || a.is_one() || b.is_one());
-            
+
             new_xs.reset();
             new_as.reset();
             rational         new_c = l.m_c*b + u.m_c*a;
             bool             new_strict = l.m_strict || u.m_strict;
-            
+
             for (unsigned i = 0; i < l.m_num_vars; i++) {
                 var xi = l.m_xs[i];
                 if (xi == x)
@@ -1983,7 +2016,7 @@ namespace fm {
                 SASSERT(new_xs[m_var2pos[xi]] == xi);
                 SASSERT(new_xs.size() == new_as.size());
             }
-            
+
             for (unsigned i = 0; i < u.m_num_vars; i++) {
                 var xi = u.m_xs[i];
                 if (xi == x)
@@ -1997,7 +2030,7 @@ namespace fm {
                     new_as[pos] += u.m_as[i] * a;
                 }
             }
-            
+
             // remove zeros and check whether all variables are int
             bool all_int = true;
             unsigned sz = new_xs.size();
@@ -2015,26 +2048,26 @@ namespace fm {
             }
             new_xs.shrink(j);
             new_as.shrink(j);
-            
+
             if (all_int && new_strict) {
                 new_strict = false;
                 new_c --;
             }
-            
+
             // reset m_var2pos
             for (unsigned i = 0; i < l.m_num_vars; i++) {
                 m_var2pos[l.m_xs[i]] = UINT_MAX;
             }
-            
+
             if (new_xs.empty() && (new_c.is_pos() || (!new_strict && new_c.is_zero()))) {
                 // literal is true
                 TRACE("qe_lite", tout << "resolution " << x << " consequent literal is always true: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0; // no constraint needs to be created.
+                return nullptr; // no constraint needs to be created.
             }
-            
+
             new_lits.reset();
             for (unsigned i = 0; i < l.m_num_lits; i++) {
                 literal lit = l.m_lits[i];
@@ -2042,7 +2075,7 @@ namespace fm {
                 m_bvar2sign[p] = sign(lit) ? -1 : 1;
                 new_lits.push_back(lit);
             }
-            
+
             bool tautology = false;
             for (unsigned i = 0; i < u.m_num_lits && !tautology; i++) {
                 literal lit = u.m_lits[i];
@@ -2063,24 +2096,24 @@ namespace fm {
                     UNREACHABLE();
                 }
             }
-            
+
             // reset m_bvar2sign
             for (unsigned i = 0; i < l.m_num_lits; i++) {
                 literal lit = l.m_lits[i];
                 bvar    p   = lit2bvar(lit);
                 m_bvar2sign[p] = 0;
             }
-            
+
             if (tautology) {
                 TRACE("qe_lite", tout << "resolution " << x << " tautology: \n";
                       display(tout, l);
                       tout << "\n";
                       display(tout, u); tout << "\n";);
-                return 0;
+                return nullptr;
             }
 
             expr_dependency * new_dep = m.mk_join(l.m_dep, u.m_dep);
-            
+
             if (new_lits.empty() && new_xs.empty() && (new_c.is_neg() || (new_strict && new_c.is_zero()))) {
                 TRACE("qe_lite", tout << "resolution " << x << " inconsistent: \n";
                       display(tout, l);
@@ -2088,9 +2121,9 @@ namespace fm {
                       display(tout, u); tout << "\n";);
                 m_inconsistent      = true;
                 m_inconsistent_core = new_dep;
-                return 0;
+                return nullptr;
             }
-            
+
             constraint * new_cnstr = mk_constraint(new_lits.size(),
                                                    new_lits.c_ptr(),
                                                    new_xs.size(),
@@ -2105,45 +2138,45 @@ namespace fm {
                   tout << "\n";
                   display(tout, u);
                   tout << "\n---->\n";
-                  display(tout, *new_cnstr); 
+                  display(tout, *new_cnstr);
                   tout << "\n";
                   tout << "new_dep: " << new_dep << "\n";);
-            
+
             return new_cnstr;
         }
-        
+
         ptr_vector<constraint> new_constraints;
-        
+
         bool try_eliminate(var x) {
             constraints & l = m_lowers[x];
             constraints & u = m_uppers[x];
             cleanup_constraints(l);
             cleanup_constraints(u);
-            
+
             if (l.empty() || u.empty()) {
                 // easy case
                 mark_constraints_dead(x);
                 TRACE("qe_lite", tout << "variable was eliminated (trivial case)\n";);
                 return true;
             }
-            
+
             unsigned num_lowers = l.size();
             unsigned num_uppers = u.size();
-            
+
             if (num_lowers > m_fm_cutoff1 && num_uppers > m_fm_cutoff1)
                 return false;
-            
+
             if (num_lowers * num_uppers > m_fm_cutoff2)
                 return false;
-            
+
             if (!can_eliminate(x))
                 return false;
-            
+
             m_counter += num_lowers * num_uppers;
-            
+
             TRACE("qe_lite", tout << "eliminating " << mk_ismt2_pp(m_var2expr.get(x), m) << "\nlowers:\n";
                   display_constraints(tout, l); tout << "uppers:\n"; display_constraints(tout, u););
-            
+
             unsigned num_old_cnstrs = num_uppers + num_lowers;
             unsigned limit          = num_old_cnstrs + m_fm_extra;
             unsigned num_new_cnstrs = 0;
@@ -2158,19 +2191,19 @@ namespace fm {
                     constraint const & l_c = *(l[i]);
                     constraint const & u_c = *(u[j]);
                     constraint * new_c = resolve(l_c, u_c, x);
-                    if (new_c != 0) {
+                    if (new_c != nullptr) {
                         num_new_cnstrs++;
                         new_constraints.push_back(new_c);
                     }
                 }
             }
-            
+
             mark_constraints_dead(x);
-            
+
             unsigned sz = new_constraints.size();
-            
+
             m_counter += sz;
-            
+
             for (unsigned i = 0; i < sz; i++) {
                 constraint * c = new_constraints[i];
                 backward_subsumption(*c);
@@ -2179,7 +2212,7 @@ namespace fm {
             TRACE("qe_lite", tout << "variables was eliminated old: " << num_old_cnstrs << " new_constraints: " << sz << "\n";);
             return true;
         }
-        
+
         void copy_remaining(vector<constraints> & v2cs) {
             vector<constraints>::iterator it  = v2cs.begin();
             vector<constraints>::iterator end = v2cs.end();
@@ -2199,13 +2232,13 @@ namespace fm {
             }
             v2cs.finalize();
         }
-        
+
         // Copy remaining clauses to m_new_fmls
         void copy_remaining() {
             copy_remaining(m_uppers);
             copy_remaining(m_lowers);
         }
-        
+
         void checkpoint() {
             cooperate("fm");
             if (m.canceled())
@@ -2218,18 +2251,21 @@ namespace fm {
         void operator()(expr_ref_vector& fmls) {
             init(fmls);
             init_use_list(fmls);
+            for (auto & f : fmls) {
+                if (has_quantifiers(f)) return;
+            }
             if (m_inconsistent) {
                 m_new_fmls.reset();
                 m_new_fmls.push_back(m.mk_false());
             }
             else {
                 TRACE("qe_lite", display(tout););
-                
+
                 subsume();
                 var_vector candidates;
-                sort_candidates(candidates);                
-                unsigned eliminated = 0;                
-                
+                sort_candidates(candidates);
+                unsigned eliminated = 0;
+
                 unsigned num = candidates.size();
                 for (unsigned i = 0; i < num; i++) {
                     checkpoint();
@@ -2251,8 +2287,8 @@ namespace fm {
             reset_constraints();
             fmls.reset();
             fmls.append(m_new_fmls);
-        }        
-        
+        }
+
         void display_constraints(std::ostream & out, constraints const & cs) const {
             constraints::const_iterator it  = cs.begin();
             constraints::const_iterator end = cs.end();
@@ -2262,7 +2298,7 @@ namespace fm {
                 out << "\n";
             }
         }
-        
+
         void display(std::ostream & out) const {
             unsigned num = num_vars();
             for (var x = 0; x < num; x++) {
@@ -2284,10 +2320,10 @@ public:
         ast_manager& m;
     public:
         elim_cfg(impl& i): m_imp(i), m(i.m) {}
-        
-        bool reduce_quantifier(quantifier * q, 
-                               expr * new_body, 
-                               expr * const * new_patterns, 
+
+        bool reduce_quantifier(quantifier * q,
+                               expr * new_body,
+                               expr * const * new_patterns,
                                expr * const * new_no_patterns,
                                expr_ref & result,
                                proof_ref & result_pr) {
@@ -2299,13 +2335,13 @@ public:
             for (unsigned i = 0; i < q->get_num_decls(); ++i) {
                 indices.insert(i);
             }
-            m_imp(indices, true, result);          
+            m_imp(indices, true, result);
             if (is_forall(q)) {
                 result = push_not(result);
             }
             result = m.update_quantifier(
-                q, 
-                q->get_num_patterns(), new_patterns, 
+                q,
+                q->get_num_patterns(), new_patterns,
                 q->get_num_no_patterns(), new_no_patterns, result);
             m_imp.m_rewriter(result);
             return true;
@@ -2315,7 +2351,7 @@ public:
     class elim_star : public rewriter_tpl<elim_cfg> {
         elim_cfg m_cfg;
     public:
-        elim_star(impl& i): 
+        elim_star(impl& i):
             rewriter_tpl<elim_cfg>(i.m, false, m_cfg),
             m_cfg(i)
         {}
@@ -2329,6 +2365,7 @@ private:
     elim_star    m_elim_star;
     th_rewriter  m_rewriter;
 
+    bool m_use_array_der;
     bool has_unique_non_ground(expr_ref_vector const& fmls, unsigned& index) {
         index = fmls.size();
         if (index <= 1) {
@@ -2346,21 +2383,22 @@ private:
     }
 
 public:
-    impl(ast_manager& m): 
-        m(m), 
-        m_der(m), 
-        m_fm(m), 
-        m_array_der(m), 
-        m_elim_star(*this), 
-        m_rewriter(m) {}
-    
+    impl(ast_manager & m, params_ref const & p, bool use_array_der):
+        m(m),
+        m_der(m, p),
+        m_fm(m),
+        m_array_der(m),
+        m_elim_star(*this),
+        m_rewriter(m),
+        m_use_array_der(use_array_der) {}
+
     void operator()(app_ref_vector& vars, expr_ref& fml) {
         if (vars.empty()) {
             return;
         }
         expr_ref tmp(fml);
         quantifier_ref q(m);
-        proof_ref pr(m);     
+        proof_ref pr(m);
         symbol qe_lite("QE");
         expr_abstract(m, 0, vars.size(), (expr*const*)vars.c_ptr(), fml, tmp);
         ptr_vector<sort> sorts;
@@ -2386,12 +2424,12 @@ public:
                     ++j;
                 }
             }
-            vars.resize(j);            
-        }        
+            vars.resize(j);
+        }
         else {
             fml = tmp;
         }
-    }    
+    }
 
     void operator()(expr_ref& fml, proof_ref& pr) {
         expr_ref tmp(m);
@@ -2432,14 +2470,15 @@ public:
         m_array_der.set_is_variable_proc(is_var);
         m_der(fmls);
         m_fm(fmls);
-        m_array_der(fmls);
+        // AG: disalble m_array_der() since it interferes with other array handling
+        if (m_use_array_der) m_array_der(fmls);
         TRACE("qe_lite", for (unsigned i = 0; i < fmls.size(); ++i) tout << mk_pp(fmls[i].get(), m) << "\n";);
     }
 
 };
 
-qe_lite::qe_lite(ast_manager& m) {
-    m_impl = alloc(impl, m);
+qe_lite::qe_lite(ast_manager & m, params_ref const & p, bool use_array_der) {
+    m_impl = alloc(impl, m, p, use_array_der);
 }
 
 qe_lite::~qe_lite() {
@@ -2464,14 +2503,14 @@ void qe_lite::operator()(uint_set const& index_set, bool index_of_bound, expr_re
 }
 
 class qe_lite_tactic : public tactic {
-    
+
     struct imp {
         ast_manager&             m;
         qe_lite                  m_qe;
 
-        imp(ast_manager& m, params_ref const& p): 
+        imp(ast_manager& m, params_ref const & p):
             m(m),
-            m_qe(m)
+            m_qe(m, p, true)
         {}
 
         void checkpoint() {
@@ -2479,7 +2518,7 @@ class qe_lite_tactic : public tactic {
                 throw tactic_exception(m.limit().get_cancel_msg());
             cooperate("qe-lite");
         }
-        
+
         void debug_diff(expr* a, expr* b) {
             ptr_vector<expr> as, bs;
             as.push_back(a);
@@ -2515,13 +2554,13 @@ class qe_lite_tactic : public tactic {
             }
         }
 
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
+        void operator()(goal_ref const & g,
+                        goal_ref_buffer & result,
+                        model_converter_ref & mc,
                         proof_converter_ref & pc,
                         expr_dependency_ref & core) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("qe-lite", *g);
             proof_ref new_pr(m);
             expr_ref new_f(m);
@@ -2540,7 +2579,7 @@ class qe_lite_tactic : public tactic {
                 if (produce_proofs) {
                     expr* fact = m.get_fact(new_pr);
                     if (to_app(fact)->get_arg(0) != to_app(fact)->get_arg(1)) {
-                        new_pr = m.mk_modus_ponens(g->pr(i), new_pr);                        
+                        new_pr = m.mk_modus_ponens(g->pr(i), new_pr);
                     }
                     else {
                         new_pr = g->pr(i);
@@ -2548,7 +2587,7 @@ class qe_lite_tactic : public tactic {
                 }
                 if (f != new_f) {
                     TRACE("qe", tout << mk_pp(f, m) << "\n" << new_f << "\n";);
-                    g->update(i, new_f, new_pr, g->dep(i));                
+                    g->update(i, new_f, new_pr, g->dep(i));
                 }
             }
             g->inc_depth();
@@ -2558,7 +2597,7 @@ class qe_lite_tactic : public tactic {
         }
 
     };
-    
+
     params_ref m_params;
     imp *      m_imp;
 
@@ -2567,49 +2606,49 @@ public:
         m_params(p) {
         m_imp = alloc(imp, m, p);
     }
-        
-    virtual ~qe_lite_tactic() {
+
+    ~qe_lite_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(qe_lite_tactic, m, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         // m_imp->updt_params(p);
     }
 
-   
-    virtual void collect_param_descrs(param_descrs & r) {
+
+    void collect_param_descrs(param_descrs & r) override {
         // m_imp->collect_param_descrs(r);
     }
-    
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
+
+    void operator()(goal_ref const & in,
+                            goal_ref_buffer & result,
+                            model_converter_ref & mc,
                             proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+                            expr_dependency_ref & core) override {
         (*m_imp)(in, result, mc, pc, core);
     }
 
-    
-    virtual void collect_statistics(statistics & st) const {
+
+    void collect_statistics(statistics & st) const override {
         // m_imp->collect_statistics(st);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         // m_imp->reset_statistics();
     }
 
-    
-    virtual void cleanup() {
+
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         dealloc(m_imp);
         m_imp = alloc(imp, m, m_params);
     }
-    
+
 };
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {

@@ -20,11 +20,11 @@ Notes:
     sorting circuits if it keeps having to propagate (create new clauses).
 --*/
 
-#include "smt_theory.h"
-#include "pb_decl_plugin.h"
-#include "smt_clause.h"
-#include "theory_pb_params.h"
-#include "simplex.h"
+#include "smt/smt_theory.h"
+#include "ast/pb_decl_plugin.h"
+#include "smt/smt_clause.h"
+#include "smt/params/theory_pb_params.h"
+#include "math/simplex/simplex.h"
 
 namespace smt {
     class theory_pb : public theory {
@@ -193,10 +193,29 @@ namespace smt {
         typedef ptr_vector<ineq> watch_list;
         typedef map<arg_t, bool_var, arg_t::hash, arg_t::eq> arg_map;
 
+        struct var_info {
+            watch_list* m_lit_watch[2];
+            watch_list* m_var_watch;
+            ineq*       m_ineq;
+            
+            var_info(): m_var_watch(nullptr), m_ineq(nullptr)
+            {
+                m_lit_watch[0] = nullptr;
+                m_lit_watch[1] = nullptr;
+            }
+
+            void reset() {
+                dealloc(m_lit_watch[0]);
+                dealloc(m_lit_watch[1]);
+                dealloc(m_var_watch);
+                dealloc(m_ineq);
+            }
+        };
+
+
         theory_pb_params         m_params;        
-        u_map<watch_list*>       m_lwatch;      // per literal.
-        u_map<watch_list*>       m_vwatch;      // per variable.
-        u_map<ineq*>             m_ineqs;       // per inequality.
+
+        svector<var_info>        m_var_infos; 
         arg_map                  m_ineq_rep;       // Simplex: representative inequality
         u_map<row_info>          m_ineq_row_info;  // Simplex: row information per variable
         uint_set                 m_vars;           // Simplex: 0-1 variables.
@@ -221,6 +240,7 @@ namespace smt {
         literal compile_arg(expr* arg);
         void add_watch(ineq& c, unsigned index);
         void del_watch(watch_list& watch, unsigned index, ineq& c, unsigned ineq_index);
+        void init_watch(bool_var v);
         void init_watch_literal(ineq& c);
         void init_watch_var(ineq& c);
         void clear_watch(ineq& c);
@@ -241,7 +261,8 @@ namespace smt {
 
         std::ostream& display(std::ostream& out, ineq const& c, bool values = false) const;
         std::ostream& display(std::ostream& out, arg_t const& c, bool values = false) const;
-        virtual void display(std::ostream& out) const;
+        void display(std::ostream& out) const override;
+        void display_watch(std::ostream& out, bool_var v, bool sign) const;
         void display_resolved_lemma(std::ostream& out) const;
 
         void add_clause(ineq& c, literal_vector const& lits);
@@ -258,7 +279,6 @@ namespace smt {
         //
         void compile_ineq(ineq& c);
         void inc_propagations(ineq& c);
-        unsigned get_compilation_threshold(ineq& c);
 
         //
         // Conflict resolution, cutting plane derivation.
@@ -297,25 +317,26 @@ namespace smt {
     public:
         theory_pb(ast_manager& m, theory_pb_params& p);
         
-        virtual ~theory_pb();
+        ~theory_pb() override;
 
-        virtual theory * mk_fresh(context * new_ctx);
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
-        virtual bool internalize_term(app * term) { UNREACHABLE(); return false; }
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
-        virtual bool use_diseqs() const { return false; }
-        virtual bool build_models() const { return false; }
-        virtual final_check_status final_check_eh();
-        virtual void reset_eh();
-        virtual void assign_eh(bool_var v, bool is_true);
-        virtual void init_search_eh();
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual void restart_eh();
-        virtual void collect_statistics(::statistics & st) const;
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-        virtual void init_model(model_generator & m);        
+        theory * mk_fresh(context * new_ctx) override;
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override { UNREACHABLE(); return false; }
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override { }
+        bool use_diseqs() const override { return false; }
+        bool build_models() const override { return false; }
+        final_check_status final_check_eh() override;
+        void reset_eh() override;
+        void assign_eh(bool_var v, bool is_true) override;
+        void init_search_eh() override;
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        void restart_eh() override;
+        void collect_statistics(::statistics & st) const override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
+        void init_model(model_generator & m) override;
+        bool include_func_interp(func_decl* f) override { return false; }
 
         static literal assert_ge(context& ctx, unsigned k, unsigned n, literal const* xs);
     };

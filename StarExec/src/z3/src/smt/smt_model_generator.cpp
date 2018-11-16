@@ -17,23 +17,22 @@ Revision History:
 
 --*/
 
-#include"smt_context.h"
-#include"smt_model_generator.h"
-#include"proto_model.h"
-#include"ref_util.h"
-#include"for_each_expr.h"
-#include"ast_ll_pp.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
+#include "util/ref_util.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/smt_model_generator.h"
+#include "smt/proto_model/proto_model.h"
 
 namespace smt {
 
     model_generator::model_generator(ast_manager & m):
         m_manager(m),
-        m_context(0),
+        m_context(nullptr),
         m_fresh_idx(1),
         m_asts(m_manager),
-        m_model(0) {
+        m_model(nullptr) {
     }
 
     model_generator::~model_generator() {
@@ -45,7 +44,7 @@ namespace smt {
         m_fresh_idx = 1;
         m_root2value.reset();
         m_asts.reset();
-        m_model = 0;
+        m_model = nullptr;
     }
 
     void model_generator::init_model() {
@@ -55,7 +54,7 @@ namespace smt {
         ptr_vector<theory>::const_iterator it  = m_context->begin_theories();
         ptr_vector<theory>::const_iterator end = m_context->end_theories();
         for (; it != end; ++it) {
-            TRACE("model_generator_bug", tout << "init_model for theory: " << (*it)->get_name() << "\n";);
+            TRACE("model", tout << "init_model for theory: " << (*it)->get_name() << "\n";);
             (*it)->init_model(*this);
         }
     }
@@ -90,9 +89,9 @@ namespace smt {
             if (r == r->get_root() && m_context->is_relevant(r)) {
                 roots.push_back(r);
                 sort * s      = m_manager.get_sort(r->get_owner());
-                model_value_proc * proc = 0;
+                model_value_proc * proc = nullptr;
                 if (m_manager.is_bool(s)) {
-                    CTRACE("func_interp_bug", m_context->get_assignment(r) == l_undef, 
+                    CTRACE("model", m_context->get_assignment(r) == l_undef, 
                            tout << mk_pp(r->get_owner(), m_manager) << "\n";);
                     SASSERT(m_context->get_assignment(r) != l_undef);
                     if (m_context->get_assignment(r) == l_true)
@@ -109,7 +108,7 @@ namespace smt {
                             SASSERT(proc);
                         }
                         else {
-                            TRACE("model_bug", tout << "creating fresh value for #" << r->get_owner_id() << "\n";);
+                            TRACE("model", tout << "creating fresh value for #" << r->get_owner_id() << "\n";);
                             proc = alloc(fresh_value_proc, mk_extra_fresh_value(m_manager.get_sort(r->get_owner())));
                         }
                     }
@@ -131,7 +130,7 @@ namespace smt {
         if (!m_manager.is_model_value(n)) {
             sort * s = m_manager.get_sort(r->get_owner());
             n = m_model->get_fresh_value(s);
-            CTRACE("model_generator_bug", n == 0, 
+            CTRACE("model", n == 0, 
                    tout << mk_pp(r->get_owner(), m_manager) << "\nsort:\n" << mk_pp(s, m_manager) << "\n";
                    tout << "is_finite: " << m_model->is_finite(s) << "\n";);
         }
@@ -178,7 +177,7 @@ namespace smt {
                 if (m_manager.get_sort(r->get_owner()) != s)
                     continue;
                 SASSERT(r == r->get_root());
-                model_value_proc * proc = 0;
+                model_value_proc * proc = nullptr;
                 root2proc.find(r, proc);
                 SASSERT(proc);
                 if (proc->is_fresh())
@@ -197,7 +196,7 @@ namespace smt {
         enode * n = src.get_enode();
         SASSERT(n == n->get_root());
         bool visited = true;
-        model_value_proc * proc = 0;
+        model_value_proc * proc = nullptr;
         root2proc.find(n, proc);
         SASSERT(proc);
         buffer<model_value_dependency> dependencies;
@@ -284,7 +283,7 @@ namespace smt {
         sz = roots.size();
         for (unsigned i = 0; i < sz; i++) {
             enode * r     = roots[i];
-            model_value_proc * proc = 0;
+            model_value_proc * proc = nullptr;
             root2proc.find(r, proc);
             SASSERT(proc);
             if (!proc->is_fresh())
@@ -346,7 +345,7 @@ namespace smt {
                 TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << "\n";);
                 dependencies.reset();
                 dependency_values.reset();
-                model_value_proc * proc = 0;
+                model_value_proc * proc = nullptr;
                 VERIFY(root2proc.find(n, proc));
                 SASSERT(proc);
                 proc->get_dependencies(dependencies);
@@ -365,7 +364,7 @@ namespace smt {
                         enode * child = d.get_enode();
                         TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_owner(), m_manager) << "): " << mk_pp(child->get_owner(), m_manager) << " " << mk_pp(child->get_root()->get_owner(), m_manager) << "\n";);
                         child = child->get_root();
-                        app * val = 0;
+                        app * val = nullptr;
                         m_root2value.find(child, val);
                         SASSERT(val);
                         dependency_values.push_back(val);
@@ -396,7 +395,7 @@ namespace smt {
     }
 
     app * model_generator::get_value(enode * n) const {
-        app * val = 0;
+        app * val = nullptr;
         m_root2value.find(n->get_root(), val);
         SASSERT(val);
         return val;
@@ -407,9 +406,11 @@ namespace smt {
     */
     bool model_generator::include_func_interp(func_decl * f) const {
         family_id fid = f->get_family_id();
+        TRACE("model", tout << f->get_name() << " " << fid << "\n";);
         if (fid == null_family_id) return !m_hidden_ufs.contains(f); 
         if (fid == m_manager.get_basic_family_id()) return false;
         theory * th = m_context->get_theory(fid);
+        TRACE("model", tout << th << "\n";);
         if (!th) return true;
         return th->include_func_interp(f);
     }
@@ -437,14 +438,14 @@ namespace smt {
                     args.push_back(arg);
                 }
                 func_interp * fi = m_model->get_func_interp(f);
-                if (fi == 0) {
+                if (fi == nullptr) {
                     fi = alloc(func_interp, m_manager, f->get_arity());
                     m_model->register_decl(f, fi);
                 }
                 SASSERT(m_model->has_interpretation(f));
                 SASSERT(m_model->get_func_interp(f) == fi);
                 // The entry must be new because n->get_cg() == n
-                TRACE("func_interp_bug", 
+                TRACE("model", 
                       tout << "insert new entry for:\n" << mk_ismt2_pp(n->get_owner(), m_manager) << "\nargs: ";
                       for (unsigned i = 0; i < num_args; i++) {
                           tout << "#" << n->get_arg(i)->get_owner_id() << " ";
@@ -453,7 +454,7 @@ namespace smt {
                       tout << "value: #" << n->get_owner_id() << "\n" << mk_ismt2_pp(result, m_manager) << "\n";);
                 if (m_context->get_last_search_failure() == smt::THEORY) {
                     // if the theory solvers are incomplete, then we cannot assume the e-graph is close under congruence
-                    if (fi->get_entry(args.c_ptr()) == 0)
+                    if (fi->get_entry(args.c_ptr()) == nullptr)
                         fi->insert_new_entry(args.c_ptr(), result);
                 }
                 else {
@@ -508,20 +509,20 @@ namespace smt {
 
     void model_generator::register_macros() {
         unsigned num = m_context->get_num_macros();
-        TRACE("register_macros", tout << "num. macros: " << num << "\n";);
+        TRACE("model", tout << "num. macros: " << num << "\n";);
         expr_ref v(m_manager);
         for (unsigned i = 0; i < num; i++) {
             func_decl * f    = m_context->get_macro_interpretation(i, v);
             func_interp * fi = alloc(func_interp, m_manager, f->get_arity());
             fi->set_else(v);
-            TRACE("register_macros", tout << f->get_name() << "\n" << mk_pp(v, m_manager) << "\n";);
+            TRACE("model", tout << f->get_name() << "\n" << mk_pp(v, m_manager) << "\n";);
             m_model->register_decl(f, fi);
         }
     }
 
     proto_model * model_generator::mk_model() {
         SASSERT(!m_model);
-        TRACE("func_interp_bug", m_context->display(tout););
+        TRACE("model", m_context->display(tout););
         init_model();
         register_existing_model_values();
         mk_bool_model();

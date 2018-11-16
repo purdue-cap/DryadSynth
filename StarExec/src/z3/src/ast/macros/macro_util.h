@@ -20,14 +20,10 @@ Revision History:
 #ifndef MACRO_UTIL_H_
 #define MACRO_UTIL_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"simplifier.h"
-
-class poly_simplifier_plugin;
-class arith_simplifier_plugin;
-class bv_simplifier_plugin;
-class basic_simplifier_plugin;
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "ast/rewriter/arith_rewriter.h"
+#include "ast/rewriter/bv_rewriter.h"
 
 class macro_util {
 public:
@@ -62,21 +58,21 @@ public:
 
 private:
     ast_manager &               m_manager;
-    simplifier &                m_simplifier;
-    arith_simplifier_plugin *   m_arith_simp;
-    bv_simplifier_plugin    *   m_bv_simp;
-    basic_simplifier_plugin *   m_basic_simp;
+    bv_util                     m_bv;
+    arith_util                  m_arith;
+    mutable arith_rewriter      m_arith_rw;
+    mutable bv_rewriter         m_bv_rw;
     obj_hashtable<func_decl> *  m_forbidden_set;
 
-    bool is_forbidden(func_decl * f) const { return m_forbidden_set != 0 && m_forbidden_set->contains(f); }
+    bool is_forbidden(func_decl * f) const { return m_forbidden_set != nullptr && m_forbidden_set->contains(f); }
     bool poly_contains_head(expr * n, func_decl * f, expr * exception) const;
 
     void collect_arith_macros(expr * n, unsigned num_decls, unsigned max_macros, bool allow_cond_macros,
                               macro_candidates & r);
 
-    void normalize_expr(app * head, expr * t, expr_ref & norm_t) const;
-    void insert_macro(app * head, expr * def, expr * cond, bool ineq, bool satisfy_atom, bool hint, macro_candidates & r);
-    void insert_quasi_macro(app * head, unsigned num_decls, expr * def, expr * cond, bool ineq, bool satisfy_atom, bool hint, 
+    void normalize_expr(app * head, unsigned num_decls, expr * t, expr_ref & norm_t) const;
+    void insert_macro(app * head, unsigned num_decls, expr * def, expr * cond, bool ineq, bool satisfy_atom, bool hint, macro_candidates & r);
+    void insert_quasi_macro(app * head, unsigned num_decls, expr * def, expr * cond, bool ineq, bool satisfy_atom, bool hint,
                             macro_candidates & r);
 
     expr * m_curr_clause; // auxiliary var used in collect_macro_candidates.
@@ -94,18 +90,15 @@ private:
 
 
 public:
-    macro_util(ast_manager & m, simplifier & s);
+    macro_util(ast_manager & m);
     void set_forbidden_set(obj_hashtable<func_decl> * s) { m_forbidden_set = s; }
 
-    arith_simplifier_plugin * get_arith_simp() const;
-    bv_simplifier_plugin * get_bv_simp() const;
-    basic_simplifier_plugin * get_basic_simp() const;
 
     bool is_macro_head(expr * n, unsigned num_decls) const;
     bool is_left_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const;
     bool is_right_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const;
     bool is_simple_macro(expr * n, unsigned num_decls, app_ref& head, expr_ref & def) const {
-        return is_left_simple_macro(n, num_decls, head, def) || is_right_simple_macro(n, num_decls, head, def); 
+        return is_left_simple_macro(n, num_decls, head, def) || is_right_simple_macro(n, num_decls, head, def);
     }
 
     bool is_arith_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def, bool & inv) const;
@@ -113,20 +106,22 @@ public:
         bool inv;
         return is_arith_macro(n, num_decls, head, def, inv);
     }
-    
+
+    bool is_zero_safe(expr * n) const;
+    bool is_var_plus_ground(expr * n, bool & inv, var * & v, expr_ref & t);
     bool is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, app_ref & t);
     bool is_pseudo_predicate_macro(expr * n, app_ref & head, app_ref & t, expr_ref & def);
 
     bool is_quasi_macro_head(expr * n, unsigned num_decls) const;
-    void quasi_macro_head_to_macro_head(app * qhead, unsigned num_decls, app_ref & head, expr_ref & cond) const;
+    void quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decls, app_ref & head, expr_ref & cond) const;
 
-    void mk_macro_interpretation(app * head, expr * def, expr_ref & interp) const;
+    void mk_macro_interpretation(app * head, unsigned num_decls, expr * def, expr_ref & interp) const;
 
     void collect_macro_candidates(expr * atom, unsigned num_decls, macro_candidates & r);
     void collect_macro_candidates(quantifier * q, macro_candidates & r);
 
     //
-    // Auxiliary goodness that allows us to manipulate BV and Arith polynomials. 
+    // Auxiliary goodness that allows us to manipulate BV and Arith polynomials.
     //
     bool is_bv(expr * n) const;
     bool is_bv_sort(sort * s) const;
@@ -138,7 +133,6 @@ public:
     void mk_sub(expr * t1, expr * t2, expr_ref & r) const;
     void mk_add(expr * t1, expr * t2, expr_ref & r) const;
     void mk_add(unsigned num_args, expr * const * args, sort * s, expr_ref & r) const;
-    poly_simplifier_plugin * get_poly_simp_for(sort * s) const;
 };
 
 #endif

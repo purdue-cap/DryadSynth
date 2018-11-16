@@ -16,18 +16,18 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
+#include "tactic/tactical.h"
 
-#include"tseitin_cnf_tactic.h"
-#include"degree_shift_tactic.h"
-#include"purify_arith_tactic.h"
-#include"nlsat_tactic.h"
-#include"factor_tactic.h"
-#include"simplify_tactic.h"
-#include"elim_uncnstr_tactic.h"
-#include"propagate_values_tactic.h"
-#include"solve_eqs_tactic.h"
-#include"elim_term_ite_tactic.h"
+#include "tactic/core/tseitin_cnf_tactic.h"
+#include "tactic/arith/degree_shift_tactic.h"
+#include "tactic/arith/purify_arith_tactic.h"
+#include "nlsat/tactic/nlsat_tactic.h"
+#include "tactic/arith/factor_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/elim_uncnstr_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/core/elim_term_ite_tactic.h"
 
 tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
     params_ref main_p = p;
@@ -48,11 +48,15 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
                                           purify_p),
                              mk_propagate_values_tactic(m, p),
                              mk_solve_eqs_tactic(m, p),
+                             using_params(mk_purify_arith_tactic(m, p),
+                                          purify_p),
                              mk_elim_uncnstr_tactic(m, p),
                              mk_elim_term_ite_tactic(m, p)),
                     and_then(/* mk_degree_shift_tactic(m, p), */ // may affect full dimensionality detection
                              factor,
                              mk_solve_eqs_tactic(m, p),
+                             using_params(mk_purify_arith_tactic(m, p),
+                                          purify_p),
                              using_params(mk_simplify_tactic(m, p),
                                           main_p),
                              mk_tseitin_cnf_core_tactic(m, p),

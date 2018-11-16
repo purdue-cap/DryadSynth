@@ -19,8 +19,8 @@ Revision History:
 
 #include<utility>
 #include<sstream>
-#include"ast_pp.h"
-#include"dl_mk_magic_sets.h"
+#include "ast/ast_pp.h"
+#include "muz/transforms/dl_mk_magic_sets.h"
 
 namespace datalog {
 
@@ -129,9 +129,9 @@ namespace datalog {
         SASSERT(m.is_bool(old_pred->get_range()));
         adornment_desc adn(old_pred);
         adn.m_adornment.populate(lit, bound_vars);
-        adornment_map::entry * e = m_adorned_preds.insert_if_not_there2(adn, 0);
+        adornment_map::entry * e = m_adorned_preds.insert_if_not_there2(adn, nullptr);
         func_decl * new_pred = e->get_data().m_value;
-        if (new_pred==0) {
+        if (new_pred==nullptr) {
             std::string suffix = "ad_"+adn.m_adornment.to_string();
             new_pred = m_context.mk_fresh_head_predicate(
                 old_pred->get_name(), symbol(suffix.c_str()), 
@@ -163,7 +163,7 @@ namespace datalog {
 
         pred2pred::obj_map_entry * e = m_magic_preds.insert_if_not_there2(l_pred, 0);
         func_decl * mag_pred = e->get_data().m_value;
-        if (mag_pred==0) {
+        if (mag_pred==nullptr) {
             unsigned mag_arity = bound_args.size();
 
             ptr_vector<sort> mag_domain;
@@ -264,7 +264,7 @@ namespace datalog {
         }
 
 
-        func_decl * new_head_pred = 0;
+        func_decl * new_head_pred = nullptr;
         VERIFY( m_adorned_preds.find(adornment_desc(head->get_decl(), head_adornment), new_head_pred) );
         app * new_head = m.mk_app(new_head_pred, head->get_args());
 
@@ -280,7 +280,7 @@ namespace datalog {
         new_tail.push_back(create_magic_literal(new_head));
         negations.push_back(false);
 
-        rule * nr = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), negations.c_ptr());
+        rule * nr = m_context.get_rule_manager().mk(new_head, new_tail.size(), new_tail.c_ptr(), negations.c_ptr(), r->name());
         result.add_rule(nr);
         nr->set_accounting_parent_object(m_context, r);
     }
@@ -301,14 +301,14 @@ namespace datalog {
 
         app * tail[] = {lit, mag_lit};
 
-        rule * r = m_context.get_rule_manager().mk(adn_lit, 2, tail, 0);
+        rule * r = m_context.get_rule_manager().mk(adn_lit, 2, tail, nullptr);
         result.add_rule(r);
     }
 
     rule_set * mk_magic_sets::operator()(rule_set const & source) {
 
         if (!m_context.magic_sets_for_queries()) {
-            return 0;
+            return nullptr;
         }
         SASSERT(source.contains(m_goal));
         SASSERT(source.get_predicate_rules(m_goal).size() == 1);
@@ -372,10 +372,10 @@ namespace datalog {
         app * adn_goal_head = adorn_literal(goal_head, empty_var_idx_set);
         app * mag_goal_head = create_magic_literal(adn_goal_head);
         SASSERT(mag_goal_head->is_ground());
-        rule * mag_goal_rule = m_context.get_rule_manager().mk(mag_goal_head, 0, 0, 0);
+        rule * mag_goal_rule = m_context.get_rule_manager().mk(mag_goal_head, 0, nullptr, nullptr);
         result->add_rule(mag_goal_rule);
 
-        rule * back_to_goal_rule = m_context.get_rule_manager().mk(goal_head, 1, &adn_goal_head, 0);
+        rule * back_to_goal_rule = m_context.get_rule_manager().mk(goal_head, 1, &adn_goal_head, nullptr);
         result->add_rule(back_to_goal_rule);
         return result;
     }

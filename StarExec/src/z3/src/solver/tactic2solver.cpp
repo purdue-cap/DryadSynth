@@ -19,10 +19,10 @@ Author:
 Notes:
 
 --*/
-#include"solver_na2as.h"
-#include"tactic.h"
-#include"ast_translation.h"
-#include"mus.h"
+#include "solver/solver_na2as.h"
+#include "tactic/tactic.h"
+#include "ast/ast_translation.h"
+#include "solver/mus.h"
 
 /**
    \brief Simulates the incremental solver interface using a tactic.
@@ -37,7 +37,6 @@ class tactic2solver : public solver_na2as {
     ref<simple_check_sat_result> m_result;
     tactic_ref                   m_tactic;
     symbol                       m_logic;
-    params_ref                   m_params;
     bool                         m_produce_models;
     bool                         m_produce_proofs;
     bool                         m_produce_unsat_cores;
@@ -45,36 +44,36 @@ class tactic2solver : public solver_na2as {
     
 public:
     tactic2solver(ast_manager & m, tactic * t, params_ref const & p, bool produce_proofs, bool produce_models, bool produce_unsat_cores, symbol const & logic);
-    virtual ~tactic2solver();
+    ~tactic2solver() override;
 
-    virtual solver* translate(ast_manager& m, params_ref const& p);
+    solver* translate(ast_manager& m, params_ref const& p) override;
 
-    virtual void updt_params(params_ref const & p);
-    virtual void collect_param_descrs(param_descrs & r);
+    void updt_params(params_ref const & p) override;
+    void collect_param_descrs(param_descrs & r) override;
 
-    virtual void set_produce_models(bool f) { m_produce_models = f; }
+    void set_produce_models(bool f) override { m_produce_models = f; }
 
-    virtual void assert_expr(expr * t);
+    void assert_expr(expr * t) override;
 
-    virtual void push_core();
-    virtual void pop_core(unsigned n);
-    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions);
+    void push_core() override;
+    void pop_core(unsigned n) override;
+    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
 
 
-    virtual void collect_statistics(statistics & st) const;
-    virtual void get_unsat_core(ptr_vector<expr> & r);
-    virtual void get_model(model_ref & m);
-    virtual proof * get_proof();
-    virtual std::string reason_unknown() const;
-    virtual void set_reason_unknown(char const* msg);
-    virtual void get_labels(svector<symbol> & r) {}
+    void collect_statistics(statistics & st) const override;
+    void get_unsat_core(ptr_vector<expr> & r) override;
+    void get_model(model_ref & m) override;
+    proof * get_proof() override;
+    std::string reason_unknown() const override;
+    void set_reason_unknown(char const* msg) override;
+    void get_labels(svector<symbol> & r) override {}
 
-    virtual void set_progress_callback(progress_callback * callback) {}
+    void set_progress_callback(progress_callback * callback) override {}
 
-    virtual unsigned get_num_assertions() const;
-    virtual expr * get_assertion(unsigned idx) const;
+    unsigned get_num_assertions() const override;
+    expr * get_assertion(unsigned idx) const override;
 
-    virtual ast_manager& get_manager() const; 
+    ast_manager& get_manager() const override;
 };
 
 ast_manager& tactic2solver::get_manager() const { return m_assertions.get_manager(); }
@@ -85,7 +84,7 @@ tactic2solver::tactic2solver(ast_manager & m, tactic * t, params_ref const & p, 
 
     m_tactic = t;
     m_logic  = logic;
-    m_params = p;
+    solver::updt_params(p);
     
     m_produce_models      = produce_models;
     m_produce_proofs      = produce_proofs;
@@ -96,7 +95,7 @@ tactic2solver::~tactic2solver() {
 }
 
 void tactic2solver::updt_params(params_ref const & p) {
-    m_params = p;
+    solver::updt_params(p);
 }
 
 void tactic2solver::collect_param_descrs(param_descrs & r) {
@@ -106,12 +105,12 @@ void tactic2solver::collect_param_descrs(param_descrs & r) {
 
 void tactic2solver::assert_expr(expr * t) {
     m_assertions.push_back(t);
-    m_result = 0;
+    m_result = nullptr;
 }
 
 void tactic2solver::push_core() {
     m_scopes.push_back(m_assertions.size());
-    m_result = 0;
+    m_result = nullptr;
 }
 
 void tactic2solver::pop_core(unsigned n) {
@@ -119,17 +118,17 @@ void tactic2solver::pop_core(unsigned n) {
     unsigned old_sz  = m_scopes[new_lvl];
     m_assertions.shrink(old_sz);
     m_scopes.shrink(new_lvl);
-    m_result = 0;
+    m_result = nullptr;
 }
 
 lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
-    if (m_tactic.get() == 0)
+    if (m_tactic.get() == nullptr)
         return l_false;
     ast_manager & m = m_assertions.m();
     m_result = alloc(simple_check_sat_result, m);
     m_tactic->cleanup();
     m_tactic->set_logic(m_logic);
-    m_tactic->updt_params(m_params); // parameters are allowed to overwrite logic.
+    m_tactic->updt_params(get_params()); // parameters are allowed to overwrite logic.
     goal_ref g = alloc(goal, m, m_produce_proofs, m_produce_models, m_produce_unsat_cores);
 
     unsigned sz = m_assertions.size();
@@ -146,8 +145,9 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     proof_ref           pr(m);
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
+    labels_vec labels;
     try {
-        switch (::check_sat(*m_tactic, g, md, pr, core, reason_unknown)) {
+        switch (::check_sat(*m_tactic, g, md, labels, pr, core, reason_unknown)) {
         case l_true: 
             m_result->set_status(l_true);
             break;
@@ -187,7 +187,7 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
 solver* tactic2solver::translate(ast_manager& m, params_ref const& p) {
     tactic* t = m_tactic->translate(m);
     tactic2solver* r = alloc(tactic2solver, m, t, p, m_produce_proofs, m_produce_models, m_produce_unsat_cores, m_logic);
-    r->m_result = 0;
+    r->m_result = nullptr;
     if (!m_scopes.empty()) {
         throw default_exception("translation of contexts is only supported at base level");
     }
@@ -220,7 +220,7 @@ proof * tactic2solver::get_proof() {
     if (m_result.get())
         return m_result->get_proof();
     else
-        return 0;
+        return nullptr;
 }
 
 std::string tactic2solver::reason_unknown() const {
@@ -261,9 +261,9 @@ public:
     tactic2solver_factory(tactic * t):m_tactic(t) {
     }
     
-    virtual ~tactic2solver_factory() {}
+    ~tactic2solver_factory() override {}
     
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_tactic2solver(m, m_tactic.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
     }
 };
@@ -274,9 +274,9 @@ public:
     tactic_factory2solver_factory(tactic_factory * f):m_factory(f) {
     }
     
-    virtual ~tactic_factory2solver_factory() {}
+    ~tactic_factory2solver_factory() override {}
     
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         tactic * t = (*m_factory)(m, p);
         return mk_tactic2solver(m, t, p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
     }
@@ -289,3 +289,5 @@ solver_factory * mk_tactic2solver_factory(tactic * t) {
 solver_factory * mk_tactic_factory2solver_factory(tactic_factory * f) {
     return alloc(tactic_factory2solver_factory, f);
 }
+
+

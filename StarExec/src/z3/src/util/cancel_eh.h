@@ -19,7 +19,7 @@ Revision History:
 #ifndef CANCEL_EH_H_
 #define CANCEL_EH_H_
 
-#include"event_handler.h"
+#include "util/event_handler.h"
 
 /**
    \brief Generic event handler for invoking cancel method.
@@ -30,11 +30,15 @@ class cancel_eh : public event_handler {
     T & m_obj;
 public:
     cancel_eh(T & o): m_canceled(false), m_obj(o) {}
-    ~cancel_eh() { if (m_canceled) m_obj.dec_cancel(); }
-    virtual void operator()() { 
-        m_canceled = true;
-        m_obj.inc_cancel(); 
+    ~cancel_eh() override { if (m_canceled) m_obj.dec_cancel(); }
+    void operator()(event_handler_caller_t caller_id) override {
+        if (!m_canceled) {
+            m_caller_id = caller_id;
+            m_canceled = true;
+            m_obj.inc_cancel(); 
+        }
     }
+    bool canceled() const { return m_canceled; }
 };
 
 #endif

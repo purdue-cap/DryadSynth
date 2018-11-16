@@ -19,9 +19,9 @@
  --*/
 #ifndef BV_BOUNDS_H_23754
 #define BV_BOUNDS_H_23754
-#include"ast.h"
-#include"bv_decl_plugin.h"
-#include"rewriter_types.h"
+#include "ast/ast.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/rewriter/rewriter_types.h"
 
 /* \brief A class to analyze constraints on bit vectors.
 
@@ -38,7 +38,7 @@ public:
     bv_bounds(ast_manager& m) : m_m(m), m_bv_util(m), m_okay(true) {};
     ~bv_bounds();
 public: // bounds addition methods
-	br_status rewrite(unsigned limit, func_decl * f, unsigned num, expr * const * args, expr_ref& result);
+    br_status rewrite(unsigned limit, func_decl * f, unsigned num, expr * const * args, expr_ref& result);
 
     /** \brief Add a constraint to the system.
 
@@ -49,11 +49,11 @@ public: // bounds addition methods
     **/
     bool add_constraint(expr* e);
 
-    bool bound_up(app * v, numeral u); // v <= u
-    bool bound_lo(app * v, numeral l); // l <= v
-    inline bool add_neg_bound(app * v, numeral a, numeral b); // not (a<=v<=b)
-    bool add_bound_signed(app * v, numeral a, numeral b, bool negate);
-    bool add_bound_unsigned(app * v, numeral a, numeral b, bool negate);
+    bool bound_up(app * v, const numeral& u); // v <= u
+    bool bound_lo(app * v, const numeral& l); // l <= v
+    inline bool add_neg_bound(app * v, const numeral& a, const numeral& b); // not (a<=v<=b)
+    bool add_bound_signed(app * v, const numeral& a, const numeral& b, bool negate);
+    bool add_bound_unsigned(app * v, const numeral& a, const numeral& b, bool negate);
 public:
     bool is_sat();  ///< Determine if the set of considered constraints is satisfiable.
     bool is_okay();
@@ -70,7 +70,7 @@ protected:
     enum conv_res { CONVERTED, UNSAT, UNDEF };
     conv_res convert(expr * e, vector<ninterval>& nis, bool negated);
     conv_res record(app * v, numeral lo, numeral hi, bool negated, vector<ninterval>& nis);
-    conv_res convert_signed(app * v, numeral a, numeral b, bool negate, vector<ninterval>& nis);
+    conv_res convert_signed(app * v, const numeral& a, const numeral& b, bool negate, vector<ninterval>& nis);
 
     typedef vector<interval>            intervals;
     typedef obj_map<app, intervals*>    intervals_map;
@@ -82,8 +82,8 @@ protected:
     bv_util                   m_bv_util;
     bool                      m_okay;
     bool                      is_sat(app * v);
-	bool                      is_sat_core(app * v);
-    inline bool               in_range(app *v, numeral l);
+bool                      is_sat_core(app * v);
+    inline bool               in_range(app *v, const numeral& l);
     inline bool               is_constant_add(unsigned bv_sz, expr * e, app*& v, numeral& val);
     void                      record_singleton(app * v,  numeral& singleton_value);
     inline bool               to_bound(const expr * e) const;
@@ -94,12 +94,12 @@ protected:
 inline bool bv_bounds::is_okay() { return m_okay; }
 
 inline bool bv_bounds::to_bound(const expr * e) const {
-	return is_app(e) && m_bv_util.is_bv(e)
+    return is_app(e) && m_bv_util.is_bv(e)
        && !m_bv_util.is_bv_add(e)
        && !m_bv_util.is_numeral(e);
 }
 
-inline bool bv_bounds::in_range(app *v, bv_bounds::numeral n) {
+inline bool bv_bounds::in_range(app *v, const bv_bounds::numeral& n) {
     const unsigned bv_sz = m_bv_util.get_bv_size(v);
     const bv_bounds::numeral zero(0);
     const bv_bounds::numeral mod(rational::power_of_two(bv_sz));
@@ -109,7 +109,7 @@ inline bool bv_bounds::in_range(app *v, bv_bounds::numeral n) {
 inline bool bv_bounds::is_constant_add(unsigned bv_sz, expr * e, app*& v, numeral& val) {
     SASSERT(e && !v);
     SASSERT(m_bv_util.get_bv_size(e) == bv_sz);
-    expr *lhs(NULL), *rhs(NULL);
+    expr *lhs(nullptr), *rhs(nullptr);
     if (!m_bv_util.is_bv_add(e, lhs, rhs)) {
         v = to_app(e);
         val = rational(0);

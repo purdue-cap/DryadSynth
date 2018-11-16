@@ -24,13 +24,13 @@ Revision History:
 #ifndef EXPR_OFFSET_H_
 #define EXPR_OFFSET_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 
 class expr_offset {
     expr *    m_expr;
     unsigned  m_offset;
 public:
-    expr_offset():m_expr(0), m_offset(0) {}
+    expr_offset():m_expr(nullptr), m_offset(0) {}
     expr_offset(expr * e, unsigned o):m_expr(e), m_offset(o) {}
     
     expr * get_expr() const { return m_expr; }

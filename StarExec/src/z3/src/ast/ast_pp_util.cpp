@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include "ast_pp_util.h"
-#include "ast_smt2_pp.h"
-#include "ast_smt_pp.h"
+#include "ast/ast_pp_util.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/ast_smt_pp.h"
 
 void ast_pp_util::collect(expr* e) {
     coll.visit(e);
@@ -38,16 +38,25 @@ void ast_pp_util::collect(expr_ref_vector const& es) {
 void ast_pp_util::display_decls(std::ostream& out) {
     smt2_pp_environment_dbg env(m);
     ast_smt_pp pp(m);
+    coll.order_deps();
     unsigned n = coll.get_num_sorts();
     for (unsigned i = 0; i < n; ++i) {
-        pp.display_ast_smt2(out, coll.get_sorts()[i], 0, 0, 0);
+        pp.display_ast_smt2(out, coll.get_sorts()[i], 0, 0, nullptr);
     }
     n = coll.get_num_decls();
     for (unsigned i = 0; i < n; ++i) {
-        ast_smt2_pp(out, coll.get_func_decls()[i], env);
-        out << "\n";
+        func_decl* f = coll.get_func_decls()[i];
+        if (f->get_family_id() == null_family_id && !m_removed.contains(f)) {
+            ast_smt2_pp(out, f, env);
+            out << "\n";
+        }
     }
 }
+
+void ast_pp_util::remove_decl(func_decl* f) {
+    m_removed.insert(f);
+}
+
 
 void ast_pp_util::display_asserts(std::ostream& out, expr_ref_vector const& fmls, bool neat) {
     if (neat) {

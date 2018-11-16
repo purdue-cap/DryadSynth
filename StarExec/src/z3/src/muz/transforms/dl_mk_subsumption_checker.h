@@ -21,9 +21,9 @@ Revision History:
 #ifndef DL_MK_SUBSUMPTION_CHECKER_H_
 #define DL_MK_SUBSUMPTION_CHECKER_H_
 
-#include "dl_context.h"
-#include "dl_rule_transformer.h"
-#include "dl_rule_subsumption_index.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "muz/base/dl_rule_subsumption_index.h"
 
 namespace datalog {
 
@@ -80,11 +80,11 @@ namespace datalog {
             m_context(ctx),
             m_ref_holder(ctx.get_rule_manager()),
             m_new_total_relation_discovery_during_transformation(true) {}
-        ~mk_subsumption_checker() {
+        ~mk_subsumption_checker() override {
             reset_dealloc_values(m_ground_unconditional_rule_heads);
         }
 
-        virtual rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_QUICK_CHECKER_H_
 #define SMT_QUICK_CHECKER_H_
 
-#include"ast.h"
-#include"simplifier.h"
-#include"obj_hashtable.h"
+#include "ast/ast.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "util/obj_hashtable.h"
 
 namespace smt {
     class context;
@@ -50,7 +50,7 @@ namespace smt {
                 expr *      m_expr;
                 func_decl * m_parent;
                 unsigned    m_parent_pos;
-                entry(expr * n = 0, func_decl * d = 0, unsigned p = 0):m_expr(n), m_parent(d), m_parent_pos(p) {}
+                entry(expr * n = nullptr, func_decl * d = nullptr, unsigned p = 0):m_expr(n), m_parent(d), m_parent_pos(p) {}
                 unsigned hash() const { return m_parent ? mk_mix(m_expr->get_id(), m_parent->get_id(), m_parent_pos) : m_expr->get_id(); }
                 bool operator==(entry const & e) const { return m_expr == e.m_expr && m_parent == e.m_parent && m_parent_pos == e.m_parent_pos; }
             };
@@ -77,7 +77,6 @@ namespace smt {
 
         context &            m_context;
         ast_manager &        m_manager;
-        simplifier &         m_simplifier;
         collector            m_collector;
         expr_ref_vector      m_new_exprs;
         vector<enode_vector> m_candidate_vectors; 

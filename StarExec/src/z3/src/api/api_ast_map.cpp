@@ -16,13 +16,13 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_ast_map.h"
-#include"api_ast_vector.h"
-#include"ast_smt2_pp.h"
-#include"dec_ref_util.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_ast_map.h"
+#include "api/api_ast_vector.h"
+#include "ast/ast_smt2_pp.h"
+#include "util/dec_ref_util.h"
 
 Z3_ast_map_ref::~Z3_ast_map_ref() {
     dec_ref_key_values(m, m_map);
@@ -38,7 +38,7 @@ extern "C" {
         mk_c(c)->save_object(m);
         Z3_ast_map r       = of_ast_map(m);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_ast_map_inc_ref(Z3_context c, Z3_ast_map m) {
@@ -70,15 +70,15 @@ extern "C" {
         LOG_Z3_ast_map_find(c, m, k);
         RESET_ERROR_CODE();
         obj_map<ast, ast*>::obj_map_entry * entry = to_ast_map_ref(m).find_core(to_ast(k));
-        if (entry == 0) {
+        if (entry == nullptr) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         else {
             ast * r = entry->get_data().m_value;
             RETURN_Z3(of_ast(r));
         }
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_ast_map_insert(Z3_context c, Z3_ast_map m, Z3_ast k, Z3_ast v) {
@@ -115,7 +115,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_ast_map_erase(c, m, k);
         RESET_ERROR_CODE();
-        ast * v = 0;
+        ast * v = nullptr;
         if (to_ast_map_ref(m).find(to_ast(k), v)) {
             to_ast_map_ref(m).erase(to_ast(k));
             ast_manager & mng = to_ast_map(m)->m;
@@ -146,7 +146,7 @@ extern "C" {
         }
         Z3_ast_vector r       = of_ast_vector(v);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_string Z3_API Z3_ast_map_to_string(Z3_context c, Z3_ast_map m) {
@@ -163,7 +163,7 @@ extern "C" {
         }
         buffer << ")";
         return mk_c(c)->mk_external_string(buffer.str());
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

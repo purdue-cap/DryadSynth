@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"timeit.h"
-#include"memory_manager.h"
-#include"stopwatch.h"
+#include "util/timeit.h"
+#include "util/memory_manager.h"
+#include "util/stopwatch.h"
 #include<iomanip>
 
 struct timeit::imp {
@@ -49,7 +49,7 @@ timeit::timeit(bool enable, char const * msg, std::ostream & out) {
     if (enable)
         m_imp = alloc(imp, msg, out);
     else
-        m_imp = 0;
+        m_imp = nullptr;
 }
    
 timeit::~timeit() {

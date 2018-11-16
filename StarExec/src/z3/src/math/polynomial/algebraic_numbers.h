@@ -19,16 +19,16 @@ Notes:
 #ifndef ALGEBRAIC_NUMBERS_H_
 #define ALGEBRAIC_NUMBERS_H_
 
-#include"rational.h"
-#include"mpq.h"
-#include"polynomial.h"
-#include"z3_exception.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"tptr.h"
-#include"statistics.h"
-#include"params.h"
-#include"rlimit.h"
+#include "util/rational.h"
+#include "util/mpq.h"
+#include "math/polynomial/polynomial.h"
+#include "util/z3_exception.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/tptr.h"
+#include "util/statistics.h"
+#include "util/params.h"
+#include "util/rlimit.h"
 
 class small_object_allocator;
 class mpbq_manager;
@@ -58,7 +58,7 @@ namespace algebraic_numbers {
         typedef _scoped_numeral<manager> scoped_numeral;
         typedef _scoped_numeral_vector<manager> scoped_numeral_vector;
 
-        manager(reslimit& rl, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = 0);
+        manager(reslimit& rl, unsynch_mpq_manager & m, params_ref const & p = params_ref(), small_object_allocator * a = nullptr);
         ~manager();
 
         static void get_param_descrs(param_descrs & r);
@@ -372,7 +372,7 @@ namespace algebraic_numbers {
         basic_cell * to_basic() const { SASSERT(is_basic()); return UNTAG(basic_cell*, m_cell); }
         algebraic_cell * to_algebraic() const { SASSERT(!is_basic()); return UNTAG(algebraic_cell*, m_cell); }
     public:
-        anum():m_cell(0) {}
+        anum():m_cell(nullptr) {}
     };
 };
 

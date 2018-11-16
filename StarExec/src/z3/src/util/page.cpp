@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include"page.h"
-#include"debug.h"
+#include "util/page.h"
+#include "util/debug.h"
 
 inline void set_page_header(char * page, char * prev, bool default_page) {
     size_t header = reinterpret_cast<size_t>(prev) | static_cast<size_t>(default_page); 
@@ -31,7 +31,7 @@ inline char * alloc_page(size_t s) { char * r = alloc_svect(char, s+PAGE_HEADER_
 inline void del_page(char * page) { dealloc_svect(page - PAGE_HEADER_SZ); }
 
 void del_pages(char * page) {
-    while (page != 0) {
+    while (page != nullptr) {
         char * prev = prev_page(page);
         del_page(page);
         page = prev;

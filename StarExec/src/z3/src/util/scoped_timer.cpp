@@ -21,8 +21,8 @@ Revision History:
 #define _WIN32_WINNT 0x0600
 #endif
 
-#include"z3_exception.h"
-#include"z3_omp.h"
+#include "util/z3_exception.h"
+#include "util/z3_omp.h"
 #if defined(_WINDOWS) || defined(_CYGWIN)
 // Windows
 #include<windows.h>
@@ -33,8 +33,8 @@ Revision History:
 #include<sys/time.h>
 #include<sys/errno.h>
 #include<pthread.h>
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-// Linux
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NetBSD_)
+// Linux & FreeBSD & NetBSD
 #include<errno.h>
 #include<pthread.h>
 #include<sched.h>
@@ -44,14 +44,14 @@ Revision History:
 // Other platforms
 #endif 
 
-#include"scoped_timer.h"
+#include "util/scoped_timer.h"
 #ifdef _CYGWIN
 #undef min
 #undef max
 #endif
-#include"util.h"
+#include "util/util.h"
 #include<limits.h>
-#include"z3_omp.h"
+#include "util/z3_omp.h"
 
 struct scoped_timer::imp {
     event_handler *  m_eh;
@@ -66,13 +66,14 @@ struct scoped_timer::imp {
     pthread_mutex_t  m_mutex;
     pthread_cond_t   m_condition_var;
     struct timespec  m_end_time;
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-    // Linux & FreeBSD
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
+    // Linux & FreeBSD & NetBSD
     pthread_t       m_thread_id;
     pthread_mutex_t m_mutex;
     pthread_cond_t  m_cond;
     unsigned        m_ms;
     bool            m_initialized;
+    bool            m_signal_sent;
 #else
     // Other
 #endif
@@ -84,7 +85,7 @@ struct scoped_timer::imp {
             obj->m_first = false;
         }
         else {
-            obj->m_eh->operator()();
+            obj->m_eh->operator()(TIMEOUT_EH_CALLER);
         }
     }
 #elif defined(__APPLE__) && defined(__MACH__)
@@ -97,13 +98,13 @@ struct scoped_timer::imp {
         int e = pthread_cond_timedwait(&st->m_condition_var, &st->m_mutex, &st->m_end_time);
         if (e != 0 && e != ETIMEDOUT)
             throw default_exception("failed to start timed wait");
-        st->m_eh->operator()();
+        st->m_eh->operator()(TIMEOUT_EH_CALLER);
 
         pthread_mutex_unlock(&st->m_mutex);
 
         return st;
     }
-#elif defined(_LINUX_) || defined(_FREEBSD_)
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
     static void* thread_func(void *arg) {
         scoped_timer::imp *st = static_cast<scoped_timer::imp*>(arg);
 
@@ -119,12 +120,20 @@ struct scoped_timer::imp {
 
         pthread_mutex_lock(&st->m_mutex);
         st->m_initialized = true;
-        int e = pthread_cond_timedwait(&st->m_cond, &st->m_mutex, &end_time);
-        ENSURE(e == 0 || e == ETIMEDOUT);
-
+        int e = 0;
+        // `pthread_cond_timedwait()` may spuriously wake even if the signal
+        // was not sent so we loop until a timeout occurs or the signal was
+        // **really** sent.
+        while (!(e == 0 && st->m_signal_sent)) {
+          e = pthread_cond_timedwait(&st->m_cond, &st->m_mutex, &end_time);
+          ENSURE(e == 0 || e == ETIMEDOUT);
+          if (e == ETIMEDOUT)
+            break;
+        }
         pthread_mutex_unlock(&st->m_mutex);
+
         if (e == ETIMEDOUT)
-            st->m_eh->operator()();
+            st->m_eh->operator()(TIMEOUT_EH_CALLER);
         return 0;
     }
 #else
@@ -148,9 +157,9 @@ struct scoped_timer::imp {
         m_interval = ms?ms:0xFFFFFFFF;
         if (pthread_attr_init(&m_attributes) != 0)
             throw default_exception("failed to initialize timer thread attributes");
-        if (pthread_cond_init(&m_condition_var, NULL) != 0)
+        if (pthread_cond_init(&m_condition_var, nullptr) != 0)
             throw default_exception("failed to initialize timer condition variable");
-        if (pthread_mutex_init(&m_mutex, NULL) != 0)
+        if (pthread_mutex_init(&m_mutex, nullptr) != 0)
             throw default_exception("failed to initialize timer mutex");
 
         clock_serv_t host_clock;
@@ -166,10 +175,11 @@ struct scoped_timer::imp {
 
         if (pthread_create(&m_thread_id, &m_attributes, &thread_func, this) != 0)
             throw default_exception("failed to start timer thread");
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-        // Linux & FreeBSD
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
+        // Linux & FreeBSD & NetBSD
         m_ms = ms;
         m_initialized = false;
+        m_signal_sent = false;
         ENSURE(pthread_mutex_init(&m_mutex, NULL) == 0);
         ENSURE(pthread_cond_init(&m_cond, NULL) == 0);
         ENSURE(pthread_create(&m_thread_id, NULL, &thread_func, this) == 0);
@@ -198,7 +208,7 @@ struct scoped_timer::imp {
         pthread_cond_signal(&m_condition_var);
         pthread_mutex_unlock(&m_mutex);
 
-        if (pthread_join(m_thread_id, NULL) != 0)
+        if (pthread_join(m_thread_id, nullptr) != 0)
             throw default_exception("failed to join thread");
         if (pthread_mutex_destroy(&m_mutex) != 0)
             throw default_exception("failed to destroy pthread mutex");
@@ -206,8 +216,8 @@ struct scoped_timer::imp {
             throw default_exception("failed to destroy pthread condition variable");
         if (pthread_attr_destroy(&m_attributes) != 0)
             throw default_exception("failed to destroy pthread attributes object");
-#elif defined(_LINUX_) || defined(_FREEBSD_)
-        // Linux & FreeBSD
+#elif defined(_LINUX_) || defined(_FREEBSD_) || defined(_NETBSD_)
+        // Linux & FreeBSD & NetBSD
         bool init = false;
 
         // spin until timer thread has been created
@@ -218,6 +228,10 @@ struct scoped_timer::imp {
             if (!init)
                 sched_yield();
         }
+        pthread_mutex_lock(&m_mutex);
+        m_signal_sent = true;
+        pthread_mutex_unlock(&m_mutex);
+        // Perform signal outside of lock to avoid waking timing thread twice.
         pthread_cond_signal(&m_cond);
 
         pthread_join(m_thread_id, NULL);
@@ -231,10 +245,10 @@ struct scoped_timer::imp {
 };
 
 scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
-    if (ms != UINT_MAX)
+    if (ms != UINT_MAX && ms != 0)
         m_imp = alloc(imp, ms, eh);
     else
-        m_imp = 0;
+        m_imp = nullptr;
 }
     
 scoped_timer::~scoped_timer() {

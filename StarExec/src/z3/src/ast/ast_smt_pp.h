@@ -19,9 +19,9 @@ Revision History:
 #ifndef AST_SMT_PP_H_
 #define AST_SMT_PP_H_
 
-#include"ast.h"
+#include "ast/ast.h"
 #include<string>
-#include"map.h"
+#include "util/map.h"
 
 class smt_renaming {
     typedef map<symbol, symbol, symbol_hash_proc, symbol_eq_proc> symbol2symbol;
@@ -75,11 +75,9 @@ public:
 
     void set_is_declared(is_declared* id) { m_is_declared = id; }
 
-    void display(std::ostream& strm, expr* n);
     void display_smt2(std::ostream& strm, expr* n);
-    void display_expr(std::ostream& strm, expr* n);
-    void display_expr_smt2(std::ostream& strm, expr* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0);
-    void display_ast_smt2(std::ostream& strm, ast* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0);
+    void display_expr_smt2(std::ostream& strm, expr* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = nullptr);
+    void display_ast_smt2(std::ostream& strm, ast* n, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = nullptr);
 
 };
 
@@ -89,7 +87,7 @@ struct mk_smt_pp {
     unsigned m_indent;
     unsigned m_num_var_names;
     char const* const* m_var_names;
-    mk_smt_pp(ast* e, ast_manager & m, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = 0) :
+    mk_smt_pp(ast* e, ast_manager & m, unsigned indent = 0, unsigned num_var_names = 0, char const* const* var_names = nullptr) :
         m_ast(e), m_manager(m), m_indent(indent), m_num_var_names(num_var_names), m_var_names(var_names) {}
 };
 

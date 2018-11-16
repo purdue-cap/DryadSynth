@@ -19,9 +19,9 @@ Revision History:
 #ifndef DL_VECTOR_RELATION_H_
 #define DL_VECTOR_RELATION_H_
 
-#include "ast_pp.h"
-#include "dl_context.h"
-#include "union_find.h"
+#include "ast/ast_pp.h"
+#include "muz/base/dl_context.h"
+#include "util/union_find.h"
 
 namespace datalog {
    
@@ -55,12 +55,12 @@ namespace datalog {
             }
         }
 
-        virtual ~vector_relation() {
+        ~vector_relation() override {
             dealloc(m_eqs);
             dealloc(m_elems);
         }
 
-        virtual void swap(relation_base& other) {
+        void swap(relation_base& other) override {
             vector_relation& o = dynamic_cast<vector_relation&>(other);
             if (&o == this) return;
             std::swap(o.m_eqs, m_eqs);
@@ -85,7 +85,7 @@ namespace datalog {
         }
 
 
-        virtual bool empty() const { return m_empty; }
+        bool empty() const override { return m_empty; }
 
         T& operator[](unsigned i) { return (*m_elems)[find(i)]; }
 
@@ -93,7 +93,7 @@ namespace datalog {
 
         virtual void display_index(unsigned i, T const& t, std::ostream& out) const = 0;
 
-        virtual void display(std::ostream & out) const {
+        void display(std::ostream & out) const override {
             if (empty()) {
                 out << "empty\n";
                 return;

@@ -19,11 +19,11 @@ Revision History:
 #ifndef DL_MK_KARR_INVARIANTS_H_
 #define DL_MK_KARR_INVARIANTS_H_
 
-#include"dl_context.h"
-#include"dl_rule_set.h"
-#include"dl_rule_transformer.h"
-#include"arith_decl_plugin.h"
-#include"hilbert_basis.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "ast/arith_decl_plugin.h"
+#include "math/hilbert/hilbert_basis.h"
 
 namespace datalog {
 
@@ -65,9 +65,9 @@ namespace datalog {
     public:
         mk_karr_invariants(context & ctx, unsigned priority);
 
-        virtual ~mk_karr_invariants();
+        ~mk_karr_invariants() override;
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
 
     };
 

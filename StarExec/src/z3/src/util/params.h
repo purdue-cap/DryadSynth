@@ -19,8 +19,8 @@ Notes:
 #ifndef PARAMS_H_
 #define PARAMS_H_
 
-#include"cmd_context_types.h"
-#include"vector.h"
+#include "util/cmd_context_types.h"
+#include "util/vector.h"
 
 std::string norm_param_name(char const * n);
 std::string norm_param_name(symbol const & n);
@@ -37,7 +37,7 @@ class params_ref {
     void init();
     void copy_core(params const * p);
 public:
-    params_ref():m_params(0) {}
+    params_ref():m_params(nullptr) {}
     params_ref(params_ref const & p);
     ~params_ref();
     
@@ -115,8 +115,8 @@ public:
     param_descrs();
     ~param_descrs();
     void copy(param_descrs & other);
-    void insert(char const * name, param_kind k, char const * descr, char const * def = 0, char const* module = 0);
-    void insert(symbol const & name, param_kind k, char const * descr, char const * def = 0, char const* module = 0);
+    void insert(char const * name, param_kind k, char const * descr, char const * def = nullptr, char const* module = nullptr);
+    void insert(symbol const & name, param_kind k, char const * descr, char const * def = nullptr, char const* module = nullptr);
     bool contains(char const * name) const;
     bool contains(symbol const & name) const;
     void erase(char const * name);

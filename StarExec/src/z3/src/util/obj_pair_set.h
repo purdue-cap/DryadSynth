@@ -19,7 +19,7 @@ Revision History:
 #ifndef OBJ_PAIR_SET_H_
 #define OBJ_PAIR_SET_H_
 
-#include"chashtable.h"
+#include "util/chashtable.h"
 
 template<typename T1, typename T2>
 class obj_pair_set {
@@ -46,6 +46,11 @@ public:
     bool contains(obj_pair const & p) const { return m_set.contains(p); }
     void reset() { m_set.reset(); }
     bool empty() const { return m_set.empty(); }
+
+    typedef typename chashtable<obj_pair, hash_proc, eq_proc>::iterator iterator;
+
+    iterator begin() { return m_set.begin(); }
+    iterator end() { return m_set.end(); }
 };
 
 #endif

@@ -20,10 +20,12 @@ Notes:
 #ifndef WMAX_H_
 #define WMAX_H_
 
-#include "maxsmt.h"
+#include "opt/maxsmt.h"
 
 namespace opt {
     maxsmt_solver_base* mk_wmax(maxsat_context& c, weights_t & ws, expr_ref_vector const& soft);
+
+    maxsmt_solver_base* mk_sortmax(maxsat_context& c, weights_t & ws, expr_ref_vector const& soft);
 
 }
 #endif

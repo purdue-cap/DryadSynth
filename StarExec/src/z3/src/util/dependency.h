@@ -19,8 +19,8 @@ Revision History:
 #ifndef DEPENDENCY_H_
 #define DEPENDENCY_H_
 
-#include"vector.h"
-#include"region.h"
+#include "util/vector.h"
+#include "util/region.h"
 
 template<typename C>
 class dependency_manager {
@@ -138,7 +138,7 @@ public:
     }
         
     dependency * mk_empty() {
-        return 0;
+        return nullptr;
     }
 
     dependency * mk_leaf(value const & v) {
@@ -148,10 +148,10 @@ public:
     }
     
     dependency * mk_join(dependency * d1, dependency * d2) {
-        if (d1 == 0) {
+        if (d1 == nullptr) {
             return d2;
         }
-        else if (d2 == 0) {
+        else if (d2 == nullptr) {
             return d1; 
         }
         else if (d1 == d2) {
@@ -201,7 +201,7 @@ public:
             m_todo.push_back(d);
             unsigned qhead = 0;
             while (qhead < m_todo.size()) {
-	        d = m_todo[qhead];
+                d = m_todo[qhead];
                 qhead++;
                 if (d->is_leaf()) {
                     vs.push_back(to_leaf(d)->m_value);

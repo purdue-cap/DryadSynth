@@ -22,8 +22,8 @@
 
 #include <set>
 
-#include "iz3base.h"
-#include "iz3secondary.h"
+#include "interp/iz3base.h"
+#include "interp/iz3secondary.h"
 
 // #define CHECK_PROOFS
 
@@ -210,7 +210,7 @@ class iz3proof {
     }
 
     /** Default constructor */
-    iz3proof(){pv = 0;}
+    iz3proof(){pv = nullptr;}
 
 
  protected:

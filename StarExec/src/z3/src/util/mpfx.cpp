@@ -18,12 +18,12 @@ Revision History:
 --*/
 #include<sstream>
 #include<iomanip>
-#include"mpfx.h"
-#include"mpn.h"
-#include"mpz.h"
-#include"mpq.h"
-#include"bit_util.h"
-#include"trace.h"
+#include "util/mpfx.h"
+#include "util/mpn.h"
+#include "util/mpz.h"
+#include "util/mpq.h"
+#include "util/bit_util.h"
+#include "util/trace.h"
 
 mpfx_manager::mpfx_manager(unsigned int_sz, unsigned frac_sz, unsigned initial_capacity) {
     SASSERT(initial_capacity > 0);
@@ -201,7 +201,7 @@ void mpfx_manager::set(mpfx & n, uint64 v) {
         n.m_sign              = 0;
         unsigned * w          = words(n);
         uint64 * _vp          = &v;
-        unsigned * _v         = 0;
+        unsigned * _v         = nullptr;
         memcpy(&_v, &_vp, sizeof(unsigned*));
         for (unsigned i = 0; i < m_total_sz; i++) 
             w[i] = 0;

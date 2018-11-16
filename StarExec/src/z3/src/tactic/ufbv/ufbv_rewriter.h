@@ -21,12 +21,12 @@ Revision History:
 #ifndef UFBV_REWRITER_H_
 #define UFBV_REWRITER_H_
 
-#include"ast.h"
-#include"substitution.h"
-#include"obj_hashtable.h"
-#include"obj_pair_hashtable.h"
-#include"array_map.h"
-#include"basic_simplifier_plugin.h"
+#include "ast/ast.h"
+#include "ast/substitution/substitution.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "util/obj_hashtable.h"
+#include "util/obj_pair_hashtable.h"
+#include "util/array_map.h"
 
 /**
    \brief Apply demodulators as a preprocessing technique.
@@ -74,7 +74,7 @@ each offset is a different "variable bank". A pair (expr, offset) is essentially
 where every variable in expr is assumed to be from the "bank" offset.
 
 The class substitution (in substitution.h) manages offsets for us.
-The class matcher (in matcher.h) can be use to test whether an expression is an instance of another one.
+The class matcher (in matcher.h) can be used to test whether an expression is an instance of another one.
 
 Finally, there is the problem when we have N demodulators (where N is big), and a big formula, and we want
 to traverse the formula only once looking for opportunities for applying these N demodulators.
@@ -159,7 +159,7 @@ class ufbv_rewriter {
 
     ast_manager &       m_manager;
     match_subst         m_match_subst;
-    basic_simplifier_plugin & m_bsimp;
+    bool_rewriter       m_bsimp;
     fwd_idx_map         m_fwd_idx;
     back_idx_map        m_back_idx;
     demodulator2lhs_rhs m_demodulator2lhs_rhs;
@@ -173,7 +173,7 @@ class ufbv_rewriter {
     
     void insert_fwd_idx(expr * large, expr * small, quantifier * demodulator);
     void remove_fwd_idx(func_decl * f, quantifier * demodulator);
-    bool check_fwd_idx_consistency(void);
+    bool check_fwd_idx_consistency();
     void show_fwd_idx(std::ostream & out);
     bool is_demodulator(expr * e, expr_ref & large, expr_ref & small) const;
     bool can_rewrite(expr * n, expr * lhs);
@@ -194,7 +194,7 @@ protected:
     virtual int is_subset(expr * e1, expr * e2) const; 
 
 public:
-    ufbv_rewriter(ast_manager & m, basic_simplifier_plugin & p);
+    ufbv_rewriter(ast_manager & m);
     virtual ~ufbv_rewriter();
     
     void operator()(unsigned n, expr * const * exprs, proof * const * prs, expr_ref_vector & new_exprs, proof_ref_vector & new_prs);

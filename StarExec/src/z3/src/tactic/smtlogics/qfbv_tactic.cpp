@@ -16,23 +16,23 @@ Author:
 Notes:
 
 --*/
-#include"tactical.h"
-#include"simplify_tactic.h"
-#include"propagate_values_tactic.h"
-#include"solve_eqs_tactic.h"
-#include"elim_uncnstr_tactic.h"
-#include"smt_tactic.h"
-#include"bit_blaster_tactic.h"
-#include"bv1_blaster_tactic.h"
-#include"max_bv_sharing_tactic.h"
-#include"bv_size_reduction_tactic.h"
-#include"aig_tactic.h"
-#include"sat_tactic.h"
-#include"ackermannize_bv_tactic.h"
+#include "tactic/tactical.h"
+#include "tactic/core/simplify_tactic.h"
+#include "tactic/core/propagate_values_tactic.h"
+#include "tactic/core/solve_eqs_tactic.h"
+#include "tactic/core/elim_uncnstr_tactic.h"
+#include "smt/tactic/smt_tactic.h"
+#include "tactic/bv/bit_blaster_tactic.h"
+#include "tactic/bv/bv1_blaster_tactic.h"
+#include "tactic/bv/max_bv_sharing_tactic.h"
+#include "tactic/bv/bv_size_reduction_tactic.h"
+#include "tactic/aig/aig_tactic.h"
+#include "sat/tactic/sat_tactic.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
 
 #define MEMLIMIT 300
 
-tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
+static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     params_ref solve_eq_p;
     // conservative guassian elimination.
@@ -80,7 +80,7 @@ static tactic * main_p(tactic* t) {
 }
 
 
-tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
+static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tactic* smt) {
 
     params_ref local_ctx_p = p;
     local_ctx_p.set_bool("local_ctx", true);
@@ -103,7 +103,7 @@ tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat, tacti
     tactic * st = main_p(and_then(preamble_st,
                                   // If the user sets HI_DIV0=false, then the formula may contain uninterpreted function
                                   // symbols. In this case, we should not use the `sat', but instead `smt'. Alternatively,
-								  // the UFs can be eliminated by eager ackermannization in the preamble.
+                                  // the UFs can be eliminated by eager ackermannization in the preamble.
                                   cond(mk_is_qfbv_eq_probe(),
                                        and_then(mk_bv1_blaster_tactic(m),
                                                 using_params(smt, solver_p)),

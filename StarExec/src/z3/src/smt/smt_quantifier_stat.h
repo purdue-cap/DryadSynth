@@ -19,10 +19,10 @@ Revision History:
 #ifndef SMT_QUANTIFIER_STAT_H_
 #define SMT_QUANTIFIER_STAT_H_
 
-#include"ast.h"
-#include"obj_hashtable.h"
-#include"approx_nat.h"
-#include"region.h"
+#include "ast/ast.h"
+#include "util/obj_hashtable.h"
+#include "util/approx_nat.h"
+#include "util/region.h"
 
 namespace smt {
     
@@ -119,7 +119,7 @@ namespace smt {
             expr *    m_expr;
             unsigned  m_depth:31;
             bool      m_depth_only:1; //!< track only the depth of this entry.
-            entry():m_expr(0), m_depth(0), m_depth_only(false) {}
+            entry():m_expr(nullptr), m_depth(0), m_depth_only(false) {}
             entry(expr * n, unsigned depth = 0, bool depth_only = false):m_expr(n), m_depth(depth), m_depth_only(depth_only) {}
         };
         ast_manager &           m_manager;

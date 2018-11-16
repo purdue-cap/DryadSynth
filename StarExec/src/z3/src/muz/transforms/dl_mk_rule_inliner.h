@@ -20,12 +20,12 @@ Revision History:
 #ifndef DL_MK_RULE_INLINER_H_
 #define DL_MK_RULE_INLINER_H_
 
-#include "dl_context.h"
-#include "dl_rule_transformer.h"
-#include "dl_mk_interp_tail_simplifier.h"
-#include "unifier.h"
-#include "substitution.h"
-#include "substitution_tree.h"
+#include "muz/base/dl_context.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "muz/transforms/dl_mk_interp_tail_simplifier.h"
+#include "ast/substitution/unifier.h"
+#include "ast/substitution/substitution.h"
+#include "ast/substitution/substitution_tree.h"
 
 namespace datalog {
 
@@ -45,7 +45,7 @@ namespace datalog {
             : m(ctx.get_manager()), m_rm(ctx.get_rule_manager()), m_context(ctx), 
             m_interp_simplifier(ctx), m_subst(m), m_unif(m), m_ready(false), m_normalize(true) {}
             
-        /** Reset subtitution and unify tail tgt_idx of the target rule and the head of the src rule */
+        /** Reset substitution and unify tail tgt_idx of the target rule and the head of the src rule */
         bool unify_rules(rule const& tgt, unsigned tgt_idx, rule const& src);
 
         /**
@@ -88,8 +88,8 @@ namespace datalog {
             svector<bool> m_can_remove, m_can_expand;
             obj_map<expr, unsigned_vector> m_positions;
         public:
-            visitor(context& c, substitution & s): st_visitor(s), m_context(c) {}
-            virtual bool operator()(expr* e);
+            visitor(context& c, substitution & s): st_visitor(s), m_context(c) { (void) m_context; }
+            bool operator()(expr* e) override;
             void         reset() { m_unifiers.reset(); }
             void         reset(unsigned sz);
             svector<bool>& can_remove() { return m_can_remove; }
@@ -186,7 +186,7 @@ namespace datalog {
             m_simp(m_context.get_rewriter()),
             m_pinned(m_rm),
             m_inlined_rules(m_context),
-            m_mc(0),
+            m_mc(nullptr),
             m_unifier(ctx),
             m_head_index(m),
             m_tail_index(m),
@@ -194,9 +194,9 @@ namespace datalog {
             m_head_visitor(ctx, m_subst),
             m_tail_visitor(ctx, m_subst)
         {}
-        virtual ~mk_rule_inliner() { }
+        ~mk_rule_inliner() override { }
 
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

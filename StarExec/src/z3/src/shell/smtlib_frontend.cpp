@@ -21,33 +21,27 @@ Revision History:
 #include<iostream>
 #include<time.h>
 #include<signal.h>
-#include"smtlib_solver.h"
-#include"timeout.h"
-#include"smt2parser.h"
-#include"dl_cmds.h"
-#include"dbg_cmds.h"
-#include"opt_cmds.h"
-#include"polynomial_cmds.h"
-#include"subpaving_cmds.h"
-#include"smt_strategic_solver.h"
-#include"smt_solver.h"
+#include "util/timeout.h"
+#include "parsers/smt2/smt2parser.h"
+#include "muz/fp/dl_cmds.h"
+#include "cmd_context/extra_cmds/dbg_cmds.h"
+#include "opt/opt_cmds.h"
+#include "cmd_context/extra_cmds/polynomial_cmds.h"
+#include "cmd_context/extra_cmds/subpaving_cmds.h"
+#include "smt/smt2_extra_cmds.h"
+#include "tactic/portfolio/smt_strategic_solver.h"
+#include "smt/smt_solver.h"
 
 extern bool g_display_statistics;
 static clock_t             g_start_time;
-static smtlib::solver*     g_solver      = 0;
-static cmd_context *       g_cmd_context = 0;
+static cmd_context *       g_cmd_context = nullptr;
 
 static void display_statistics() {
     clock_t end_time = clock();
-    if ((g_solver || g_cmd_context) && g_display_statistics) {
+    if (g_cmd_context && g_display_statistics) {
         std::cout.flush();
         std::cerr.flush();
-        if (g_solver) {
-            g_solver->display_statistics();
-            memory::display_max_usage(std::cout);
-            std::cout << "time:               " << ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC) << " secs\n";
-        }
-        else if (g_cmd_context) {
+        if (g_cmd_context) {
             g_cmd_context->set_regular_stream("stdout");
             g_cmd_context->display_statistics(true, ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC));
         }
@@ -71,33 +65,6 @@ static void STD_CALL on_ctrl_c(int) {
     raise(SIGINT);
 }
 
-unsigned read_smtlib_file(char const * benchmark_file) {
-    g_start_time = clock();
-    register_on_timeout_proc(on_timeout);
-    signal(SIGINT, on_ctrl_c);
-    smtlib::solver solver;
-    g_solver = &solver;
-
-    bool ok = true;
-
-    ok = solver.solve_smt(benchmark_file);
-    if (!ok) {
-        if (benchmark_file) {
-            std::cerr << "ERROR: solving '" << benchmark_file << "'.\n";
-        }
-        else {
-            std::cerr << "ERROR: solving input stream.\n";
-        }
-    }
-
-    #pragma omp critical (g_display_stats)
-    {
-        display_statistics();
-        register_on_timeout_proc(0);
-        g_solver = 0;
-    }
-    return solver.get_error_code();
-}
 
 unsigned read_smtlib2_commands(char const * file_name) {
     g_start_time = clock();
@@ -113,6 +80,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
     install_polynomial_cmds(ctx);
     install_subpaving_cmds(ctx);
     install_opt_cmds(ctx);
+    install_smt2_extra_cmds(ctx);
 
     g_cmd_context = &ctx;
     signal(SIGINT, on_ctrl_c);
@@ -134,7 +102,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
     #pragma omp critical (g_display_stats)
     {
         display_statistics();
-        g_cmd_context = 0;
+        g_cmd_context = nullptr;
     }
     return result ? 0 : 1;
 }

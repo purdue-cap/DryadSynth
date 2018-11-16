@@ -20,17 +20,17 @@ Author:
 Revision History:
 
 --*/
-#include"tactical.h"
-#include"rewriter_def.h"
-#include"arith_decl_plugin.h"
-#include"algebraic_numbers.h"
-#include"nnf_tactic.h"
-#include"simplify_tactic.h"
-#include"th_rewriter.h"
-#include"filter_model_converter.h"
-#include"extension_model_converter.h"
-#include"ast_smt2_pp.h"
-#include"expr_replacer.h"
+#include "tactic/tactical.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/arith_decl_plugin.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "tactic/core/nnf_tactic.h"
+#include "tactic/core/simplify_tactic.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "tactic/filter_model_converter.h"
+#include "tactic/extension_model_converter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/rewriter/expr_replacer.h"
 
 /*
 ----
@@ -170,8 +170,8 @@ struct purify_arith_proc {
         }
         std::pair<expr*, expr*> pair;
         if (!m_sin_cos.find(to_app(theta), pair)) {
-            pair.first = m().mk_fresh_const(0, u().mk_real());
-            pair.second = m().mk_fresh_const(0, u().mk_real());            
+            pair.first = m().mk_fresh_const(nullptr, u().mk_real());
+            pair.second = m().mk_fresh_const(nullptr, u().mk_real());
             m_sin_cos.insert(to_app(theta), pair);
             m_pinned.push_back(pair.first);
             m_pinned.push_back(pair.second);
@@ -214,7 +214,7 @@ struct purify_arith_proc {
         bool elim_inverses() const { return m_owner.m_elim_inverses; }
 
         expr * mk_fresh_var(bool is_int) {
-            expr * r = m().mk_fresh_const(0, is_int ? u().mk_int() : u().mk_real());
+            expr * r = m().mk_fresh_const(nullptr, is_int ? u().mk_int() : u().mk_real());
             m_new_vars.push_back(r);
             return r;
         }
@@ -241,7 +241,7 @@ struct purify_arith_proc {
         }
    
         void mk_def_proof(expr * k, expr * def, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             if (produce_proofs()) {
                 expr * eq   = m().mk_eq(k, def);
                 proof * pr1 = m().mk_def_intro(eq);
@@ -297,11 +297,11 @@ struct purify_arith_proc {
             push_cnstr(OR(EQ(y, mk_real_zero()),
                           EQ(u().mk_mul(y, k), x)));
             push_cnstr_pr(result_pr);
-
-            if (complete()) {
+            rational r;
+            if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
                 // y != 0 \/ k = div-0(x)
                 push_cnstr(OR(NOT(EQ(y, mk_real_zero())),
-                              EQ(k, u().mk_div0(x))));
+                              EQ(k, u().mk_div(x, mk_real_zero()))));
                 push_cnstr_pr(result_pr);
             }
         }
@@ -348,11 +348,12 @@ struct purify_arith_proc {
             push_cnstr(OR(u().mk_ge(y, zero), u().mk_lt(k2, u().mk_mul(u().mk_numeral(rational(-1), true), y))));
             push_cnstr_pr(mod_pr);
 
-            if (complete()) {
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv0(x))));
+            rational r;
+            if (complete() && (!u().is_numeral(y, r) || r.is_zero())) {
+                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k1, u().mk_idiv(x, zero))));
                 push_cnstr_pr(result_pr);
 
-                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod0(x))));
+                push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod(x, zero))));
                 push_cnstr_pr(mod_pr);
             }
         }
@@ -414,7 +415,7 @@ struct purify_arith_proc {
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, is_int ? u().mk_0_pw_0_int() : u().mk_0_pw_0_real())));
+                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, u().mk_power(zero, zero))));
                 push_cnstr_pr(result_pr);
             }
             else if (!is_int) {
@@ -690,7 +691,7 @@ struct purify_arith_proc {
     };
     
     void process_quantifier(quantifier * q, expr_ref & result, proof_ref & result_pr) { 
-        result_pr = 0;
+        result_pr = nullptr;
         rw r(*this);
         expr_ref new_body(m());
         proof_ref new_body_pr(m());
@@ -760,7 +761,7 @@ struct purify_arith_proc {
         sz = r.cfg().m_new_cnstrs.size();
         TRACE("purify_arith", tout << r.cfg().m_new_cnstrs << "\n";);
         for (unsigned i = 0; i < sz; i++) {
-            m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : 0, 0);
+            m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : nullptr, nullptr);
         }
         
         // add filter_model_converter to eliminate auxiliary variables from model
@@ -801,18 +802,18 @@ public:
         m_params(p) {
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(purify_arith_tactic, m, m_params);
     }
         
-    virtual ~purify_arith_tactic() {
+    ~purify_arith_tactic() override {
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         r.insert("complete", CPK_BOOL, 
                  "(default: true) add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root");
         r.insert("elim_root_objects", CPK_BOOL,
@@ -822,14 +823,14 @@ public:
         th_rewriter::get_param_descrs(r);
     }
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g,
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
+                    proof_converter_ref & pc,
+                    expr_dependency_ref & core) override {
         try {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("purify-arith", *g);
             TRACE("purify_arith", g->display(tout););
             bool produce_proofs = g->proofs_enabled();
@@ -851,7 +852,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
     }
 
 };

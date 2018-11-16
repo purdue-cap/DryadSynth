@@ -14,18 +14,17 @@ Author:
     Leonardo de Moura (leonardo) 2012-12-08
 
 Notes:
-    
+
 --*/
-#include<iostream>
-#include"z3.h"
-#include"api_log_macros.h"
-#include"api_context.h"
-#include"api_polynomial.h"
-#include"api_ast_vector.h"
-#include"expr2polynomial.h"
-#include"cancel_eh.h"
-#include"scoped_timer.h"
-#include"expr2var.h"
+#include "api/z3.h"
+#include "api/api_log_macros.h"
+#include "api/api_context.h"
+#include "api/api_polynomial.h"
+#include "api/api_ast_vector.h"
+#include "ast/expr2polynomial.h"
+#include "util/cancel_eh.h"
+#include "util/scoped_timer.h"
+#include "ast/expr2var.h"
 
 namespace api {
 
@@ -35,7 +34,7 @@ namespace api {
 
     pmanager::~pmanager() {
     }
-    
+
 };
 
 extern "C" {
@@ -51,7 +50,7 @@ extern "C" {
         if (!converter.to_polynomial(to_expr(p), _p, d) ||
             !converter.to_polynomial(to_expr(q), _q, d)) {
             SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            return nullptr;
         }
         Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
@@ -75,7 +74,7 @@ extern "C" {
             }
         }
         RETURN_Z3(of_ast_vector(result));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

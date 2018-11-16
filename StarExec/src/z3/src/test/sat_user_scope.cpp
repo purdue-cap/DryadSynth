@@ -4,8 +4,8 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "sat_solver.h"
-#include "util.h"
+#include "sat/sat_solver.h"
+#include "util/util.h"
 
 typedef sat::literal_vector clause_t;
 typedef vector<clause_t> clauses_t;
@@ -34,10 +34,6 @@ static void add_clause(sat::solver& s, random_gen& r, trail_t& t) {
     s.mk_clause(cls.size(), cls.c_ptr());
 }
 
-static void display_state(std::ostream& out, sat::solver& s, trail_t& t) {
-    s.display(out);
-}
-
 static void pop_user_scope(sat::solver& s, trail_t& t) {
     std::cout << "pop\n";
     s.user_pop(1);
@@ -59,7 +55,7 @@ static void init_vars(sat::solver& s) {
 static void check_coherence(sat::solver& s1, trail_t& t) {
     params_ref p;
     reslimit rlim;
-    sat::solver s2(p, rlim, 0);
+    sat::solver s2(p, rlim, nullptr);
     init_vars(s2);
     sat::literal_vector cls;
     for (unsigned i = 0; i < t.size(); ++i) {
@@ -77,7 +73,7 @@ static void check_coherence(sat::solver& s1, trail_t& t) {
         s2.display(std::cout);
     }
     std::cout << is_sat1 << "\n";
-    SASSERT(is_sat1 == is_sat2);
+    ENSURE(is_sat1 == is_sat2);
 }
 
 void tst_sat_user_scope() {
@@ -85,7 +81,7 @@ void tst_sat_user_scope() {
     trail_t trail;
     params_ref p;
     reslimit rlim;
-    sat::solver s(p, rlim, 0);  // incremental solver
+    sat::solver s(p, rlim, nullptr);  // incremental solver
     init_vars(s);
     while (true) {
         for (unsigned i = 0; i < s_num_frames; ++i) {

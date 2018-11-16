@@ -4,8 +4,8 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "pdr_context.h"
-#include "reg_decl_plugins.h"
+#include "muz/pdr/pdr_context.h"
+#include "ast/reg_decl_plugins.h"
 
 
 using namespace pdr;
@@ -103,7 +103,7 @@ struct test_model_search {
         unsigned level = 4;
         for(unsigned n = 0; n < 100; ++n) {
             state = mk_state(states, rand);
-            model_node* root = alloc(model_node, 0, state, pt, level);
+            model_node* root = alloc(model_node, nullptr, state, pt, level);
             search.set_root(root);
             add_tree(root, false);
             search.display(std::cout);

@@ -4,15 +4,15 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "expr_rand.h"
-#include "ast_pp.h"
-#include "bv_decl_plugin.h"
-#include "array_decl_plugin.h"
-#include "arith_decl_plugin.h"
-#include "ast_smt_pp.h"
+#include "test/fuzzing/expr_rand.h"
+#include "ast/ast_pp.h"
+#include "ast/bv_decl_plugin.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/ast_smt_pp.h"
 #include <iostream>
 #include <sstream>
-#include "reg_decl_plugins.h"
+#include "ast/reg_decl_plugins.h"
 
 static unsigned rand_seed = 1;
 
@@ -25,8 +25,8 @@ void tst_expr_arith(unsigned num_files) {
     er.initialize_arith(20);
 
     family_id fid = m.mk_family_id("arith");
-    sort* int_ty  = m.mk_sort(fid, INT_SORT, 0, 0);
-    sort* real_ty = m.mk_sort(fid, REAL_SORT, 0, 0);
+    sort* int_ty  = m.mk_sort(fid, INT_SORT, 0, nullptr);
+    sort* real_ty = m.mk_sort(fid, REAL_SORT, 0, nullptr);
 
     er.initialize_array(3, int_ty, int_ty);
     er.initialize_array(3, int_ty, real_ty);
@@ -40,10 +40,10 @@ void tst_expr_arith(unsigned num_files) {
 
         pp.set_logic(symbol("QF_AUFLIA"));
         std::ostringstream buffer;
-        buffer << "random_arith_" << i << ".smt";
+        buffer << "random_arith_" << i << ".smt2";
         std::cout << buffer.str() << "\n";
         std::ofstream file(buffer.str().c_str());
-        pp.display(file, e.get());
+        pp.display_smt2(file, e.get());
         file.close();
     }
     
@@ -83,10 +83,10 @@ void tst_expr_rand(unsigned num_files) {
 
         pp.set_logic(symbol("QF_AUFBV"));
         std::ostringstream buffer;
-        buffer << "random_bv_" << i << ".smt";
+        buffer << "random_bv_" << i << ".smt2";
         std::cout << buffer.str() << "\n";
         std::ofstream file(buffer.str().c_str());
-        pp.display(file, e.get());
+        pp.display_smt2(file, e.get());
         file.close();
 
     }
@@ -98,8 +98,8 @@ void tst_expr_rand(char** argv, int argc, int& i) {
         i += 1;
         if (i + 1 < argc && 0 == strncmp(argv[i+1],"/rs:",3)) {
             rand_seed = atol(argv[i+1]+4);
-			std::cout << "random seed:" << rand_seed << "\n";
-			i += 1;
+            std::cout << "random seed:" << rand_seed << "\n";
+            i += 1;
         }
 
         if (i + 1 < argc && 0 == strcmp(argv[i+1],"/arith")) {

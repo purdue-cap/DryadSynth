@@ -23,7 +23,7 @@ Revision History:
 #ifndef REPLACE_PROOF_CONVERTER_H_
 #define REPLACE_PROOF_CONVERTER_H_
 
-#include "proof_converter.h"
+#include "tactic/proof_converter.h"
 
 class replace_proof_converter : public proof_converter {
     ast_manager&    m;
@@ -32,11 +32,11 @@ public:
 
     replace_proof_converter(ast_manager& _m): m(_m), m_proofs(m) {}
 
-    virtual ~replace_proof_converter() {}
+    ~replace_proof_converter() override {}
 
-    virtual void operator()(ast_manager & _m, unsigned num_source, proof * const * source, proof_ref & result);
+    void operator()(ast_manager & _m, unsigned num_source, proof * const * source, proof_ref & result) override;
 
-    virtual proof_converter * translate(ast_translation & translator);
+    proof_converter * translate(ast_translation & translator) override;
 
     void insert(proof* p) { m_proofs.push_back(p); }
 

@@ -16,12 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include"ast_smt2_pp.h"
-#include"smt_context.h"
-#include"theory_fpa.h"
-#include"theory_bv.h"
-#include"smt_model_generator.h"
-#include"bv2fpa_converter.h"
+#include "ast/ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/theory_fpa.h"
+#include "smt/theory_bv.h"
+#include "smt/smt_model_generator.h"
+#include "ast/fpa/bv2fpa_converter.h"
 
 namespace smt {
 
@@ -32,13 +32,13 @@ namespace smt {
     public:
         fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & map, expr * e) :
             m(m), m_map(map), key(e, m) { }
-        virtual ~fpa2bv_conversion_trail_elem() { }
-        virtual void undo(theory_fpa & th) {
+        ~fpa2bv_conversion_trail_elem() override { }
+        void undo(theory_fpa & th) override {
             expr * val = m_map.find(key);
             m_map.remove(key);
             m.dec_ref(key);
             m.dec_ref(val);
-            key = 0;
+            key = nullptr;
         }
     };
 
@@ -119,6 +119,7 @@ namespace smt {
         SASSERT(m_conversions.empty());
         SASSERT(m_is_added_to_model.empty());
     }
+
     void theory_fpa::init(context * ctx) {
         smt::theory::init(ctx);
         m_is_initialized = true;
@@ -207,7 +208,7 @@ namespace smt {
               for (unsigned i = 0; i < values.size(); i++)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
-        app * result = 0;
+        app * result = nullptr;
         unsigned bv_sz;
 
         rational val(0);
@@ -237,8 +238,9 @@ namespace smt {
 
         if (m_fpa_util.is_fp(e)) {
             expr * cargs[3] = { to_app(e)->get_arg(0), to_app(e)->get_arg(1), to_app(e)->get_arg(2) };
-            res = m_bv_util.mk_concat(3, cargs);
-            m_th_rw((expr_ref&)res);
+            expr_ref tmp(m_bv_util.mk_concat(3, cargs), m);
+            m_th_rw(tmp);
+            res = to_app(tmp);
         }
         else {
             sort * es = m.get_sort(e);
@@ -254,7 +256,7 @@ namespace smt {
             }
 
             func_decl_ref wrap_fd(m);
-            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_INTERNAL_BVWRAP, 0, 0, 1, &es, bv_srt);
+            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_BVWRAP, 0, nullptr, 1, &es, bv_srt);
             res = m.mk_app(wrap_fd, e);
         }
 
@@ -308,6 +310,7 @@ namespace smt {
 
         expr_ref e_conv(m), res(m);
         proof_ref pr(m);
+
         m_rw(e, e_conv);
 
         TRACE("t_fpa_detail", tout << "term: " << mk_ismt2_pp(e, get_manager()) << std::endl;
@@ -383,7 +386,6 @@ namespace smt {
     {
         ast_manager & m = get_manager();
         context & ctx = get_context();
-        simplifier & simp = ctx.get_simplifier();
 
         expr_ref res(m), t(m);
         proof_ref t_pr(m);
@@ -392,10 +394,11 @@ namespace smt {
         expr_ref_vector::iterator it = m_converter.m_extra_assertions.begin();
         expr_ref_vector::iterator end = m_converter.m_extra_assertions.end();
         for (; it != end; it++) {
-            simp(*it, t, t_pr);
+            ctx.get_rewriter()(*it, t, t_pr);
             res = m.mk_and(res, t);
         }
         m_converter.m_extra_assertions.reset();
+
         m_th_rw(res);
 
         CTRACE("t_fpa", !m.is_true(res), tout << "side condition: " << mk_ismt2_pp(res, m) << std::endl;);
@@ -551,6 +554,7 @@ namespace smt {
             c = m.mk_eq(xc, yc);
 
         m_th_rw(c);
+
         expr_ref xe_eq_ye(m), c_eq_iff(m);
         xe_eq_ye = m.mk_eq(xe, ye);
         c_eq_iff = m.mk_iff(xe_eq_ye, c);
@@ -681,8 +685,15 @@ namespace smt {
             // These are the conversion functions fp.to_* */
             SASSERT(!m_fpa_util.is_float(n) && !m_fpa_util.is_rm(n));
         }
-        else
-            UNREACHABLE();
+        else {
+            /* Theory variables can be merged when (= bv-term (bvwrap fp-term)),
+               in which case context::relevant_eh may call theory_fpa::relevant_eh
+               after theory_bv::relevant_eh, regardless of whether theory_fpa is
+               interested in this term. But, this can only happen because of
+               (bvwrap ...) terms, i.e., `n' must be a bit-vector expression,
+               which we can safely ignore. */
+            SASSERT(m_bv_util.is_bv(n));
+        }
     }
 
     void theory_fpa::reset_eh() {
@@ -694,7 +705,7 @@ namespace smt {
         m_trail_stack.pop_scope(m_trail_stack.get_num_scopes());
         if (m_factory) {
             dealloc(m_factory);
-            m_factory = 0;
+            m_factory = nullptr;
         }
         ast_manager & m = get_manager();
         dec_ref_map_key_values(m, m_conversions);
@@ -732,7 +743,7 @@ namespace smt {
             return alloc(expr_wrapper_proc, owner);
         }
 
-        model_value_proc * res = 0;
+        model_value_proc * res = nullptr;
 
         app_ref wrapped(m);
         wrapped = wrap(owner);
@@ -802,30 +813,30 @@ namespace smt {
         ast_manager & m = get_manager();
         proto_model & mdl = mg.get_model();
         proto_model new_model(m);
-        
+
         bv2fpa_converter bv2fp(m, m_converter);
-        
+
         obj_hashtable<func_decl> seen;
         bv2fp.convert_min_max_specials(&mdl, &new_model, seen);
         bv2fp.convert_uf2bvuf(&mdl, &new_model, seen);
-        
+
         for (obj_hashtable<func_decl>::iterator it = seen.begin();
              it != seen.end();
              it++)
             mdl.unregister_decl(*it);
-        
+
         for (unsigned i = 0; i < new_model.get_num_constants(); i++) {
             func_decl * f = new_model.get_constant(i);
             mdl.register_decl(f, new_model.get_const_interp(f));
         }
-        
+
         for (unsigned i = 0; i < new_model.get_num_functions(); i++) {
             func_decl * f = new_model.get_function(i);
             func_interp * fi = new_model.get_func_interp(f)->copy();
             mdl.register_decl(f, fi);
         }
     }
-    
+
     void theory_fpa::display(std::ostream & out) const
     {
         ast_manager & m = get_manager();
@@ -872,27 +883,5 @@ namespace smt {
             expr * r = (*it)->get_root()->get_owner();
             out << r->get_id() << " --> " << mk_ismt2_pp(n, m) << std::endl;
         }
-    }
-
-    bool theory_fpa::include_func_interp(func_decl * f) {
-        TRACE("t_fpa", tout << "f = " << mk_ismt2_pp(f, get_manager()) << std::endl;);
-
-        if (f->get_family_id() == get_family_id()) {
-            bool include =
-                m_fpa_util.is_min_unspecified(f) ||
-                m_fpa_util.is_max_unspecified(f) ||
-                m_fpa_util.is_to_ubv_unspecified(f) ||
-                m_fpa_util.is_to_sbv_unspecified(f) ||
-                m_fpa_util.is_to_ieee_bv_unspecified(f) ||
-                m_fpa_util.is_to_real_unspecified(f);
-            if (include && !m_is_added_to_model.contains(f)) {
-                m_is_added_to_model.insert(f);
-                get_manager().inc_ref(f);
-                return true;
-            }
-            return false;
-        }
-        else
-            return true;
     }
 };

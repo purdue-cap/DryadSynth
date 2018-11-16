@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"smt_context.h"
-#include"buffer.h"
-#include"ast_ll_pp.h"
+#include "smt/smt_context.h"
+#include "util/buffer.h"
+#include "ast/ast_ll_pp.h"
 
 namespace smt {
 
@@ -54,7 +54,7 @@ namespace smt {
         }
     }
 
-    void theory::display_app(std::ostream & out, app * n) const {
+    std::ostream& theory::display_app(std::ostream & out, app * n) const {
         func_decl * d = n->get_decl();
         if (n->get_num_args() == 0) {
             out << d->get_name();
@@ -73,9 +73,10 @@ namespace smt {
         else {
             out << "#" << n->get_id();
         }
+        return out;
     }
 
-    void theory::display_flat_app(std::ostream & out, app * n) const {
+    std::ostream& theory::display_flat_app(std::ostream & out, app * n) const {
         func_decl * d = n->get_decl();
         if (n->get_num_args() == 0) {
             out << d->get_name();
@@ -106,6 +107,7 @@ namespace smt {
         else {
             out << "#" << n->get_id();
         }
+        return out;
     }
     
     bool theory::is_relevant_and_shared(enode * n) const {
@@ -128,8 +130,8 @@ namespace smt {
 
     theory::theory(family_id fid):
         m_id(fid),
-        m_context(0),
-        m_manager(0) {
+        m_context(nullptr),
+        m_manager(nullptr) {
     }
 
     theory::~theory() {

@@ -20,9 +20,9 @@ Revision History:
 #ifndef SYM_MUX_H_
 #define SYM_MUX_H_
 
-#include "ast.h"
-#include "map.h"
-#include "vector.h"
+#include "ast/ast.h"
+#include "util/map.h"
+#include "util/vector.h"
 #include <vector>
 
 class model_core;
@@ -122,7 +122,7 @@ public:
     func_decl * try_get_primary_by_prefix(func_decl* prefix) const {
         func_decl * res;
         if(!m_prefix2prim.find(prefix, res)) {
-            return 0;
+            return nullptr;
         }
         return res;
     }
@@ -133,7 +133,7 @@ public:
     func_decl * try_get_by_prefix(func_decl* prefix, unsigned idx) {
         func_decl * prim = try_get_primary_by_prefix(prefix);
         if(!prim) {
-            return 0;
+            return nullptr;
         }
         return conv(prim, 0, idx);
     }

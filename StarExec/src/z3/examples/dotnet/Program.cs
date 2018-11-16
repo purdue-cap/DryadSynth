@@ -173,10 +173,9 @@ namespace test_mapi
                 throw new Exception("function must be binary, and argument types must be equal to return type");
             }
 
-            string bench = string.Format("(benchmark comm :formula (forall (x {0}) (y {1}) (= ({2} x y) ({3} y x))))",
+            string bench = string.Format("(assert (forall ((x {0}) (y {1})) (= ({2} x y) ({3} y x))))",
                              t.Name, t.Name, f.Name, f.Name);
-            ctx.ParseSMTLIBString(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f });
-            return ctx.SMTLIBFormulas[0];
+            return ctx.ParseSMTLIB2String(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f });
         }
 
         /// <summary>
@@ -623,7 +622,7 @@ namespace test_mapi
                 Console.WriteLine("{0}", q1);
             }
 
-            // Quantifier with de-Brujin indices.
+            // Quantifier with de-Bruijn indices.
             {
                 Expr x = ctx.MkBound(1, ctx.IntSort);
                 Expr y = ctx.MkBound(0, ctx.IntSort);
@@ -818,6 +817,7 @@ namespace test_mapi
             BigIntCheck(ctx, ctx.MkReal("234234333/2"));
 
 
+#if !FRAMEWORK_LT_4
             string bn = "1234567890987654321";
 
             if (ctx.MkInt(bn).BigInteger.ToString() != bn)
@@ -828,6 +828,7 @@ namespace test_mapi
 
             if (ctx.MkBV(bn, 32).BigInteger.ToString() == bn)
                 throw new TestFailedException();
+#endif
 
             // Error handling test.
             try
@@ -963,21 +964,6 @@ namespace test_mapi
                 }
         }
 
-        /// <summary>
-        /// Shows how to read an SMT1 file.
-        /// </summary>
-        static void SMT1FileTest(string filename)
-        {
-            Console.Write("SMT File test ");
-
-            using (Context ctx = new Context(new Dictionary<string, string>() { { "MODEL", "true" } }))
-            {
-                ctx.ParseSMTLIBFile(filename);
-
-                BoolExpr a = ctx.MkAnd(ctx.SMTLIBFormulas);
-                Console.WriteLine("read formula: " + a);
-            }
-        }
 
         /// <summary>
         /// Shows how to read an SMT2 file.
@@ -1094,8 +1080,10 @@ namespace test_mapi
 
         static void BigIntCheck(Context ctx, RatNum r)
         {
+#if !FRAMEWORK_LT_4
             Console.WriteLine("Num: " + r.BigIntNumerator);
             Console.WriteLine("Den: " + r.BigIntDenominator);
+#endif
         }
 
         /// <summary>
@@ -1395,11 +1383,10 @@ namespace test_mapi
         {
             Console.WriteLine("ParserExample1");
 
-            ctx.ParseSMTLIBString("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
-            foreach (BoolExpr f in ctx.SMTLIBFormulas)
-                Console.WriteLine("formula {0}", f);
+            var fml = ctx.ParseSMTLIB2String("(declare-const x Int) (declare-const y Int) (assert (> x y)) (assert (> x 0))");
+            Console.WriteLine("formula {0}", fml);
 
-            Model m = Check(ctx, ctx.MkAnd(ctx.SMTLIBFormulas), Status.SATISFIABLE);
+            Model m = Check(ctx, fml, Status.SATISFIABLE);
         }
 
         /// <summary>
@@ -1408,15 +1395,11 @@ namespace test_mapi
         public static void ParserExample2(Context ctx)
         {
             Console.WriteLine("ParserExample2");
-
             Symbol[] declNames = { ctx.MkSymbol("a"), ctx.MkSymbol("b") };
             FuncDecl a = ctx.MkConstDecl(declNames[0], ctx.MkIntSort());
             FuncDecl b = ctx.MkConstDecl(declNames[1], ctx.MkIntSort());
             FuncDecl[] decls = new FuncDecl[] { a, b };
-
-            ctx.ParseSMTLIBString("(benchmark tst :formula (> a b))",
-                                 null, null, declNames, decls);
-            BoolExpr f = ctx.SMTLIBFormulas[0];
+            BoolExpr f = ctx.ParseSMTLIB2String("(assert (> a b))", null, null, declNames, decls);
             Console.WriteLine("formula: {0}", f);
             Check(ctx, f, Status.SATISFIABLE);
         }
@@ -1434,37 +1417,13 @@ namespace test_mapi
 
             BoolExpr ca = CommAxiom(ctx, g);
 
-            ctx.ParseSMTLIBString("(benchmark tst :formula (forall (x Int) (y Int) (implies (= x y) (= (gg x 0) (gg 0 y)))))",
+            BoolExpr thm = ctx.ParseSMTLIB2String("(assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
              null, null,
              new Symbol[] { ctx.MkSymbol("gg") },
              new FuncDecl[] { g });
 
-            BoolExpr thm = ctx.SMTLIBFormulas[0];
             Console.WriteLine("formula: {0}", thm);
             Prove(ctx, thm, false, ca);
-        }
-
-        /// <summary>
-        /// Display the declarations, assumptions and formulas in a SMT-LIB string.
-        /// </summary>
-        public static void ParserExample4(Context ctx)
-        {
-            Console.WriteLine("ParserExample4");
-
-            ctx.ParseSMTLIBString
-            ("(benchmark tst :extrafuns ((x Int) (y Int)) :assumption (= x 20) :formula (> x y) :formula (> x 0))");
-            foreach (var decl in ctx.SMTLIBDecls)
-            {
-                Console.WriteLine("Declaration: {0}", decl);
-            }
-            foreach (var f in ctx.SMTLIBAssumptions)
-            {
-                Console.WriteLine("Assumption: {0}", f);
-            }
-            foreach (var f in ctx.SMTLIBFormulas)
-            {
-                Console.WriteLine("Formula: {0}", f);
-            }
         }
 
         /// <summary>
@@ -1477,9 +1436,9 @@ namespace test_mapi
 
             try
             {
-                ctx.ParseSMTLIBString(
+                ctx.ParseSMTLIB2String(
                     /* the following string has a parsing error: missing parenthesis */
-                         "(benchmark tst :extrafuns ((x Int (y Int)) :formula (> x y) :formula (> x 0))");
+                         "(declare-const x Int (declare-const y Int)) (assert (> x y))");
             }
             catch (Z3Exception e)
             {
@@ -1986,7 +1945,7 @@ namespace test_mapi
             BoolExpr p2 = ctx.MkBoolConst("P2");
             BoolExpr p3 = ctx.MkBoolConst("P3");
             BoolExpr p4 = ctx.MkBoolConst("P4");
-            BoolExpr[] assumptions = new BoolExpr[] { ctx.MkNot(p1), ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
+            Expr[] assumptions = new Expr[] { ctx.MkNot(p1), ctx.MkNot(p2), ctx.MkNot(p3), ctx.MkNot(p4) };
             BoolExpr f1 = ctx.MkAnd(new BoolExpr[] { pa, pb, pc });
             BoolExpr f2 = ctx.MkAnd(new BoolExpr[] { pa, ctx.MkNot(pb), pc });
             BoolExpr f3 = ctx.MkOr(ctx.MkNot(pa), ctx.MkNot(pc));
@@ -2148,6 +2107,31 @@ namespace test_mapi
             Console.WriteLine("OK, model: {0}", s.Model.ToString());
         }
 
+        public static void TranslationExample()
+        {
+            Context ctx1 = new Context();
+            Context ctx2 = new Context();
+
+            Sort s1 = ctx1.IntSort;
+            Sort s2 = ctx2.IntSort;
+            Sort s3 = s1.Translate(ctx2);
+
+            Console.WriteLine(s1 == s2);
+            Console.WriteLine(s1.Equals(s2));
+            Console.WriteLine(s2.Equals(s3));
+            Console.WriteLine(s1.Equals(s3));
+
+            Expr e1 = ctx1.MkIntConst("e1");
+            Expr e2 = ctx2.MkIntConst("e1");
+            Expr e3 = e1.Translate(ctx2);
+
+            Console.WriteLine(e1 == e2);
+            Console.WriteLine(e1.Equals(e2));
+            Console.WriteLine(e2.Equals(e3));
+            Console.WriteLine(e1.Equals(e3));
+        }
+
+
         static void Main(string[] args)
         {
             try
@@ -2184,7 +2168,6 @@ namespace test_mapi
                     BitvectorExample2(ctx);
                     ParserExample1(ctx);
                     ParserExample2(ctx);
-                    ParserExample4(ctx);
                     ParserExample5(ctx);
                     ITEExample(ctx);
                     EvalExample1(ctx);
@@ -2220,6 +2203,8 @@ namespace test_mapi
                     QuantifierExample3(ctx);
                     QuantifierExample4(ctx);
                 }
+
+                TranslationExample();
 
                 Log.Close();
                 if (Log.isOpen())

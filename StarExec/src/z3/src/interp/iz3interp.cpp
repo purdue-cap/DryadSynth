@@ -33,14 +33,13 @@
 #include <set>
 #include <iostream>
 
-#include "iz3profiling.h"
-#include "iz3translate.h"
-#include "iz3foci.h"
-#include "iz3proof.h"
-#include "iz3hash.h"
-#include "iz3interp.h"
+#include "interp/iz3profiling.h"
+#include "interp/iz3translate.h"
+#include "interp/iz3proof.h"
+#include "interp/iz3hash.h"
+#include "interp/iz3interp.h"
 
-#include"scoped_proof.h"
+#include "ast/scoped_proof.h"
 
 
 using namespace stl_ext;
@@ -98,6 +97,7 @@ struct frame_reducer : public iz3mgr {
 
         // if multiple children of a tree node are used, we can't delete it
         std::vector<int> used_children; 
+        used_children.reserve(frames);
         for(int i = 0; i < frames; i++)
             used_children.push_back(0);
         for(int i = 0; i < frames; i++)
@@ -167,27 +167,11 @@ struct frame_reducer {
 #endif  
 
 
-#if 0
-static lbool test_secondary(context ctx,
-                            int num, 
-                            ast *cnsts,
-                            ast *interps,
-                            int *parents = 0
-                            ){
-    iz3secondary *sp = iz3foci::create(ctx,num,parents);
-    std::vector<ast> frames(num), interpolants(num-1);
-    std::copy(cnsts,cnsts+num,frames.begin());
-    int res = sp->interpolate(frames,interpolants);
-    if(res == 0)
-        std::copy(interpolants.begin(),interpolants.end(),interps);
-    return res ? L_TRUE : L_FALSE;
-}                         
-#endif
     
 template<class T>
 struct killme {
     T *p;
-    killme(){p = 0;}
+    killme(){p = nullptr;}
     void set(T *_p) {p = _p;} 
     ~killme(){
         if(p)
@@ -213,11 +197,7 @@ public:
                         const std::vector<int> &parents,
                         std::vector<ast> &interps
                         ){
-        int num = cnsts.size();
-        iz3secondary *sp = iz3foci::create(this,num,(int *)(parents.empty()?0:&parents[0]));
-        int res = sp->interpolate(cnsts, interps);
-        if(res != 0)
-            throw iz3_exception("secondary failed");
+        throw iz3_exception("secondary interpolating prover not supported");
     }                         
 
     void proof_to_interpolant(z3pf proof,
@@ -225,7 +205,7 @@ public:
                               const std::vector<int> &parents,
                               std::vector<ast> &interps,
                               const std::vector<ast> &theory,
-                              interpolation_options_struct *options = 0
+                              interpolation_options_struct *options = nullptr
                               ){
 #if 0
         test_secondary(cnsts,parents,interps);
@@ -248,10 +228,9 @@ public:
         if(is_linear(parents_vec))
             parents_vec.clear();
 
-        // create a secondary prover
-        iz3secondary *sp = iz3foci::create(this,num,parents_vec.empty()?0:&parents_vec[0]);
-        sp_killer.set(sp); // kill this on exit
-      
+        // secondary prover no longer supported
+        iz3secondary *sp = nullptr;
+
 #define BINARY_INTERPOLATION
 #ifndef BINARY_INTERPOLATION    
         // create a translator
@@ -276,10 +255,12 @@ public:
         catch (const char *msg) {
             throw interpolation_failure(msg);
         }
-        catch (const iz3translation::unsupported &) {
+        catch (const iz3translation::unsupported & ex) {
+            TRACE("iz3", tout << "unsupported " << "\n";);
             throw interpolation_error();
         }
-        catch (const iz3proof::proof_error &) {
+        catch (const iz3proof::proof_error & ex) {
+            TRACE("iz3", tout << "proof error " << "\n";);
             throw interpolation_error();
         }
         profiling::timer_stop("Proof translation");
@@ -325,10 +306,12 @@ public:
             catch (const char *msg) {
                 throw interpolation_failure(msg);
             }
-            catch (const iz3translation::unsupported &) {
+            catch (const iz3translation::unsupported & ex) {
+                TRACE("iz3", tout << "unsupported " << "\n";);
                 throw interpolation_error();
             }
             catch (const iz3proof::proof_error &) {
+                TRACE("iz3", tout << "proof error\n";);
                 throw interpolation_error();
             }
             profiling::timer_stop("Proof translation");
@@ -353,7 +336,7 @@ public:
                               const std::vector<int> &parents,
                               std::vector<ast> &interps,
                               const std::vector<ast> &theory,
-                              interpolation_options_struct *options = 0
+                              interpolation_options_struct *options = nullptr
                               ){
         std::vector<std::vector<ast> > cnsts_vec(cnsts.size());
         for(unsigned i = 0; i < cnsts.size(); i++)
@@ -367,7 +350,7 @@ public:
                               const std::vector<ast> &_cnsts,
                               const ast &tree,
                               std::vector<ast> &interps,
-                              interpolation_options_struct *options = 0
+                              interpolation_options_struct *options = nullptr
                               ){
         std::vector<int> pos_map;
     
@@ -541,7 +524,7 @@ lbool iz3interpolate(ast_manager &_m_manager,
     std::vector<iz3mgr::ast> _cnsts;
     itp.assert_conjuncts(s,_cnsts,_tree);
     profiling::timer_start("solving");
-    lbool res = s.check_sat(0,0);
+    lbool res = s.check_sat(0,nullptr);
     profiling::timer_stop("solving");
     if(res == l_false){
         ast *proof = s.get_proof();
@@ -572,7 +555,7 @@ void interpolation_options_struct::apply(iz3base &b){
 
 // On linux and mac, unlimit stack space so we get recursion
 
-#if defined(_WINDOWS) || defined(_CYGWIN)
+#if defined(_WINDOWS) || defined(_CYGWIN) || defined(_MINGW)
 
 #else
 

@@ -19,7 +19,7 @@ Notes:
 #ifndef GPARAMS_H_
 #define GPARAMS_H_
 
-#include"params.h"
+#include "util/params.h"
 
 class gparams {
     struct imp;
@@ -47,7 +47,7 @@ public:
        set_global_param('pp.decimal', 'true')
        will set the parameter "decimal" in the module "pp" to true.
        
-       An exception is thrown if the the parameter name is unknown, or if the value is incorrect.
+       An exception is thrown if the parameter name is unknown, or if the value is incorrect.
     */
     static void set(char const * name, char const * value);
     static void set(symbol const & name, char const * value);
@@ -57,7 +57,7 @@ public:
        
        If the parameter is not set, then it just returns 'default'.
 
-       An exception is thrown if the the parameter name is unknown.
+       An exception is thrown if the parameter name is unknown.
     */
     static std::string get_value(char const * name);
     static std::string get_value(symbol const & name);

@@ -16,10 +16,10 @@ Author:
 Notes:
 
 --*/
-#include"trace.h"
-#include"arith_decl_plugin.h"
-#include"model_v2_pp.h"
-#include"pb2bv_model_converter.h"
+#include "util/trace.h"
+#include "ast/arith_decl_plugin.h"
+#include "model/model_v2_pp.h"
+#include "tactic/arith/pb2bv_model_converter.h"
 
 pb2bv_model_converter::pb2bv_model_converter(ast_manager & _m) : m(_m) {
 
@@ -43,7 +43,7 @@ pb2bv_model_converter::pb2bv_model_converter(ast_manager & _m, obj_map<func_decl
         if (!c2bit.contains(d)) {
             SASSERT(d->get_arity() == 0);
             m.inc_ref(d);
-            m_c2bit.push_back(func_decl_pair(d, static_cast<func_decl*>(0)));
+            m_c2bit.push_back(func_decl_pair(d, static_cast<func_decl*>(nullptr)));
         }
     }
 }
@@ -71,7 +71,7 @@ void pb2bv_model_converter::operator()(model_ref & md, unsigned goal_idx) {
     for (; it != end; ++it) {
         if (it->second) {
             expr * val = md->get_const_interp(it->second);
-            if (val == 0 || m.is_false(val)) {
+            if (val == nullptr || m.is_false(val)) {
                 /* false's and don't cares get the integer 0 solution*/ 
                 md->register_decl(it->first, a_util.mk_numeral(rational(0), true));
             } 

@@ -19,8 +19,8 @@ Revision History:
 #ifndef AST_PRINTER_H_
 #define AST_PRINTER_H_
 
-#include"ast.h"
-#include"ast_smt2_pp.h"
+#include "ast/ast.h"
+#include "ast/ast_smt2_pp.h"
 
 class ast_printer {
 public:
@@ -45,7 +45,7 @@ public:
 
 class ast_printer_context : public ast_printer {
 public:
-    virtual ~ast_printer_context() {}
+    ~ast_printer_context() override {}
     virtual ast_manager & get_ast_manager() = 0;
     virtual std::ostream & regular_stream() { return std::cout; }
     virtual std::ostream & diagnostic_stream() { return std::cerr; }

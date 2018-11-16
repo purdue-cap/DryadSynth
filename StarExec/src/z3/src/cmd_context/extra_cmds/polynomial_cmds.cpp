@@ -16,20 +16,20 @@ Notes:
 
 --*/
 #include<sstream>
-#include"cmd_context.h"
-#include"cmd_util.h"
-#include"scoped_timer.h"
-#include"scoped_ctrl_c.h"
-#include"cancel_eh.h"
-#include"ast_smt2_pp.h"
-#include"expr2polynomial.h"
-#include"parametric_cmd.h"
-#include"mpq.h"
-#include"algebraic_numbers.h"
-#include"polynomial_var2value.h"
-#include"expr2var.h"
-#include"pp.h"
-#include"pp_params.hpp"
+#include "cmd_context/cmd_context.h"
+#include "cmd_context/cmd_util.h"
+#include "util/scoped_timer.h"
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/expr2polynomial.h"
+#include "cmd_context/parametric_cmd.h"
+#include "util/mpq.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/polynomial_var2value.h"
+#include "ast/expr2var.h"
+#include "ast/pp.h"
+#include "ast/pp_params.hpp"
 
 static void to_poly(cmd_context & ctx, expr * t) {
     polynomial::numeral_manager nm;
@@ -104,7 +104,7 @@ class poly_isolate_roots_cmd : public cmd {
         }
 
         void set_next_arg(cmd_context & ctx, expr * arg) {
-            if (m_p.get() == 0) {
+            if (m_p.get() == nullptr) {
                 scoped_mpz d(m_qm);
                 if (!m_expr2poly.to_polynomial(arg, m_p, d))
                     throw cmd_exception("expression is not a polynomial");
@@ -132,7 +132,7 @@ class poly_isolate_roots_cmd : public cmd {
         }
 
         void execute(cmd_context & ctx) {
-            if (m_p.get() == 0)
+            if (m_p.get() == nullptr)
                 throw cmd_exception("polynomial expected");
             polynomial::var_vector xs;
             m_pm.vars(m_p, xs);
@@ -162,37 +162,37 @@ class poly_isolate_roots_cmd : public cmd {
     scoped_ptr<context> m_ctx;
     
 public:
-    poly_isolate_roots_cmd(char const * name = "poly/isolate-roots"):cmd(name), m_ctx(0) {}
+    poly_isolate_roots_cmd(char const * name = "poly/isolate-roots"):cmd(name), m_ctx(nullptr) {}
 
-    virtual char const * get_usage() const { return "<term> (<term> <value>)*"; }
+    char const * get_usage() const override { return "<term> (<term> <value>)*"; }
 
-    virtual char const * get_descr(cmd_context & ctx) const { return "isolate the roots a multivariate polynomial modulo an assignment"; }
+    char const * get_descr(cmd_context & ctx) const override { return "isolate the roots a multivariate polynomial modulo an assignment"; }
     
-    virtual unsigned get_arity() const { return VAR_ARITY; }
+    unsigned get_arity() const override { return VAR_ARITY; }
 
-    virtual void prepare(cmd_context & ctx) { 
+    void prepare(cmd_context & ctx) override {
         m_ctx = alloc(context, ctx.m());
     }
 
-    virtual void finalize(cmd_context & ctx) {
-        m_ctx = 0;
+    void finalize(cmd_context & ctx) override {
+        m_ctx = nullptr;
     }
 
-    virtual void failure_cleanup(cmd_context & ctx) {
-        m_ctx = 0;
+    void failure_cleanup(cmd_context & ctx) override {
+        m_ctx = nullptr;
     }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         return CPK_EXPR;
     }
     
-    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
+    void set_next_arg(cmd_context & ctx, expr * arg) override {
         m_ctx->set_next_arg(ctx, arg);
     }
 
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         m_ctx->execute(ctx);
-        m_ctx = 0;
+        m_ctx = nullptr;
     }
 };
 
@@ -204,31 +204,31 @@ class poly_factor_cmd : public parametric_cmd {
 public:
     poly_factor_cmd(char const * name = "poly/factor"):parametric_cmd(name) {}
 
-    virtual char const * get_usage() const { return "<term> (<keyword> <value>)*"; }
+    char const * get_usage() const override { return "<term> (<keyword> <value>)*"; }
 
-    virtual char const * get_main_descr() const { 
+    char const * get_main_descr() const override {
         return "factor a polynomial";
     }
     
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         polynomial::factor_params::get_param_descrs(p);
     }
     
-    virtual void prepare(cmd_context & ctx) { 
+    void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_target   = 0; 
+        m_target   = nullptr;
     }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_target == 0) return CPK_EXPR;
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_target == nullptr) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
     
-    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
+    void set_next_arg(cmd_context & ctx, expr * arg) override {
         m_target = arg;
     }
     
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         polynomial::factor_params ps;
         ps.updt_params(m_params);
         factor(ctx, m_target, ps);

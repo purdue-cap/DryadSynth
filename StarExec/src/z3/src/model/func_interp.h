@@ -30,8 +30,8 @@ Revision History:
 #ifndef FUNC_INTERP_H_
 #define FUNC_INTERP_H_
 
-#include"ast.h"
-#include"ast_translation.h"
+#include "ast/ast.h"
+#include "ast/ast_translation.h"
 
 class func_interp;
 
@@ -86,7 +86,7 @@ public:
 
     unsigned get_arity() const { return m_arity; }
 
-    bool is_partial() const { return m_else == 0; }
+    bool is_partial() const { return m_else == nullptr; }
     // A function interpretation is said to be simple if m_else is ground.
     bool is_simple() const { return is_partial() || is_ground(m_else); }
     bool is_constant() const;

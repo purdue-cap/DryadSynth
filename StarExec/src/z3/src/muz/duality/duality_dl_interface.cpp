@@ -18,26 +18,26 @@
 
   --*/
 
-#include "dl_context.h"
-#include "dl_mk_coi_filter.h"
-#include "dl_mk_interp_tail_simplifier.h"
-#include "dl_mk_subsumption_checker.h"
-#include "dl_mk_rule_inliner.h"
-#include "dl_rule.h"
-#include "dl_rule_transformer.h"
-#include "smt2parser.h"
-#include "duality_dl_interface.h"
-#include "dl_rule_set.h"
-#include "dl_mk_slice.h"
-#include "dl_mk_unfold.h"
-#include "dl_mk_coalesce.h"
-#include "expr_abstract.h"
-#include "model_smt2_pp.h"
-#include "model_v2_pp.h"
-#include "fixedpoint_params.hpp"
-#include "used_vars.h"
-#include "func_decl_dependencies.h"
-#include "dl_transforms.h"
+#include "muz/base/dl_context.h"
+#include "muz/transforms/dl_mk_coi_filter.h"
+#include "muz/transforms/dl_mk_interp_tail_simplifier.h"
+#include "muz/transforms/dl_mk_subsumption_checker.h"
+#include "muz/transforms/dl_mk_rule_inliner.h"
+#include "muz/base/dl_rule.h"
+#include "muz/base/dl_rule_transformer.h"
+#include "parsers/smt2/smt2parser.h"
+#include "muz/duality/duality_dl_interface.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/transforms/dl_mk_slice.h"
+#include "muz/transforms/dl_mk_unfold.h"
+#include "muz/transforms/dl_mk_coalesce.h"
+#include "ast/expr_abstract.h"
+#include "model/model_smt2_pp.h"
+#include "model/model_v2_pp.h"
+#include "muz/base/fixedpoint_params.hpp"
+#include "ast/used_vars.h"
+#include "ast/func_decl_dependencies.h"
+#include "muz/transforms/dl_transforms.h"
 
 // template class symbol_table<family_id>;
 
@@ -48,8 +48,8 @@
 #pragma warning(disable:4101)
 #endif
 
-#include "duality.h"
-#include "duality_profiling.h"
+#include "duality/duality.h"
+#include "duality/duality_profiling.h"
 
 // using namespace Duality;
 
@@ -71,10 +71,10 @@ namespace Duality {
         Solver::Counterexample cex;
 
         duality_data(ast_manager &_m) : ctx(_m,config(params_ref())) {
-            ls = 0;
-            rpfp = 0;
+            ls = nullptr;
+            rpfp = nullptr;
             status = StatusNull;
-            old_rs = 0;
+            old_rs = nullptr;
         }
         ~duality_data(){
             if(old_rs)
@@ -92,7 +92,7 @@ namespace Duality {
         m_ctx(dl_ctx)
 
     {
-        _d = 0;
+        _d = nullptr;
         //   dl_ctx.get_manager().toggle_proof_mode(PGM_FINE);
     }
 
@@ -138,7 +138,7 @@ namespace Duality {
 
         // if there is old data, get the cex and dispose (later)
         duality_data *old_data = _d;
-        Solver *old_rs = 0;
+        Solver *old_rs = nullptr;
         if(old_data){
             old_rs = old_data->old_rs;
             old_rs->GetCounterexample().swap(old_data->cex);
@@ -273,6 +273,7 @@ namespace Duality {
                     if (!heads.contains(fd)) {
                         int arity = f.arity();
                         std::vector<expr> args;
+                        args.reserve(arity);
                         for (int j = 0; j < arity; j++)
                             args.push_back(_d->ctx.fresh_func_decl("X", f.domain(j))());
                         expr c = implies(_d->ctx.bool_val(false), f(args));

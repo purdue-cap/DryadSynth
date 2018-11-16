@@ -20,7 +20,7 @@ Revision History:
 #ifndef PDR_CLOSURE_H_
 #define PDR_CLOSURE_H_
 
-#include "arith_decl_plugin.h"
+#include "ast/arith_decl_plugin.h"
 
 namespace pdr {
 
@@ -35,8 +35,8 @@ namespace pdr {
         expr*                 m_k;
         obj_map<func_decl, expr*>* m_translate;
     public:
-        scaler(ast_manager& m): m(m), a(m), m_translate(0) {}        
-        expr_ref operator()(expr* e, expr* k, obj_map<func_decl, expr*>* translate = 0);
+        scaler(ast_manager& m): m(m), a(m), m_translate(nullptr) {}
+        expr_ref operator()(expr* e, expr* k, obj_map<func_decl, expr*>* translate = nullptr);
         expr_ref undo_k(expr* e, expr* k);
     private:
         expr_ref scale(expr* e, bool is_mul);

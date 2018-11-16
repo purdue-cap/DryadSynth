@@ -19,6 +19,7 @@ Notes:
 
 using System;
 using System.Diagnostics.Contracts;
+using System.Collections.Generic;
 
 namespace Microsoft.Z3
 {
@@ -132,6 +133,24 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Enumerate constants in model.
+        /// </summary>
+        public IEnumerable<KeyValuePair<FuncDecl, Expr>> Consts
+        {
+            get
+            {
+                uint nc = NumConsts;
+                for (uint i = 0; i < nc; ++i)
+                {
+                    var f = new FuncDecl(Context, Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i));
+                    IntPtr n = Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f.NativeObject);
+                    if (n == IntPtr.Zero) continue;
+                    yield return new KeyValuePair<FuncDecl, Expr>(f, Expr.Create(Context, n));
+                }
+            }
+        }
+
+        /// <summary>
         /// The number of function interpretations in the model.
         /// </summary>
         public uint NumFuncs
@@ -234,7 +253,7 @@ namespace Microsoft.Z3
         /// The uninterpreted sorts that the model has an interpretation for. 
         /// </summary>
         /// <remarks>
-        /// Z3 also provides an intepretation for uninterpreted sorts used in a formula.
+        /// Z3 also provides an interpretation for uninterpreted sorts used in a formula.
         /// The interpretation for a sort is a finite set of distinct values. We say this finite set is
         /// the "universe" of the sort.
         /// </remarks>

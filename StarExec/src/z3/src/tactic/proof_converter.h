@@ -19,13 +19,13 @@ Notes:
 #ifndef PROOF_CONVERTER_H_
 #define PROOF_CONVERTER_H_
 
-#include"ast.h"
-#include"converter.h"
-#include"ref.h"
+#include "ast/ast.h"
+#include "tactic/converter.h"
+#include "util/ref.h"
 
 class proof_converter : public converter {
 public:
-    virtual ~proof_converter() { }
+    ~proof_converter() override { }
     virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) = 0;
     virtual proof_converter * translate(ast_translation & translator) = 0;
 };

@@ -19,7 +19,7 @@ Revision History:
 
 #include<utility>
 #include<sstream>
-#include"dl_mk_unbound_compressor.h"
+#include "muz/transforms/dl_mk_unbound_compressor.h"
 
 namespace datalog {
 
@@ -173,7 +173,7 @@ namespace datalog {
             return l_false;
         }
         else {
-            rule_ref new_rule(m_context.get_rule_manager().mk(r, chead), m_context.get_rule_manager());
+            rule_ref new_rule(m_context.get_rule_manager().mk(r, chead, r->name()), m_context.get_rule_manager());
             new_rule->set_accounting_parent_object(m_context, r);
 
             m_head_occurrence_ctr.dec(m_rules.get(rule_index)->get_decl());
@@ -346,7 +346,7 @@ namespace datalog {
         // TODO mc
 
         if (!m_context.compress_unbound()) {
-            return 0;
+            return nullptr;
         }
 
         m_modified = false;
@@ -387,7 +387,7 @@ namespace datalog {
             }
         }
 
-        rule_set * result = static_cast<rule_set *>(0);
+        rule_set * result = static_cast<rule_set *>(nullptr);
         if (m_modified) {
             result = alloc(rule_set, m_context);
             unsigned fin_rule_cnt = m_rules.size();

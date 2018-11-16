@@ -18,8 +18,8 @@ Revision History:
 --*/
 
 #include<iostream>
-#include"for_each_ast.h"
-#include"arith_decl_plugin.h"
+#include "ast/for_each_ast.h"
+#include "ast/arith_decl_plugin.h"
 
 // #define AST_LL_PP_SHOW_FAMILY_NAME
 
@@ -319,11 +319,11 @@ void ast_ll_pp(std::ostream & out, ast_manager & m, ast * n, ast_mark & visited,
 }
 
 void ast_def_ll_pp(std::ostream & out, ast_manager & m, ast * n, ast_mark & visited, bool only_exprs, bool compact) {
-    ll_printer p(out, m, 0, only_exprs, compact);
+    ll_printer p(out, m, nullptr, only_exprs, compact);
     p.pp(n, visited);
 }
 
 void ast_ll_bounded_pp(std::ostream & out, ast_manager & m, ast * n, unsigned depth) {
-    ll_printer p(out, m, 0, false, true);
+    ll_printer p(out, m, nullptr, false, true);
     p.display_bounded(n, depth);
 }

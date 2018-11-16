@@ -19,9 +19,9 @@ Revision History:
 #ifndef SMT_THEORY_H_
 #define SMT_THEORY_H_
 
-#include"smt_enode.h"
-#include"obj_hashtable.h"
-#include"statistics.h"
+#include "smt/smt_enode.h"
+#include "util/obj_hashtable.h"
+#include "util/statistics.h"
 #include<typeinfo>
 
 namespace smt {
@@ -178,6 +178,22 @@ namespace smt {
         }
 
         /**
+           \brief This method is called by smt_context before the search starts
+           to get any extra assumptions the theory wants to use.
+           (See theory_str for an example)
+        */
+        virtual void add_theory_assumptions(expr_ref_vector & assumptions) {
+        }
+
+        /**
+           \brief This method is called from the smt_context when an unsat core is generated.
+           The theory may change the answer to UNKNOWN by returning l_undef from this method.
+        */
+        virtual lbool validate_unsat_core(expr_ref_vector & unsat_core) {
+            return l_false;
+        }
+
+        /**
            \brief This method is invoked before the search starts.
         */
         virtual void init_search_eh() {
@@ -219,7 +235,7 @@ namespace smt {
            disequality propagation.
         */
         virtual justification * why_is_diseq(theory_var v1, theory_var v2) {
-            return 0;
+            return nullptr;
         }
 
         /**
@@ -321,14 +337,14 @@ namespace smt {
         
         virtual void collect_statistics(::statistics & st) const {
         }
-
-        void display_app(std::ostream & out, app * n) const;
-
-        void display_flat_app(std::ostream & out, app * n) const;
         
-        void display_var_def(std::ostream & out, theory_var v) const { return display_app(out, get_enode(v)->get_owner()); }
+        std::ostream& display_app(std::ostream & out, app * n) const;
         
-        void display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_owner()); }
+        std::ostream& display_flat_app(std::ostream & out, app * n) const;
+        
+        std::ostream& display_var_def(std::ostream & out, theory_var v) const { return display_app(out, get_enode(v)->get_owner()); }
+        
+        std::ostream& display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_owner());  }
 
         /**
            \brief Assume eqs between variable that are equal with respect to the given table.
@@ -353,7 +369,7 @@ namespace smt {
                 theory_var other = null_theory_var;
                 TRACE("assume_eqs",
                       tout << "#" << n->get_owner_id() << " is_relevant_and_shared: " << is_relevant_and_shared(n) << "\n";);
-                if (n != 0 && is_relevant_and_shared(n)) {
+                if (n != nullptr && is_relevant_and_shared(n)) {
                     other = table.insert_if_not_there(v);
                     if (other != v) {
                         enode * n2 = get_enode(other);
@@ -407,7 +423,7 @@ namespace smt {
            \brief Return a functor that can build the value (interpretation) for n.
         */
         virtual model_value_proc * mk_value(enode * n, model_generator & mg) {
-            return 0;
+            return nullptr;
         }
 
         virtual bool include_func_interp(func_decl* f) {

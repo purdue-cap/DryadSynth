@@ -19,7 +19,7 @@ Revision History:
 #ifndef DL_REGISTER_ENGINE_H_
 #define DL_REGISTER_ENGINE_H_
 
-#include "dl_context.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 
@@ -27,8 +27,8 @@ namespace datalog {
         context* m_ctx;
     public:
         register_engine();
-        engine_base* mk_engine(DL_ENGINE engine_type);
-        void set_context(context* ctx) { m_ctx = ctx; }
+        engine_base* mk_engine(DL_ENGINE engine_type) override;
+        void set_context(context* ctx) override { m_ctx = ctx; }
     };
 
 }

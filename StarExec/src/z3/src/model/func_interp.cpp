@@ -15,11 +15,11 @@ Author:
 Revision History:
 
 --*/
-#include"func_interp.h"
-#include"var_subst.h"
-#include"obj_hashtable.h"
-#include"ast_pp.h"
-#include"ast_smt2_pp.h"
+#include "model/func_interp.h"
+#include "ast/rewriter/var_subst.h"
+#include "util/obj_hashtable.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt2_pp.h"
 
 func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result):
     m_args_are_values(true),
@@ -71,9 +71,9 @@ void func_entry::deallocate(ast_manager & m, unsigned arity) {
 func_interp::func_interp(ast_manager & m, unsigned arity):
     m_manager(m),
     m_arity(arity),
-    m_else(0),
+    m_else(nullptr),
     m_args_are_values(true),
-    m_interp(0) {
+    m_interp(nullptr) {
 }
 
 func_interp::~func_interp() {
@@ -102,7 +102,7 @@ func_interp * func_interp::copy() const {
 
 void func_interp::reset_interp_cache() {
     m_manager.dec_ref(m_interp);
-    m_interp = 0;
+    m_interp = nullptr;
 }
 
 bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
@@ -112,12 +112,13 @@ bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
         return false;
     }
 
-    if ((m_arity == 0) ||
+    if (!is_ground(t) ||
+        (m_arity == 0) ||
         (m_arity == 1 && !m().is_eq(c, a0, a1)) ||
         (m_arity > 1 && (!m().is_and(c) || to_app(c)->get_num_args() != m_arity)))
         return false;
 
-    args.resize(m_arity, 0);
+    args.resize(m_arity);
     for (unsigned i = 0; i < m_arity; i++) {
         expr * ci = (m_arity == 1 && i == 0) ? c : to_app(c)->get_arg(i);
 
@@ -140,7 +141,6 @@ void func_interp::set_else(expr * e) {
         return;
 
     reset_interp_cache();
-
     ptr_vector<expr> args;
     while (e && is_fi_entry_expr(e, args)) {
         TRACE("func_interp", tout << "fi entry expr: " << mk_ismt2_pp(e, m()) << std::endl;);
@@ -184,13 +184,13 @@ func_entry * func_interp::get_entry(expr * const * args) const {
         if (curr->eq_args(m(), m_arity, args))
             return curr;
     }
-    return 0;
+    return nullptr;
 }
 
 void func_interp::insert_entry(expr * const * args, expr * r) {
     reset_interp_cache();
     func_entry * entry = get_entry(args);
-    if (entry != 0) {
+    if (entry != nullptr) {
         entry->set_result(m_manager, r);
         return;
     }
@@ -220,7 +220,7 @@ void func_interp::insert_new_entry(expr * const * args, expr * r) {
 }
 
 bool func_interp::eval_else(expr * const * args, expr_ref & result) const {
-    if (m_else == 0)
+    if (m_else == nullptr)
         return false;
     var_subst s(m_manager, false);
     SASSERT(!s.std_order()); // (VAR 0) <- args[0], (VAR 1) <- args[1], ...
@@ -233,9 +233,9 @@ bool func_interp::eval_else(expr * const * args, expr_ref & result) const {
 */
 expr * func_interp::get_max_occ_result() const {
     if (m_entries.empty())
-        return 0;
+        return nullptr;
     obj_map<expr, unsigned> num_occs;
-    expr *   r_max = 0;
+    expr *   r_max = nullptr;
     unsigned max   = 0;
     ptr_vector<func_entry>::const_iterator it  = m_entries.begin();
     ptr_vector<func_entry>::const_iterator end = m_entries.end();
@@ -258,7 +258,7 @@ expr * func_interp::get_max_occ_result() const {
    \brief Remove entries e such that e.get_result() == m_else.
 */
 void func_interp::compress() {
-    if (m_else == 0 || m_entries.empty())
+    if (m_else == nullptr || m_entries.empty())
         return; // nothing to be done
     if (!is_ground(m_else))
         return; // forall entries e in m_entries e.get_result() is ground
@@ -285,8 +285,8 @@ void func_interp::compress() {
 }
 
 expr * func_interp::get_interp_core() const {
-    if (m_else == 0)
-        return 0;
+    if (m_else == nullptr)
+        return nullptr;
     expr * r = m_else;
     ptr_buffer<expr> vars;
     ptr_vector<func_entry>::const_iterator it  = m_entries.begin();
@@ -314,10 +314,10 @@ expr * func_interp::get_interp_core() const {
 }
 
 expr * func_interp::get_interp() const {
-    if (m_interp != 0)
+    if (m_interp != nullptr)
         return m_interp;
     expr * r = get_interp_core();
-    if (r != 0) {
+    if (r != nullptr) {
         const_cast<func_interp*>(this)->m_interp = r;
         m_manager.inc_ref(m_interp);
     }

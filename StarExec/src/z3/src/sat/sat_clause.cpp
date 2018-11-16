@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 #include<memory.h>
-#include"sat_clause.h"
-#include"z3_exception.h"
-#include"trace.h"
+#include "sat/sat_clause.h"
+#include "util/z3_exception.h"
+#include "util/trace.h"
 
 namespace sat {
 
@@ -33,6 +33,8 @@ namespace sat {
         m_frozen(false),
         m_reinit_stack(false),
         m_inact_rounds(0) {
+        m_psm = 0;
+        m_glue = 0;
         memcpy(m_lits, lits, sizeof(literal) * sz);
         mark_strengthened();
         SASSERT(check_approx());
@@ -103,7 +105,7 @@ namespace sat {
     void tmp_clause::set(unsigned num_lits, literal const * lits, bool learned) {
         if (m_clause && m_clause->m_capacity < num_lits) {
             dealloc_svect(m_clause);
-            m_clause = 0;
+            m_clause = nullptr;
         }
         if (!m_clause) {
             void * mem = alloc_svect(char, clause::get_obj_size(num_lits));
@@ -198,13 +200,13 @@ namespace sat {
         size_t size = clause::get_obj_size(num_lits);
         void * mem = m_allocator.allocate(size);
         clause * cls = new (mem) clause(m_id_gen.mk(), num_lits, lits, learned);
-        TRACE("sat", tout << "alloc: " << cls->id() << " " << cls << " " << *cls << " " << (learned?"l":"a") << "\n";);
+        TRACE("sat", tout << "alloc: " << cls->id() << " " << *cls << " " << (learned?"l":"a") << "\n";);
         SASSERT(!learned || cls->is_learned());
         return cls;
     }
 
     void clause_allocator::del_clause(clause * cls) {
-        TRACE("sat", tout << "delete: " << cls->id() << " " << cls << " " << *cls << "\n";);
+        TRACE("sat", tout << "delete: " << cls->id() << " " << *cls << "\n";);
         m_id_gen.recycle(cls->id());
 #if defined(_AMD64_)
 #if defined(Z3DEBUG)

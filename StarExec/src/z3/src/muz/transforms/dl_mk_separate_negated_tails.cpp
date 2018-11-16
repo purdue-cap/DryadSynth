@@ -17,8 +17,8 @@ Revision History:
 
 --*/
 
-#include "dl_mk_separate_negated_tails.h"
-#include "dl_context.h"
+#include "muz/transforms/dl_mk_separate_negated_tails.h"
+#include "muz/base/dl_context.h"
 
 namespace datalog {
 
@@ -127,7 +127,7 @@ namespace datalog {
             }
         }
         if (!has_new_rule) {
-            return 0;
+            return nullptr;
         }
         else {
             result->inherit_predicates(src);

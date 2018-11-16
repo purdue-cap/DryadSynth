@@ -19,10 +19,10 @@ Revision History:
 #ifndef DL_MK_FILTER_RULES_H_
 #define DL_MK_FILTER_RULES_H_
 
-#include"map.h"
+#include "util/map.h"
 
-#include"dl_rule_set.h"
-#include"dl_rule_transformer.h"
+#include "muz/base/dl_rule_set.h"
+#include "muz/base/dl_rule_transformer.h"
 
 namespace datalog {
 
@@ -73,11 +73,11 @@ namespace datalog {
 
     public:
         mk_filter_rules(context & ctx);
-        ~mk_filter_rules();
+        ~mk_filter_rules() override;
         /**
            \brief Return a new rule set where only filter rules contain atoms with repeated variables and/or values.
         */
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

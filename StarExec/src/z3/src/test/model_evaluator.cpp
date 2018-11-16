@@ -1,9 +1,9 @@
-#include "model.h"
-#include "model_evaluator.h"
-#include "model_pp.h"
-#include "arith_decl_plugin.h"
-#include "reg_decl_plugins.h"
-#include "ast_pp.h"
+#include "model/model.h"
+#include "model/model_evaluator.h"
+#include "model/model_pp.h"
+#include "ast/arith_decl_plugin.h"
+#include "ast/reg_decl_plugins.h"
+#include "ast/ast_pp.h"
 
 
 void tst_model_evaluator() {
@@ -28,7 +28,6 @@ void tst_model_evaluator() {
     expr_ref vB2(m.mk_var(2, m.mk_bool_sort()), m);
     expr* vI0p = vI0.get();
     expr* vI1p = vI1.get();
-    expr* vB0p = vB0.get();
     expr* vB1p = vB1.get();
     expr* vB2p = vB2.get();
 

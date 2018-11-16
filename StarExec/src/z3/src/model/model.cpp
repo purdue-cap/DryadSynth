@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#include"model.h"
-#include"ast_pp.h"
-#include"ast_ll_pp.h"
-#include"var_subst.h"
-#include"array_decl_plugin.h"
-#include"well_sorted.h"
-#include"used_symbols.h"
-#include"model_evaluator.h"
+#include "model/model.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/well_sorted.h"
+#include "ast/used_symbols.h"
+#include "model/model_evaluator.h"
 
 model::model(ast_manager & m):
     model_core(m) {
@@ -93,13 +93,13 @@ bool model::eval(expr * e, expr_ref & result, bool model_completion) {
 struct model::value_proc : public some_value_proc {
     model & m_model;
     value_proc(model & m):m_model(m) {}
-    virtual expr * operator()(sort * s) {
-        ptr_vector<expr> * u = 0;
+    expr * operator()(sort * s) override {
+        ptr_vector<expr> * u = nullptr;
         if (m_model.m_usort2universe.find(s, u)) {
             if (u->size() > 0)
                 return u->get(0);
         }
-        return 0;
+        return nullptr;
     }
 };
 
@@ -109,16 +109,16 @@ expr * model::get_some_value(sort * s) {
 }
 
 ptr_vector<expr> const & model::get_universe(sort * s) const {
-    ptr_vector<expr> * u = 0;
+    ptr_vector<expr> * u = nullptr;
     m_usort2universe.find(s, u);
     SASSERT(u != 0);
     return *u;
 }
 
 bool model::has_uninterpreted_sort(sort * s) const {
-    ptr_vector<expr> * u = 0;
+    ptr_vector<expr> * u = nullptr;
     m_usort2universe.find(s, u);
-    return u != 0;
+    return u != nullptr;
 }
 
 unsigned model::get_num_uninterpreted_sorts() const {

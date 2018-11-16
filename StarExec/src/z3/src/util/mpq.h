@@ -19,8 +19,8 @@ Revision History:
 #ifndef MPQ_H_
 #define MPQ_H_
 
-#include"mpz.h"
-#include"trace.h"
+#include "util/mpz.h"
+#include "util/trace.h"
 
 class mpq {
     mpz m_num;
@@ -31,6 +31,7 @@ class mpq {
 public:
     mpq(int v):m_num(v), m_den(1) {}
     mpq():m_den(1) {}
+    mpq(mpq && other) : m_num(std::move(other.m_num)), m_den(std::move(other.m_den)) {}
     void swap(mpq & other) { m_num.swap(other.m_num); m_den.swap(other.m_den); }
     mpz const & numerator() const { return m_num; }
     mpz const & denominator() const { return m_den; }
@@ -174,7 +175,7 @@ public:
 
     static bool is_small(mpz const & a) { return mpz_manager<SYNCH>::is_small(a); }
 
-    static bool is_small(mpq const & a) { return is_small(a.m_num) && is_small(a.m_den); }
+    static bool is_small(mpq const & a) { return is_small(a.m_num) && is_small(a.m_den); }    
 
     static mpq mk_q(int v) { return mpq(v); }
 
@@ -743,6 +744,12 @@ public:
         reset_denominator(a); 
     }
 
+    mpq dup(const mpq & source) {
+        mpq temp;
+        set(temp, source);
+        return temp;
+    }
+
     void swap(mpz & a, mpz & b) { mpz_manager<SYNCH>::swap(a, b); }
 
     void swap(mpq & a, mpq & b) {
@@ -784,6 +791,8 @@ public:
 
     unsigned bitsize(mpz const & a) { return mpz_manager<SYNCH>::bitsize(a); }
     unsigned bitsize(mpq const & a) { return is_int(a) ? bitsize(a.m_num) : bitsize(a.m_num) + bitsize(a.m_den); }
+    unsigned storage_size(mpz const & a) { return mpz_manager<SYNCH>::size_info(a); }
+    unsigned storage_size(mpq const & a) { return mpz_manager<SYNCH>::size_info(a.m_num) + mpz_manager<SYNCH>::size_info(a.m_den); }
 
     /**
        \brief Return true if the number is a perfect square, and 
@@ -833,9 +842,11 @@ public:
     }
 
     bool is_even(mpz const & a) { return mpz_manager<SYNCH>::is_even(a); }
-
+public:
     bool is_even(mpq const & a) { return is_int(a) && is_even(a.m_num); }
 
+    friend bool operator==(mpq const & a, mpq const & b) ;
+    friend bool operator>=(mpq const & a, mpq const & b);
 };
 
 typedef mpq_manager<true> synch_mpq_manager;

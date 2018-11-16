@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include"util.h"
+#include "util/util.h"
 
 void tst_escaped() {
     std::cout << "[" << escaped("\"hello\"\"world\"\n\n") << "]\n";
@@ -30,6 +30,6 @@ void tst_escaped() {
     std::cout << "[" << escaped("\n") << "]\n";
     std::cout << "[" << escaped("", true) << "]\n";
     std::cout << "[" << escaped("") << "]\n";
-    std::cout << "[" << escaped(0, true) << "]\n";
-    std::cout << "[" << escaped(0) << "]\n";
+    std::cout << "[" << escaped(nullptr, true) << "]\n";
+    std::cout << "[" << escaped(nullptr) << "]\n";
 }

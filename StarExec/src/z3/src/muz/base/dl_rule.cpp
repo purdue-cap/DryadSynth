@@ -24,37 +24,38 @@ Revision History:
 #include<algorithm>
 #include<sstream>
 
-#include"ast_pp.h"
-#include"dl_context.h"
-#include"map.h"
-#include"recurse_expr_def.h"
-#include"dl_rule.h"
-#include"qe.h"
-#include"for_each_expr.h"
-#include"used_vars.h"
-#include"var_subst.h"
-#include"rewriter_def.h"
-#include"th_rewriter.h"
-#include"ast_smt2_pp.h"
-#include"used_symbols.h"
-#include"quant_hoist.h"
-#include"expr_replacer.h"
-#include"bool_rewriter.h"
-#include"expr_safe_replace.h"
-#include"filter_model_converter.h"
-#include"scoped_proof.h"
-#include"datatype_decl_plugin.h"
+#include "ast/ast_pp.h"
+#include "muz/base/dl_context.h"
+#include "util/map.h"
+#include "ast/recurse_expr_def.h"
+#include "muz/base/dl_rule.h"
+#include "qe/qe.h"
+#include "ast/for_each_expr.h"
+#include "ast/used_vars.h"
+#include "ast/rewriter/var_subst.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/ast_smt2_pp.h"
+#include "ast/used_symbols.h"
+#include "ast/rewriter/quant_hoist.h"
+#include "ast/rewriter/expr_replacer.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/expr_safe_replace.h"
+#include "tactic/filter_model_converter.h"
+#include "ast/scoped_proof.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/ast_util.h"
 
 namespace datalog {
 
-    rule_manager::rule_manager(context& ctx) 
+    rule_manager::rule_manager(context& ctx)
         : m(ctx.get_manager()),
           m_ctx(ctx),
           m_body(m),
           m_head(m),
           m_args(m),
           m_hnf(m),
-          m_qe(m),
+          m_qe(m, params_ref(), false),
           m_rwr(m),
           m_ufproc(m) {}
 
@@ -80,7 +81,7 @@ namespace datalog {
     }
 
     var_idx_set& rule_manager::collect_vars(expr* e) {
-        return collect_vars(e, 0);
+        return collect_vars(e, nullptr);
     }
 
     var_idx_set& rule_manager::collect_vars(expr* e1, expr* e2) {
@@ -98,7 +99,7 @@ namespace datalog {
     var_idx_set& rule_manager::finalize_collect_vars() {
         unsigned sz = m_free_vars.size();
         for (unsigned i = 0; i < sz; ++i) {
-            if (m_free_vars[i]) m_var_idx.insert(i); 
+            if (m_free_vars[i]) m_var_idx.insert(i);
         }
         return m_var_idx;
     }
@@ -139,15 +140,15 @@ namespace datalog {
     }
 
 
-    void rule_manager::mk_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {              
-        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+    void rule_manager::mk_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {
+        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         proof_ref pr(p, m);
         expr_ref fml1(m);
         bind_variables(fml, true, fml1);
         if (fml1 != fml && pr) {
             pr = m.mk_asserted(fml1);
         }
-        remove_labels(fml1, pr);        
+        remove_labels(fml1, pr);
         mk_rule_core(fml1, pr, rules, name);
     }
 
@@ -162,7 +163,7 @@ namespace datalog {
             else {
                 is_negated.push_back(false);
             }
-        }        
+        }
     }
 
     void rule_manager::mk_rule_core(expr* fml, proof* p, rule_set& rules, symbol const& name) {
@@ -170,7 +171,7 @@ namespace datalog {
         proof_ref_vector prs(m);
         m_hnf.reset();
         m_hnf.set_name(name);
-        
+
         m_hnf(fml, p, fmls, prs);
         for (unsigned i = 0; i < m_hnf.get_fresh_predicates().size(); ++i) {
             m_ctx.register_predicate(m_hnf.get_fresh_predicates()[i], false);
@@ -181,7 +182,7 @@ namespace datalog {
     }
 
     void rule_manager::mk_horn_rule(expr* fml, proof* p, rule_set& rules, symbol const& name) {
-        
+
         m_body.reset();
         m_neg.reset();
         unsigned index = extract_horn(fml, m_body, m_head);
@@ -208,13 +209,13 @@ namespace datalog {
             }
             else if (is_quantifier(fml1)) {
                 p = m.mk_modus_ponens(p, m.mk_symmetry(m.mk_der(to_quantifier(fml1), fml)));
-            }            
+            }
             else {
                 p = m.mk_modus_ponens(p, m.mk_rewrite(fml, fml1));
             }
         }
 
-        if (m_ctx.fix_unbound_vars()) {            
+        if (m_ctx.fix_unbound_vars()) {
             fix_unbound_vars(r, true);
         }
 
@@ -242,10 +243,10 @@ namespace datalog {
             for (unsigned i = 0; i < m_args.size(); ++i) {
                 body.push_back(ensure_app(m_args[i].get()));
             }
-        } 
+        }
         else {
             head = ensure_app(fml);
-        }        
+        }
         return index;
     }
 
@@ -262,23 +263,23 @@ namespace datalog {
 
     func_decl* rule_manager::mk_query(expr* query, rule_set& rules) {
         TRACE("dl", tout << mk_pp(query, m) << "\n";);
-            
+
         ptr_vector<sort> vars;
         svector<symbol> names;
         app_ref_vector body(m);
         expr_ref q(m);
-        
+
         // Add implicit variables.
         // Remove existential prefix.
         bind_variables(query, false, q);
 
         quantifier_hoister qh(m);
-        qh.pull_quantifier(false, q, 0, &names);
+        qh.pull_quantifier(false, q, nullptr, &names);
         // retrieve free variables.
         m_free_vars(q);
         vars.append(m_free_vars.size(), m_free_vars.c_ptr());
-        if (vars.contains(static_cast<sort*>(0))) {
-            var_subst sub(m, false);  
+        if (vars.contains(static_cast<sort*>(nullptr))) {
+            var_subst sub(m, false);
             expr_ref_vector args(m);
             // [s0, 0, s2, ..]
             // [0 -> 0, 1 -> x, 2 -> 1, ..]
@@ -305,7 +306,7 @@ namespace datalog {
         }
         body.push_back(to_app(q));
         flatten_body(body);
-        func_decl* body_pred = 0;
+        func_decl* body_pred = nullptr;
         for (unsigned i = 0; i < body.size(); i++) {
             if (is_uninterp(body[i].get())) {
                 body_pred = body[i]->get_decl();
@@ -313,7 +314,7 @@ namespace datalog {
             }
         }
 
-        // we want outermost declared variable first to 
+        // we want outermost declared variable first to
         // follow order of quantified variables so we reverse vars.
         while (vars.size() > names.size()) {
             names.push_back(symbol(names.size()));
@@ -321,9 +322,9 @@ namespace datalog {
         vars.reverse();
         names.reverse();
         func_decl* qpred = m_ctx.mk_fresh_head_predicate(symbol("query"), symbol(), vars.size(), vars.c_ptr(), body_pred);
-        m_ctx.register_predicate(qpred, false);        
+        m_ctx.register_predicate(qpred, false);
         rules.set_output_predicate(qpred);
-        
+
         if (m_ctx.get_model_converter()) {
             filter_model_converter* mc = alloc(filter_model_converter, m);
             mc->insert(qpred);
@@ -342,7 +343,7 @@ namespace datalog {
         }
         TRACE("dl", tout << rule_expr << "\n";);
 
-        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_FINE:PGM_DISABLED);
+        scoped_proof_mode _sc(m, m_ctx.generate_proof_trace()?PGM_ENABLED:PGM_DISABLED);
         proof_ref pr(m);
         if (m_ctx.generate_proof_trace()) {
             pr = m.mk_asserted(rule_expr);
@@ -366,7 +367,7 @@ namespace datalog {
         for (unsigned i = 0; i < r.size(); ++i) {
             body.push_back(ensure_app(r[i].get()));
         }
-    }                
+    }
 
     void rule_manager::hoist_compound(unsigned& num_bound, app_ref& fml, app_ref_vector& body) {
 
@@ -440,7 +441,7 @@ namespace datalog {
         if (is_quantifier(e)) {
             q = to_quantifier(e);
             return q->is_forall();
-        }    
+        }
         return false;
     }
 
@@ -454,7 +455,7 @@ namespace datalog {
             return app_ref(m.mk_eq(e, m.mk_true()), m);
         }
     }
-   
+
     void rule_manager::check_app(expr* e) {
         if (!is_app(e)) {
             std::ostringstream out;
@@ -471,7 +472,7 @@ namespace datalog {
         r->m_head       = head;
         r->m_name       = name;
         r->m_tail_size  = n;
-        r->m_proof      = 0;
+        r->m_proof      = nullptr;
         m.inc_ref(r->m_head);
 
         app * * uninterp_tail = r->m_tail; //grows upwards
@@ -481,7 +482,7 @@ namespace datalog {
         bool has_neg = false;
 
         for (unsigned i = 0; i < n; i++) {
-            bool  is_neg = (is_negated != 0 && is_negated[i]); 
+            bool  is_neg = (is_negated != nullptr && is_negated[i]);
             app * curr = tail[i];
 
             if (is_neg && !m_ctx.is_predicate(curr)) {
@@ -547,7 +548,7 @@ namespace datalog {
         r->m_tail_size    = n;
         r->m_positive_cnt = source->m_positive_cnt;
         r->m_uninterp_cnt = source->m_uninterp_cnt;
-        r->m_proof        = 0;
+        r->m_proof        = nullptr;
         m.inc_ref(r->m_head);
         for (unsigned i = 0; i < n; i++) {
             r->m_tail[i] = source->m_tail[i];
@@ -571,7 +572,7 @@ namespace datalog {
         case 1:  fml = m.mk_implies(body[0].get(), fml); break;
         default: fml = m.mk_implies(m.mk_and(body.size(), body.c_ptr()), fml); break;
         }
- 
+
         m_free_vars(fml);
         if (m_free_vars.empty()) {
             return;
@@ -579,7 +580,7 @@ namespace datalog {
         svector<symbol> names;
         used_symbols<> us;
         m_free_vars.set_default_sort(m.mk_bool_sort());
-               
+
         us(fml);
         m_free_vars.reverse();
         for (unsigned j = 0, i = 0; i < m_free_vars.size(); ++j) {
@@ -594,8 +595,8 @@ namespace datalog {
                     ++i;
                 }
             }
-        }        
-        fml = m.mk_forall(m_free_vars.size(), m_free_vars.c_ptr(), names.c_ptr(), fml); 
+        }
+        fml = m.mk_forall(m_free_vars.size(), m_free_vars.c_ptr(), names.c_ptr(), fml);
     }
 
     std::ostream& rule_manager::display_smt2(rule const& r, std::ostream & out) {
@@ -639,7 +640,7 @@ namespace datalog {
                 tail.push_back(ensure_app(conjs[i].get()));
             }
             tail_neg.resize(tail.size(), false);
-            r = mk(r->get_head(), tail.size(), tail.c_ptr(), tail_neg.c_ptr());
+            r = mk(r->get_head(), tail.size(), tail.c_ptr(), tail_neg.c_ptr(), r->name());
             TRACE("dl", r->display(m_ctx, tout << "reduced rule\n"););
         }
     }
@@ -749,7 +750,7 @@ namespace datalog {
         quant_tail = m.mk_exists(q_var_cnt, qsorts.c_ptr(), qnames.c_ptr(), unbound_tail_pre_quant);
 
         if (try_quantifier_elimination) {
-            TRACE("dl_rule_unbound_fix_pre_qe", 
+            TRACE("dl_rule_unbound_fix_pre_qe",
                 tout<<"rule: ";
                 r->display(m_ctx, tout);
                 tout<<"tail with unbound vars: "<<mk_pp(unbound_tail, m)<<"\n";
@@ -757,14 +758,14 @@ namespace datalog {
             );
 
             proof_ref pr(m);
-            qe::expr_quant_elim_star1 simpl(m, m_ctx.get_fparams());
+            qe::simplify_rewriter_star simpl(m);
             simpl(quant_tail, fixed_tail, pr);
         }
         else {
             fixed_tail = quant_tail;
         }
 
-        TRACE("dl_rule_unbound_fix", 
+        TRACE("dl_rule_unbound_fix",
             tout<<"rule: ";
             r->display(m_ctx, tout);
             tout<<"tail with unbound vars: "<<mk_pp(unbound_tail, m)<<"\n";
@@ -784,7 +785,7 @@ namespace datalog {
 
         SASSERT(tail.size()==tail_neg.size());
         rule_ref old_r = r;
-        r = mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr());
+        r = mk(head, tail.size(), tail.c_ptr(), tail_neg.c_ptr(), old_r->name());
         r->set_accounting_parent_object(m_ctx, old_r);
     }
 
@@ -796,7 +797,7 @@ namespace datalog {
             to_formula(new_rule, fml);
             scoped_proof _sc(m);
             proof* p = m.mk_rewrite(m.get_fact(old_rule.get_proof()), fml);
-            new_rule.set_proof(m, m.mk_modus_ponens(old_rule.get_proof(), p)); 
+            new_rule.set_proof(m, m.mk_modus_ponens(old_rule.get_proof(), p));
         }
     }
 
@@ -824,7 +825,7 @@ namespace datalog {
         }
         r = mk(new_head.get(), new_tail.size(), new_tail.c_ptr(), tail_neg.c_ptr(), r->name(), false);
 
-        // keep old variable indices around so we can compose with substitutions. 
+        // keep old variable indices around so we can compose with substitutions.
         // r->norm_vars(*this);
     }
 
@@ -835,7 +836,7 @@ namespace datalog {
 
     void rule_manager::check_valid_head(expr * head) const {
         SASSERT(head);
-        
+
         if (!m_ctx.is_predicate(head)) {
             std::ostringstream out;
             out << "Illegal head. The head predicate needs to be uninterpreted and registered (as recursive) " << mk_pp(head, m);
@@ -874,14 +875,14 @@ namespace datalog {
         m.get_allocator().deallocate(get_obj_size(n), this);
     }
 
-    void rule::set_proof(ast_manager& m, proof* p) { 
+    void rule::set_proof(ast_manager& m, proof* p) {
         if (p) {
-            m.inc_ref(p); 
+            m.inc_ref(p);
         }
         if (m_proof) {
-            m.dec_ref(m_proof); 
+            m.dec_ref(m_proof);
         }
-        m_proof = p; 
+        m_proof = p;
     }
 
     bool rule::is_in_tail(const func_decl * p, bool only_positive) const {
@@ -896,7 +897,7 @@ namespace datalog {
 
 
     //
-    // non-predicates may appear only in the interpreted tail, it is therefore 
+    // non-predicates may appear only in the interpreted tail, it is therefore
     // sufficient only to check the tail.
     //
     bool rule_manager::has_uninterpreted_non_predicates(rule const& r, func_decl*& f) const {
@@ -911,7 +912,7 @@ namespace datalog {
 
 
     //
-    // Quantifiers may appear only in the interpreted tail, it is therefore 
+    // Quantifiers may appear only in the interpreted tail, it is therefore
     // sufficient only to check the interpreted tail.
     //
     void rule_manager::has_quantifiers(rule const& r, bool& existential, bool& universal) const {
@@ -945,7 +946,7 @@ namespace datalog {
         unsigned sz = get_tail_size();
         for (unsigned i = 0; i < sz; ++i) {
             used.process(get_tail(i));
-        }        
+        }
     }
 
     void rule::get_vars(ast_manager& m, ptr_vector<sort>& sorts) const {
@@ -977,7 +978,7 @@ namespace datalog {
                 subst_vals.push_back(m.mk_var(next_fresh_var++, var_srt));
             }
             else {
-                subst_vals.push_back(0);
+                subst_vals.push_back(nullptr);
             }
         }
 
@@ -994,15 +995,16 @@ namespace datalog {
             app * old_tail = get_tail(i);
             expr_ref new_tail_e(m);
             vs(old_tail, subst_vals.size(), subst_vals.c_ptr(), new_tail_e);
-            bool  sign     = is_neg_tail(i); 
+            bool  sign     = is_neg_tail(i);
             m.inc_ref(new_tail_e);
             m.dec_ref(old_tail);
             m_tail[i] = TAG(app *, to_app(new_tail_e), sign);
         }
     }
-  
+
     void rule::display(context & ctx, std::ostream & out) const {
         ast_manager & m = ctx.get_manager();
+        out << m_name.str () << ":\n";
         //out << mk_pp(m_head, m);
         output_predicate(ctx, m_head, out);
         if (m_tail_size == 0) {
@@ -1068,7 +1070,7 @@ namespace datalog {
     }
 
 
-    
+
 };
 
 

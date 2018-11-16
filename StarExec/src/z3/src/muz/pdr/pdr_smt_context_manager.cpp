@@ -17,12 +17,12 @@ Revision History:
 
 --*/
 
-#include "pdr_smt_context_manager.h"
-#include "has_free_vars.h"
-#include "ast_pp.h"
-#include "ast_smt_pp.h"
+#include "muz/pdr/pdr_smt_context_manager.h"
+#include "ast/has_free_vars.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_smt_pp.h"
 #include <sstream>
-#include "smt_params.h"
+#include "smt/params/smt_params.h"
 
 namespace pdr {
 
@@ -83,7 +83,7 @@ namespace pdr {
               {
                   ast_smt_pp pp(m);
                   for (unsigned i = 0; i < m_context.size(); ++i) {
-                      pp.add_assumption(m_context.get_formulas()[i]);
+                      pp.add_assumption(m_context.get_formula(i));
                   }
                   for (unsigned i = 0; i < assumptions.size(); ++i) {
                       pp.add_assumption(assumptions[i].get());
@@ -130,7 +130,7 @@ namespace pdr {
     smt_context* smt_context_manager::mk_fresh() {        
         ++m_num_contexts;
         app_ref pred(m);
-        smt::kernel * ctx = 0;
+        smt::kernel * ctx = nullptr;
         if (m_max_num_contexts == 0) {
             m_contexts.push_back(alloc(smt::kernel, m, m_fparams));
             pred = m.mk_true();

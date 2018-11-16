@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
-#include"filter_model_converter.h"
-#include"model_v2_pp.h"
+#include "tactic/filter_model_converter.h"
+#include "model/model_v2_pp.h"
 
 filter_model_converter::~filter_model_converter() {
 }
@@ -49,6 +49,9 @@ void filter_model_converter::operator()(model_ref & old_model, unsigned goal_idx
     new_model->copy_usort_interps(*old_model);
     old_model = new_model;
     TRACE("filter_mc", tout << "after filter_model_converter\n"; model_v2_pp(tout, *old_model););
+}
+
+void filter_model_converter::operator()(svector<symbol> & labels, unsigned goal_idx) {
 }
 
 void filter_model_converter::display(std::ostream & out) {

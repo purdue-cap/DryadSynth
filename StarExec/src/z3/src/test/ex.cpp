@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include<iostream>
-#include"z3_exception.h"
+#include "util/z3_exception.h"
 
 class ex {
 public:
@@ -29,14 +29,14 @@ class ex1 : public ex {
     char const * m_msg;
 public:
     ex1(char const * m):m_msg(m) {}
-    virtual char const * msg() const { return m_msg; }
+    char const * msg() const override { return m_msg; }
 };
 
 class ex2 : public ex {
     std::string m_msg;
 public:
     ex2(char const * m):m_msg(m) {}
-    virtual char const * msg() const { return m_msg.c_str(); }
+    char const * msg() const override { return m_msg.c_str(); }
 };
 
 static void th() {

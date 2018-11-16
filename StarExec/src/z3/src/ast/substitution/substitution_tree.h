@@ -19,8 +19,8 @@ Revision History:
 #ifndef SUBSTITUTION_TREE_H_
 #define SUBSTITUTION_TREE_H_
 
-#include"ast.h"
-#include"substitution.h"
+#include "ast/ast.h"
+#include "ast/substitution/substitution.h"
 
 /**
    \brief Substitution tree visitor.
@@ -50,7 +50,7 @@ class substitution_tree {
             node *           m_first_child;
             expr *           m_expr;
         };
-        node(bool leaf):m_leaf(leaf), m_next_sibling(0), m_first_child(0) {}
+        node(bool leaf):m_leaf(leaf), m_next_sibling(nullptr), m_first_child(nullptr) {}
     };
 
     ast_manager &     m_manager;

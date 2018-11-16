@@ -376,6 +376,180 @@ def mk_z3consts_java_internal(api_files, package_name, output_dir):
         api.close()
     return generated_enumeration_files
 
+# Extract enumeration types from z3_api.h, and add ML definitions
+def mk_z3consts_ml_internal(api_files, output_dir):
+    """
+        Generate ``z3enums.ml`` from the list of API header files
+        in ``api_files`` and write the output file into
+        the ``output_dir`` directory
+
+        Returns the path to the generated file.
+    """
+    assert os.path.isdir(output_dir)
+    assert isinstance(api_files, list)
+    blank_pat      = re.compile("^ *$")
+    comment_pat    = re.compile("^ *//.*$")
+    typedef_pat    = re.compile("typedef enum *")
+    typedef2_pat   = re.compile("typedef enum { *")
+    openbrace_pat  = re.compile("{ *")
+    closebrace_pat = re.compile("}.*;")
+
+
+    DeprecatedEnums = [ 'Z3_search_failure' ]
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+
+    efile  = open('%s.ml' % os.path.join(output_dir, "z3enums"), 'w')
+    z3consts_output_path = efile.name
+    efile.write('(* Automatically generated file *)\n\n')
+    efile.write('(** The enumeration types of Z3. *)\n\n')
+    for api_file in api_files:
+        api = open(api_file, 'r')
+
+        SEARCHING  = 0
+        FOUND_ENUM = 1
+        IN_ENUM    = 2
+
+        mode    = SEARCHING
+        decls   = {}
+        idx     = 0
+
+        linenum = 1
+        for line in api:
+            m1 = blank_pat.match(line)
+            m2 = comment_pat.match(line)
+            if m1 or m2:
+                # skip blank lines and comments
+                linenum = linenum + 1
+            elif mode == SEARCHING:
+                m = typedef_pat.match(line)
+                if m:
+                    mode = FOUND_ENUM
+                m = typedef2_pat.match(line)
+                if m:
+                    mode = IN_ENUM
+                    decls = {}
+                    idx   = 0
+            elif mode == FOUND_ENUM:
+                m = openbrace_pat.match(line)
+                if m:
+                    mode  = IN_ENUM
+                    decls = {}
+                    idx   = 0
+                else:
+                    assert False, "Invalid %s, line: %s" % (api_file, linenum)
+            else:
+                assert mode == IN_ENUM
+                words = re.split('[^\-a-zA-Z0-9_]+', line)
+                m = closebrace_pat.match(line)
+                if m:
+                    name = words[1]
+                    if name not in DeprecatedEnums:
+                        sorted_decls = sorted(decls.items(), key=lambda pair: pair[1])
+                        efile.write('(** %s *)\n' % name[3:])
+                        efile.write('type %s =\n' % name[3:]) # strip Z3_
+                        for k, i in sorted_decls:
+                            efile.write('  | %s \n' % k[3:]) # strip Z3_
+                        efile.write('\n')
+                        efile.write('(** Convert %s to int*)\n' % name[3:])
+                        efile.write('let int_of_%s x : int =\n' % (name[3:])) # strip Z3_
+                        efile.write('  match x with\n')
+                        for k, i in sorted_decls:
+                            efile.write('  | %s -> %d\n' % (k[3:], i))
+                        efile.write('\n')
+                        efile.write('(** Convert int to %s*)\n' % name[3:])
+                        efile.write('let %s_of_int x : %s =\n' % (name[3:],name[3:])) # strip Z3_
+                        efile.write('  match x with\n')
+                        for k, i in sorted_decls:
+                            efile.write('  | %d -> %s\n' % (i, k[3:]))
+                        # use Z3.Exception?
+                        efile.write('  | _ -> raise (Failure "undefined enum value")\n\n')
+                    mode = SEARCHING
+                else:
+                    if words[2] != '':
+                        if len(words[2]) > 1 and words[2][1] == 'x':
+                            idx = int(words[2], 16)
+                        else:
+                            idx = int(words[2])
+                    decls[words[1]] = idx
+                    idx = idx + 1
+            linenum = linenum + 1
+        api.close()
+    efile.close()
+    return z3consts_output_path
+    # efile  = open('%s.mli' % os.path.join(gendir, "z3enums"), 'w')
+    # efile.write('(* Automatically generated file *)\n\n')
+    # efile.write('(** The enumeration types of Z3. *)\n\n')
+    # for api_file in api_files:
+    #     api_file_c = ml.find_file(api_file, ml.name)
+    #     api_file   = os.path.join(api_file_c.src_dir, api_file)
+
+    #     api = open(api_file, 'r')
+
+    #     SEARCHING  = 0
+    #     FOUND_ENUM = 1
+    #     IN_ENUM    = 2
+
+    #     mode    = SEARCHING
+    #     decls   = {}
+    #     idx     = 0
+
+    #     linenum = 1
+    #     for line in api:
+    #         m1 = blank_pat.match(line)
+    #         m2 = comment_pat.match(line)
+    #         if m1 or m2:
+    #             # skip blank lines and comments
+    #             linenum = linenum + 1
+    #         elif mode == SEARCHING:
+    #             m = typedef_pat.match(line)
+    #             if m:
+    #                 mode = FOUND_ENUM
+    #             m = typedef2_pat.match(line)
+    #             if m:
+    #                 mode = IN_ENUM
+    #                 decls = {}
+    #                 idx   = 0
+    #         elif mode == FOUND_ENUM:
+    #             m = openbrace_pat.match(line)
+    #             if m:
+    #                 mode  = IN_ENUM
+    #                 decls = {}
+    #                 idx   = 0
+    #             else:
+    #                 assert False, "Invalid %s, line: %s" % (api_file, linenum)
+    #         else:
+    #             assert mode == IN_ENUM
+    #             words = re.split('[^\-a-zA-Z0-9_]+', line)
+    #             m = closebrace_pat.match(line)
+    #             if m:
+    #                 name = words[1]
+    #                 if name not in DeprecatedEnums:
+    #                     efile.write('(** %s *)\n' % name[3:])
+    #                     efile.write('type %s =\n' % name[3:]) # strip Z3_
+    #                     for k, i in sorted(decls.items(), key=lambda pair: pair[1]):
+    #                         efile.write('  | %s \n' % k[3:]) # strip Z3_
+    #                     efile.write('\n')
+    #                     efile.write('(** Convert %s to int*)\n' % name[3:])
+    #                     efile.write('val int_of_%s : %s -> int\n' % (name[3:], name[3:])) # strip Z3_
+    #                     efile.write('(** Convert int to %s*)\n' % name[3:])
+    #                     efile.write('val %s_of_int : int -> %s\n' % (name[3:],name[3:])) # strip Z3_
+    #                     efile.write('\n')
+    #                 mode = SEARCHING
+    #             else:
+    #                 if words[2] != '':
+    #                     if len(words[2]) > 1 and words[2][1] == 'x':
+    #                         idx = int(words[2], 16)
+    #                     else:
+    #                         idx = int(words[2])
+    #                 decls[words[1]] = idx
+    #                 idx = idx + 1
+    #         linenum = linenum + 1
+    #     api.close()
+    # efile.close()
+    # if VERBOSE:
+    #     print ('Generated "%s/z3enums.mli"' % ('%s' % gendir))
+
 
 ###############################################################################
 # Functions for generating a "module definition file" for MSVC
@@ -413,7 +587,15 @@ def mk_def_file_internal(defname, dll_name, export_header_files):
 ###############################################################################
 # Functions for generating ``gparams_register_modules.cpp``
 ###############################################################################
-def mk_gparams_register_modules_internal(component_src_dirs, path):
+
+def path_after_src(h_file):
+    h_file = h_file.replace("\\","/")
+    idx = h_file.rfind("src/")
+    if idx == -1:
+        return h_file
+    return h_file[idx + 4:]
+            
+def mk_gparams_register_modules_internal(h_files_full_path, path):
     """
         Generate a ``gparams_register_modules.cpp`` file in the directory ``path``.
         Returns the path to the generated file.
@@ -426,7 +608,7 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
 
         This procedure is invoked by gparams::init()
     """
-    assert isinstance(component_src_dirs, list)
+    assert isinstance(h_files_full_path, list)
     assert check_dir_exists(path)
     cmds = []    
     mod_cmds = []
@@ -434,15 +616,10 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
     fullname = os.path.join(path, 'gparams_register_modules.cpp')
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
-    fout.write('#include"gparams.h"\n')
+    fout.write('#include "util/gparams.h"\n')
     reg_pat = re.compile('[ \t]*REG_PARAMS\(\'([^\']*)\'\)')
     reg_mod_pat = re.compile('[ \t]*REG_MODULE_PARAMS\(\'([^\']*)\', *\'([^\']*)\'\)')
     reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
-    h_files_full_path = []
-    for component_src_dir in component_src_dirs:
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
-        h_files_full_path.extend(h_files)
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         with open(h_file, 'r') as fin:
@@ -451,13 +628,13 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     cmds.append((m.group(1)))
                 m = reg_mod_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     mod_cmds.append((m.group(1), m.group(2)))
                 m = reg_mod_descr_pat.match(line)
                 if m:
@@ -477,7 +654,7 @@ def mk_gparams_register_modules_internal(component_src_dirs, path):
 # Functions/data structures for generating ``install_tactics.cpp``
 ###############################################################################
 
-def mk_install_tactic_cpp_internal(component_src_dirs, path):
+def mk_install_tactic_cpp_internal(h_files_full_path, path):
     """
         Generate a ``install_tactics.cpp`` file in the directory ``path``.
         Returns the path the generated file.
@@ -488,9 +665,10 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
         void install_tactics(tactic_manager & ctx)
         ```
 
-        It installs all tactics found in the given component directories
-        ``component_src_dirs`` The procedure looks for ``ADD_TACTIC`` commands
-        in the ``.h``  and ``.hpp`` files of these components.
+        It installs all tactics declared in the given header files
+        ``h_files_full_path`` The procedure looks for ``ADD_TACTIC`` and
+        ``ADD_PROBE``commands in the ``.h``  and ``.hpp`` files of these
+        components.
     """
     ADD_TACTIC_DATA = []
     ADD_PROBE_DATA = []
@@ -505,29 +683,24 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
         'ADD_PROBE': ADD_PROBE,
     }
 
-    assert isinstance(component_src_dirs, list)
+    assert isinstance(h_files_full_path, list)
     assert check_dir_exists(path)
     fullname = os.path.join(path, 'install_tactic.cpp')
     fout  = open(fullname, 'w')
     fout.write('// Automatically generated file.\n')
-    fout.write('#include"tactic.h"\n')
-    fout.write('#include"tactic_cmds.h"\n')
-    fout.write('#include"cmd_context.h"\n')
+    fout.write('#include "tactic/tactic.h"\n')
+    fout.write('#include "cmd_context/tactic_cmds.h"\n')
+    fout.write('#include "cmd_context/cmd_context.h"\n')
     tactic_pat   = re.compile('[ \t]*ADD_TACTIC\(.*\)')
     probe_pat    = re.compile('[ \t]*ADD_PROBE\(.*\)')
-    h_files_full_path = []
-    for component_src_dir in sorted(component_src_dirs):
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
-        h_files_full_path.extend(h_files)
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         with open(h_file, 'r') as fin:
             for line in fin:
                 if tactic_pat.match(line):
                     if not added_include:
-                        added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        added_include = True                        
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     try:
                         eval(line.strip('\n '), eval_globals, None)
                     except Exception as e:
@@ -537,7 +710,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
                 if probe_pat.match(line):
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     try:
                         eval(line.strip('\n '), eval_globals, None)
                     except Exception as e:
@@ -566,7 +739,7 @@ def mk_install_tactic_cpp_internal(component_src_dirs, path):
 # Functions for generating ``mem_initializer.cpp``
 ###############################################################################
 
-def mk_mem_initializer_cpp_internal(component_src_dirs, path):
+def mk_mem_initializer_cpp_internal(h_files_full_path, path):
     """
         Generate a ``mem_initializer.cpp`` file in the directory ``path``.
         Returns the path to the generated file.
@@ -580,7 +753,7 @@ def mk_mem_initializer_cpp_internal(component_src_dirs, path):
 
        These procedures are invoked by the Z3 memory_manager
     """
-    assert isinstance(component_src_dirs, list)
+    assert isinstance(h_files_full_path, list)
     assert check_dir_exists(path)
     initializer_cmds = []
     finalizer_cmds   = []
@@ -591,11 +764,6 @@ def mk_mem_initializer_cpp_internal(component_src_dirs, path):
     # ADD_INITIALIZER with priority
     initializer_prio_pat = re.compile('[ \t]*ADD_INITIALIZER\(\'([^\']*)\',[ \t]*(-?[0-9]*)\)')
     finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
-    h_files_full_path = []
-    for component_src_dir in sorted(component_src_dirs):
-        h_files = filter(lambda f: f.endswith('.h') or f.endswith('.hpp'), os.listdir(component_src_dir))
-        h_files = list(map(lambda p: os.path.join(component_src_dir, p), h_files))
-        h_files_full_path.extend(h_files)
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         with open(h_file, 'r') as fin:
@@ -604,19 +772,19 @@ def mk_mem_initializer_cpp_internal(component_src_dirs, path):
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     initializer_cmds.append((m.group(1), 0))
                 m = initializer_prio_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     initializer_cmds.append((m.group(1), int(m.group(2))))
                 m = finalizer_pat.match(line)
                 if m:
                     if not added_include:
                         added_include = True
-                        fout.write('#include"%s"\n' % os.path.basename(h_file))
+                        fout.write('#include "%s"\n' % path_after_src(h_file))
                     finalizer_cmds.append(m.group(1))
     initializer_cmds.sort(key=lambda tup: tup[1])
     fout.write('void mem_initialize() {\n')
@@ -721,9 +889,9 @@ def mk_hpp_from_pyg(pyg_file, output_dir):
         out.write('// Automatically generated file\n')
         out.write('#ifndef __%s_HPP_\n' % class_name.upper())
         out.write('#define __%s_HPP_\n' % class_name.upper())
-        out.write('#include"params.h"\n')
+        out.write('#include "util/params.h"\n')
         if export:
-            out.write('#include"gparams.h"\n')
+            out.write('#include "util/gparams.h"\n')
         out.write('struct %s {\n' % class_name)
         out.write('  params_ref const & p;\n')
         if export:

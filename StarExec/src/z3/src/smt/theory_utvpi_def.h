@@ -49,10 +49,10 @@ Revision History:
 
 #ifndef THEORY_UTVPI_DEF_H_
 #define THEORY_UTVPI_DEF_H_
-#include "theory_utvpi.h"
-#include "heap.h"
-#include "ast_pp.h"
-#include "smt_context.h"
+#include "smt/theory_utvpi.h"
+#include "util/heap.h"
+#include "ast/ast_pp.h"
+#include "smt/smt_context.h"
 
 namespace smt {
 
@@ -70,7 +70,7 @@ namespace smt {
             m_lra(false),
             m_non_utvpi_exprs(false),
             m_test(m),
-            m_factory(0) {
+            m_factory(nullptr) {
     }            
 
     template<typename Ext>
@@ -106,7 +106,7 @@ namespace smt {
     template<typename Ext>
     theory_var theory_utvpi<Ext>::mk_var(expr* n) {
         context & ctx = get_context();
-        enode* e = 0;
+        enode* e = nullptr;
         th_var v = null_theory_var;
         m_lia |= a.is_int(n);
         m_lra |= a.is_real(n);
@@ -239,7 +239,7 @@ namespace smt {
             ctx.mk_justification(
                 ext_theory_conflict_justification(
                     get_id(), ctx.get_region(), 
-                    lits.size(), lits.c_ptr(), 0, 0, params.size(), params.c_ptr())));        
+                    lits.size(), lits.c_ptr(), 0, nullptr, params.size(), params.c_ptr())));
 
         m_nc_functor.reset();
     }
@@ -901,7 +901,7 @@ namespace smt {
         bool is_int = a.is_int(n->get_owner());
         rational num = mk_value(v, is_int);
         TRACE("utvpi", tout << mk_pp(n->get_owner(), get_manager()) << " |-> " << num << "\n";);
-        return alloc(expr_wrapper_proc, m_factory->mk_value(num, is_int));
+        return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, is_int));
     }
 
     /**

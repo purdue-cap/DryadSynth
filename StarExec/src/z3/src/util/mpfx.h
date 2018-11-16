@@ -19,13 +19,13 @@ Revision History:
 #ifndef MPFX_H_
 #define MPFX_H_
 
-#include"id_gen.h"
-#include"util.h"
-#include"vector.h"
-#include"z3_exception.h"
-#include"scoped_numeral.h"
-#include"scoped_numeral_vector.h"
-#include"mpn.h"
+#include "util/id_gen.h"
+#include "util/util.h"
+#include "util/vector.h"
+#include "util/z3_exception.h"
+#include "util/scoped_numeral.h"
+#include "util/scoped_numeral_vector.h"
+#include "util/mpn.h"
 
 class mpfx_manager;
 
@@ -125,15 +125,15 @@ public:
     static bool field() { return true; }
 
     class exception : public z3_exception {
-        virtual char const * msg() const { return "multi-precision fixed point (mpfx) exception"; }
+        char const * msg() const override { return "multi-precision fixed point (mpfx) exception"; }
     };
     
     class overflow_exception : public exception {
-        virtual char const * msg() const { return "multi-precision fixed point (mpfx) overflow"; }
+        char const * msg() const override { return "multi-precision fixed point (mpfx) overflow"; }
     };
     
     class div0_exception : public exception {
-        virtual char const * msg() const { return "multi-precision fixed point (mpfx) division by zero"; }
+        char const * msg() const override { return "multi-precision fixed point (mpfx) division by zero"; }
     };
 
     mpfx_manager(unsigned int_sz = 2, unsigned frac_sz = 1, unsigned initial_capacity = 1024);

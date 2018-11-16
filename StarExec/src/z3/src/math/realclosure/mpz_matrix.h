@@ -31,7 +31,7 @@ Notes:
 #ifndef MPZ_MATRIX_H_
 #define MPZ_MATRIX_H_
 
-#include"mpz.h"
+#include "util/mpz.h"
 
 /**
    \brief A mxn matrix. 
@@ -45,7 +45,7 @@ class mpz_matrix {
     unsigned n;
     mpz *    a_ij;
 public:
-    mpz_matrix():m(0), n(0), a_ij(0) {}
+    mpz_matrix():m(0), n(0), a_ij(nullptr) {}
     mpz const & operator()(unsigned i, unsigned j) const { 
         SASSERT(i < m); 
         SASSERT(j < n); 

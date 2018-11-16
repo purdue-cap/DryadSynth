@@ -16,9 +16,9 @@ Author:
 Revision History:
 
 --*/
-#include"func_decl_dependencies.h"
-#include"for_each_expr.h"
-#include"ast_util.h"
+#include "ast/func_decl_dependencies.h"
+#include "ast/for_each_expr.h"
+#include "ast/ast_util.h"
 
 struct collect_dependencies_proc {
     ast_manager &     m_manager;
@@ -86,7 +86,7 @@ class func_decl_dependencies::top_sort {
     ptr_vector<func_decl>   m_todo;
 
     func_decl_set * definition(func_decl * f) const {        
-        func_decl_set * r = 0;
+        func_decl_set * r = nullptr;
         m_deps.find(f, r);
         return r;
     }
@@ -210,7 +210,7 @@ bool func_decl_dependencies::insert(func_decl * f, func_decl_set * s) {
 }
 
 void func_decl_dependencies::erase(func_decl * f) {
-    func_decl_set * s = 0;
+    func_decl_set * s = nullptr;
     if (m_deps.find(f, s)) {
         m_manager.dec_ref(f);
         dec_ref(m_manager, *s);

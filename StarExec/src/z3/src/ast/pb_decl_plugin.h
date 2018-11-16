@@ -27,7 +27,7 @@ hence:
 #ifndef PB_DECL_PLUGIN_H_
 #define PB_DECL_PLUGIN_H_
 
-#include"ast.h"
+#include "ast/ast.h"
  
 enum pb_op_kind {
     OP_AT_MOST_K,  // at most K Booleans are true.
@@ -53,14 +53,14 @@ class pb_decl_plugin : public decl_plugin {
     func_decl * mk_eq(unsigned arity, rational const* coeffs, int k);
 public:
     pb_decl_plugin();
-    virtual ~pb_decl_plugin() {}
+    ~pb_decl_plugin() override {}
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
-    virtual decl_plugin * mk_fresh() {
+    decl_plugin * mk_fresh() override {
         return alloc(pb_decl_plugin);
     }
     
@@ -69,9 +69,11 @@ public:
     //   parameters[0] - integer (at most k elements)
     //      all sorts are Booleans
     //    parameters[1] .. parameters[arity] - coefficients
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                     unsigned arity, sort * const * domain, sort * range);
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+
+    bool is_considered_uninterpreted(func_decl * f) override { return false; }
 
 };
 
@@ -107,6 +109,7 @@ public:
     bool is_ge(func_decl* a) const;
     bool is_ge(expr* a) const { return is_app(a) && is_ge(to_app(a)->get_decl()); }
     bool is_ge(expr* a, rational& k) const;
+    bool is_aux_bool(func_decl* f) const { return is_decl_of(f, m_fid, OP_PB_AUX_BOOL); }
     bool is_aux_bool(expr* e) const { return is_app_of(e, m_fid, OP_PB_AUX_BOOL); }
     rational get_coeff(expr* a, unsigned index) const { return get_coeff(to_app(a)->get_decl(), index); }
     rational get_coeff(func_decl* a, unsigned index) const; 
