@@ -10,7 +10,7 @@
 (constraint (f 2 2 3))
 (constraint (f 2 3 2))
 (constraint (f 3 2 2))
-(constraint (not (f 3 2 2)))
+(constraint (not (f 2 3 4)))
 
 
 (check-synth)
