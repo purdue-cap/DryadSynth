@@ -56,6 +56,9 @@ public class SygusExtractor extends SygusBaseListener {
     // Unsupported Let expressions now
     // TODO: Add support for let expressions
 
+    // CLIA grammar extension to enforce CLIA algorithm on general track benchmarks
+    boolean cliaGrammar = false;
+
     public SygusProblem createProblem() {
         SygusProblem pblm = new SygusProblem(z3ctx);
         pblm.names = new LinkedList<String>(this.names);
@@ -201,6 +204,11 @@ public class SygusExtractor extends SygusBaseListener {
     public void exitStart(SygusParser.StartContext ctx) {
         // This listener is for used variable scanning after the parsing of the
         // input benchmark, for the sake of simplifying function synthesis
+
+        // Unset isGeneral when CLIA grammar is detected
+        if (cliaGrammar) {
+            isGeneral = false;
+        }
 
         // Currently we're not trying these procedures on General tracks
         if (isGeneral) {
@@ -722,6 +730,11 @@ public class SygusExtractor extends SygusBaseListener {
                 termStack.push(res);
             }
         }
+    }
+
+    public void exitCliaGrammarCmd(SygusParser.CliaGrammarCmdContext ctx) {
+        this.cliaGrammar = true;
+        this.problemType = SygusProblem.ProbType.CLIA;
     }
 
 }

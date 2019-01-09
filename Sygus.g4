@@ -33,6 +33,8 @@ cmd : funDefCmd
     | synthInvCmd
     | declarePrimedVar
     | invConstraintCmd
+    //for CLIA grammar extension
+    | cliaGrammarCmd
     ;
 
 varDeclCmd : '(' 'declare-var' symbol sortExpr ')'
@@ -53,8 +55,8 @@ sortExpr : '(' 'BitVec' intConst ')'
 intConst : INTEGER
          ;
 
-boolConst : 'true' 
-          | 'false' 
+boolConst : 'true'
+          | 'false'
           ;
 
 bVConst : BVCONST
@@ -208,8 +210,11 @@ declarePrimedVar : '(' 'declare-primed-var' symbol sortExpr ')'
 invConstraintCmd : '(' 'inv-constraint' symbol symbol symbol symbol ')'
                  ;
 
+cliaGrammarCmd : '(' 'clia-grammar' ')'
+               ;
+
 WS : ( ' ' | '\t' | '\f' | '\n' )+ -> skip
-  ; 
+  ;
 
 COMMENT
   : ';'(~('\n')*'\n') -> skip
