@@ -279,8 +279,9 @@ protected:
         return false;
     }
 
-    bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) {
-        return m_cfg.get_macro(f, def, q, def_pr);
+    bool get_macro(func_decl * f, expr * & def, proof * & def_pr) {
+        quantifier* q = nullptr;
+        return m_cfg.get_macro(f, def, q, def_pr); 
     }
 
     void push_frame(expr * t, bool mcache, unsigned max_depth) {
@@ -346,13 +347,17 @@ public:
     
     void set_bindings(unsigned num_bindings, expr * const * bindings);
     void set_inv_bindings(unsigned num_bindings, expr * const * bindings);
+    void update_binding_at(unsigned i, expr* binding);
+    void update_inv_binding_at(unsigned i, expr* binding);
     void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
     void operator()(expr * t, expr_ref & result) { operator()(t, result, m_pr); }
-    void operator()(expr * n, unsigned num_bindings, expr * const * bindings, expr_ref & result) {
+    expr_ref operator()(expr * n, unsigned num_bindings, expr * const * bindings) {
+        expr_ref result(m());
         SASSERT(!m_proof_gen);
         reset();
         set_inv_bindings(num_bindings, bindings);
         operator()(n, result);
+        return result;
     }
 
     void resume(expr_ref & result, proof_ref & result_pr);

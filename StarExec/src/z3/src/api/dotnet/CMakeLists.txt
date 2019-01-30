@@ -80,11 +80,11 @@ set(Z3_DOTNET_ASSEMBLY_SOURCES_IN_SRC_TREE
     Global.cs
     Goal.cs
     IDecRefQueue.cs
-    InterpolationContext.cs
     IntExpr.cs
     IntNum.cs
     IntSort.cs
     IntSymbol.cs
+    Lambda.cs
     ListSort.cs
     Log.cs
     Model.cs
@@ -147,11 +147,6 @@ if (DOTNET_TOOLCHAIN_IS_WINDOWS)
     "/nostdlib+"
     "/reference:mscorlib.dll"
   )
-  # FIXME: This flag only works when the working directory of csc.exe is
-  # the directory containing the ``libz3`` target. I can't get this to work
-  # correctly with multi-configuration generators (i.e. Visual Studio) so
-  # just don't set the flag for now.
-  #list(APPEND CSC_FLAGS "/linkresource:$<TARGET_FILE_NAME:libz3>")
 elseif (DOTNET_TOOLCHAIN_IS_MONO)
   # We need to give the assembly a strong name so that it can be installed
   # into the GAC.

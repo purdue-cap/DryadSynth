@@ -37,7 +37,7 @@ Notes:
 namespace opt {
 
     opt_solver::opt_solver(ast_manager & mgr, params_ref const & p, 
-                           filter_model_converter& fm):
+                           generic_model_converter& fm):
         solver_na2as(mgr),
         m_params(p),
         m_context(mgr, m_params),
@@ -80,7 +80,7 @@ namespace opt {
         m_context.collect_statistics(st);
     }
     
-    void opt_solver::assert_expr(expr * t) {
+    void opt_solver::assert_expr_core(expr * t) {
         if (has_quantifiers(t)) {
             m_params.m_relevancy_lvl = 2;
         }
@@ -230,11 +230,14 @@ namespace opt {
         get_model(m_model);
         inf_eps val2;
         m_valid_objectives[i] = true;
-        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << "\n";);
+        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << "\n";);
         if (!m_models[i]) {
             set_model(i);
         }
-        if (m_context.get_context().update_model(has_shared)) {
+        if (!val.is_finite()) {
+            // skip model updates
+        }
+        else if (m_context.get_context().update_model(has_shared)) {
             if (has_shared && val != current_objective_value(i)) {
                 decrement_value(i, val);
             }
@@ -294,14 +297,15 @@ namespace opt {
         return r;
     }
     
-    void opt_solver::get_unsat_core(ptr_vector<expr> & r) {
+    void opt_solver::get_unsat_core(expr_ref_vector & r) {
+        r.reset();
         unsigned sz = m_context.get_unsat_core_size();
         for (unsigned i = 0; i < sz; i++) {
             r.push_back(m_context.get_unsat_core_expr(i));
         }
     }
 
-    void opt_solver::get_model(model_ref & m) {
+    void opt_solver::get_model_core(model_ref & m) {
         m_context.get_model(m);
         if (!m) m = m_model; else m_model = m;
     }

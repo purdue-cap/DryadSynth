@@ -20,6 +20,7 @@ Notes:
 
 #include "opt/opt_pareto.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "model/model_smt2_pp.h"
 
 namespace opt {
@@ -39,6 +40,7 @@ namespace opt {
                     }
                     m_solver->get_model(m_model);
                     m_solver->get_labels(m_labels);
+                    m_model->set_model_completion(true);
                     IF_VERBOSE(1,
                                model_ref mdl(m_model);
                                cb.fix_model(mdl); 
@@ -66,10 +68,10 @@ namespace opt {
             fmls.push_back(cb.mk_ge(i, m_model));
             gt.push_back(cb.mk_gt(i, m_model));
         }
-        fmls.push_back(m.mk_or(gt.size(), gt.c_ptr()));
-        fml = m.mk_and(fmls.size(), fmls.c_ptr());
+        fmls.push_back(mk_or(gt));
+        fml = mk_and(fmls);
         IF_VERBOSE(10, verbose_stream() << "dominates: " << fml << "\n";);
-        TRACE("opt", tout << fml << "\n"; model_smt2_pp(tout, m, *m_model, 0););
+        TRACE("opt", model_smt2_pp(tout << fml << "\n", m, *m_model, 0););
         m_solver->assert_expr(fml);        
     }
 
@@ -80,7 +82,7 @@ namespace opt {
         for (unsigned i = 0; i < sz; ++i) {
             le.push_back(cb.mk_le(i, m_model));
         }
-        fml = m.mk_not(m.mk_and(le.size(), le.c_ptr()));
+        fml = m.mk_not(mk_and(le));
         IF_VERBOSE(10, verbose_stream() << "not dominated by: " << fml << "\n";);
         TRACE("opt", tout << fml << "\n";);
         m_solver->assert_expr(fml);        
@@ -98,6 +100,7 @@ namespace opt {
         if (is_sat == l_true) {
             m_solver->get_model(m_model);
             m_solver->get_labels(m_labels);
+            m_model->set_model_completion(true);
             mk_not_dominated_by();
         }
         return is_sat;

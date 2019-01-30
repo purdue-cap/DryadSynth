@@ -155,10 +155,10 @@ bool quasi_macros::is_quasi_macro(expr * e, app_ref & a, expr_ref & t) const {
     // f[X] contains all universally quantified variables, and f does not occur in T[X].
     TRACE("quasi_macros", tout << "Checking for quasi macro: " << mk_pp(e, m_manager) << std::endl;);
 
-    if (is_quantifier(e) && to_quantifier(e)->is_forall()) {
+    if (is_forall(e)) {
         quantifier * q = to_quantifier(e);
         expr * qe = q->get_expr();
-        if ((m_manager.is_eq(qe) || m_manager.is_iff(qe))) {
+        if ((m_manager.is_eq(qe))) {
             expr * lhs = to_app(qe)->get_arg(0);
             expr * rhs = to_app(qe)->get_arg(1);
 
@@ -251,7 +251,7 @@ void quasi_macros::quasi_macro_to_macro(quantifier * q, app * a, expr * t, quant
 
     eq = m_manager.mk_eq(appl, ite);
 
-    macro = m_manager.mk_quantifier(true, new_var_names_rev.size(),
+    macro = m_manager.mk_quantifier(forall_k, new_var_names_rev.size(),
                                     new_qsorts_rev.c_ptr(), new_var_names_rev.c_ptr(), eq);
 }
 
@@ -263,7 +263,7 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
     m_occurrences.reset();
 
 
-    // Find out how many non-ground appearences for each uninterpreted function there are
+    // Find out how many non-ground appearances for each uninterpreted function there are
     for (unsigned i = 0 ; i < n ; i++)
         find_occurrences(exprs[i]);
 
@@ -301,7 +301,7 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
     m_occurrences.reset();
     
 
-    // Find out how many non-ground appearences for each uninterpreted function there are    
+    // Find out how many non-ground appearances for each uninterpreted function there are
     for ( unsigned i = 0 ; i < n ; i++ )
         find_occurrences(exprs[i].get_fml());
 

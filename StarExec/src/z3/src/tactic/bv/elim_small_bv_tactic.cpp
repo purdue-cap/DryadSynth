@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include "tactic/tactical.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/used_vars.h"
@@ -35,7 +35,7 @@ class elim_small_bv_tactic : public tactic {
         params_ref                  m_params;
         bv_util                     m_util;
         th_rewriter                 m_simp;
-        ref<filter_model_converter> m_mc;
+        ref<generic_model_converter> m_mc;
         goal *                      m_goal;
         unsigned                    m_max_bits;
         unsigned long long          m_max_steps;
@@ -101,7 +101,7 @@ class elim_small_bv_tactic : public tactic {
                                     });
 
             var_subst vsbst(m);
-            vsbst(e, substitution.size(), substitution.c_ptr(), res);
+            res = vsbst(e, substitution.size(), substitution.c_ptr());
             SASSERT(is_well_sorted(m, res));
 
             proof_ref pr(m);
@@ -123,6 +123,9 @@ class elim_small_bv_tactic : public tactic {
             expr * const * new_no_patterns,
             expr_ref & result,
             proof_ref & result_pr) {
+            if (is_lambda(q)) {
+                return false;
+            }
             TRACE("elim_small_bv", tout << "reduce_quantifier " << mk_ismt2_pp(q, m) << std::endl; );
             unsigned long long num_steps = 0;
             unsigned curr_sz = m_bindings.size();
@@ -158,8 +161,8 @@ class elim_small_bv_tactic : public tactic {
                                            for (unsigned k = 0; k < new_bodies.size(); k++)
                                                tout << mk_ismt2_pp(new_bodies[k].get(), m) << std::endl; );
 
-                    body = q->is_forall() ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
-                                            m.mk_or(new_bodies.size(), new_bodies.c_ptr());
+                    body = is_forall(q) ? m.mk_and(new_bodies.size(), new_bodies.c_ptr()) :
+                                          m.mk_or(new_bodies.size(), new_bodies.c_ptr());
                     SASSERT(is_well_sorted(m, body));
 
                     proof_ref pr(m);
@@ -171,7 +174,7 @@ class elim_small_bv_tactic : public tactic {
             quantifier_ref new_q(m);
             new_q = m.update_quantifier(q, body);
             unused_vars_eliminator el(m, m_params);
-            el(new_q, result);
+            result = el(new_q);
 
             TRACE("elim_small_bv", tout << "elimination result: " << mk_ismt2_pp(result, m) << std::endl; );
 
@@ -224,13 +227,8 @@ class elim_small_bv_tactic : public tactic {
             m_rw.cfg().updt_params(p);
         }
 
-        void operator()(goal_ref const & g,
-            goal_ref_buffer & result,
-            model_converter_ref & mc,
-            proof_converter_ref & pc,
-            expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("elim-small-bv", *g);
             bool produce_proofs = g->proofs_enabled();
             fail_if_proof_generation("elim-small-bv", g);
@@ -250,7 +248,7 @@ class elim_small_bv_tactic : public tactic {
                 }
                 g->update(idx, new_curr, new_pr, g->dep(idx));
             }
-            mc = m_rw.m_cfg.m_mc.get();
+            g->add(m_rw.m_cfg.m_mc.get());
 
             report_tactic_progress(":elim-small-bv-num-eliminated", m_rw.m_cfg.m_num_eliminated);
             g->inc_depth();
@@ -288,11 +286,8 @@ public:
     }
 
     void operator()(goal_ref const & in,
-        goal_ref_buffer & result,
-        model_converter_ref & mc,
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) override {
-        (*m_imp)(in, result, mc, pc, core);
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
 
     void cleanup() override {

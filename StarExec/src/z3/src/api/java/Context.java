@@ -518,7 +518,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Creates a fresh constant function declaration with a name prefixed with
-     * {@code prefix"}. 
+     * {@code prefix}. 
      * @see #mkFuncDecl(String,Sort,Sort)
      * @see #mkFuncDecl(String,Sort[],Sort)
      **/
@@ -696,7 +696,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Creates the equality {@code x"/> = <paramref name="y}.
+     * Creates the equality {@code x = y}
      **/
     public BoolExpr mkEq(Expr x, Expr y)
     {
@@ -1976,6 +1976,22 @@ public class Context implements AutoCloseable {
     {
         return (SeqExpr) Expr.create(this, Native.mkString(nCtx(), s));
     }
+
+    /**
+     * Convert an integer expression to a string.
+     */
+    public SeqExpr intToString(Expr e) 
+    {
+	return (SeqExpr) Expr.create(this, Native.mkIntToStr(nCtx(), e.getNativeObject()));
+    }
+
+    /**
+     * Convert an integer expression to a string.
+     */
+    public IntExpr stringToInt(Expr e)  
+    {
+	return (IntExpr) Expr.create(this, Native.mkStrToInt(nCtx(), e.getNativeObject()));
+    }
     
     /**
      * Concatenate sequences.
@@ -2157,6 +2173,22 @@ public class Context implements AutoCloseable {
     {
         checkContextMatch(t);
         return (ReExpr) Expr.create(this, Native.mkReIntersect(nCtx(), t.length, AST.arrayToNative(t)));
+    }
+
+    /**
+     * Create the empty regular expression.
+     */
+    public ReExpr mkEmptyRe(Sort s) 
+    {
+	return (ReExpr) Expr.create(this, Native.mkReEmpty(nCtx(), s.getNativeObject()));
+    }
+
+    /**
+     * Create the full regular expression.
+     */
+    public ReExpr mkFullRe(Sort s) 
+    {
+	return (ReExpr) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
     }    
     
     /**
@@ -2499,6 +2531,40 @@ public class Context implements AutoCloseable {
     }
 
     /**
+     * Create a lambda expression.
+     * 
+     * {@code sorts} is an array
+     * with the sorts of the bound variables, {@code names} is an array with the
+     * 'names' of the bound variables, and {@code body} is the body of the
+     * lambda. 
+     * Note that the bound variables are de-Bruijn indices created using {@link #mkBound}
+     * Z3 applies the convention that the last element in {@code names} and
+     * {@code sorts} refers to the variable with index 0, the second to last element
+     * of {@code names} and {@code sorts} refers to the variable
+     * with index 1, etc.
+     *
+     * @param sorts the sorts of the bound variables.
+     * @param names names of the bound variables.
+     * @param body the body of the quantifier.
+     **/
+     public Lambda mkLambda(Sort[] sorts, Symbol[] names, Expr body)
+     {
+         return Lambda.of(this, sorts, names, body);
+     }
+
+    /**
+     * Create a lambda expression.
+     * 
+     * Creates a lambda expression using a list of constants that will
+     * form the set of bound variables.
+     **/
+     public Lambda mkLambda(Expr[] boundConstants, Expr body)
+     {
+         return Lambda.of(this, boundConstants, body);
+     }
+
+
+    /**
      * Selects the format used for pretty-printing expressions.
      * Remarks:  The
      * default mode for pretty printing expressions is to produce SMT-LIB style
@@ -2549,8 +2615,9 @@ public class Context implements AutoCloseable {
      * set of assertions returned are the ones in the 
      * last scope level.
      **/
-    public BoolExpr parseSMTLIB2String(String str, Symbol[] sortNames,
-            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)           
+    public BoolExpr[] parseSMTLIB2String(String str, Symbol[] sortNames,
+            Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
+           
     {
         int csn = Symbol.arrayLength(sortNames);
         int cs = Sort.arrayLength(sorts);
@@ -2559,17 +2626,18 @@ public class Context implements AutoCloseable {
         if (csn != cs || cdn != cd) {
             throw new Z3Exception("Argument size mismatch");
         }
-        return (BoolExpr) Expr.create(this, Native.parseSmtlib2String(nCtx(),
+        ASTVector v = new ASTVector(this, Native.parseSmtlib2String(nCtx(),
                 str, AST.arrayLength(sorts), Symbol.arrayToNative(sortNames),
                 AST.arrayToNative(sorts), AST.arrayLength(decls),
                 Symbol.arrayToNative(declNames), AST.arrayToNative(decls)));
+        return v.ToBoolExprArray();
     }
 
     /**
      * Parse the given file using the SMT-LIB2 parser. 
      * @see #parseSMTLIB2String
      **/
-    public BoolExpr parseSMTLIB2File(String fileName, Symbol[] sortNames,
+    public BoolExpr[] parseSMTLIB2File(String fileName, Symbol[] sortNames,
             Sort[] sorts, Symbol[] declNames, FuncDecl[] decls)
            
     {
@@ -2579,11 +2647,12 @@ public class Context implements AutoCloseable {
         int cd = AST.arrayLength(decls);
         if (csn != cs || cdn != cd)
             throw new Z3Exception("Argument size mismatch");
-        return (BoolExpr) Expr.create(this, Native.parseSmtlib2File(nCtx(),
+        ASTVector v = new ASTVector(this, Native.parseSmtlib2File(nCtx(),
                 fileName, AST.arrayLength(sorts),
                 Symbol.arrayToNative(sortNames), AST.arrayToNative(sorts),
                 AST.arrayLength(decls), Symbol.arrayToNative(declNames),
                 AST.arrayToNative(decls)));
+        return v.ToBoolExprArray();
     }
 
     /**
@@ -2650,7 +2719,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a tactic that applies {@code t1} to a Goal and then
-     * {@code t2"/> to every subgoal produced by <paramref name="t1}.
+     * {@code t2} to every subgoal produced by {@code t1}
      **/
     public Tactic andThen(Tactic t1, Tactic t2, Tactic... ts)
            
@@ -2731,7 +2800,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a tactic that applies {@code t1} to a given goal if the
-     * probe {@code p"/> evaluates to true and <paramref name="t2}
+     * probe {@code p} evaluates to true and {@code t2}
      * otherwise.
      **/
     public Tactic cond(Probe p, Tactic t1, Tactic t2)
@@ -2892,7 +2961,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a probe that evaluates to "true" when the value returned by
+     * Create a probe that evaluates to {@code true} when the value returned by
      * {@code p1} is less than the value returned by {@code p2}
      **/
     public Probe lt(Probe p1, Probe p2)
@@ -2904,7 +2973,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a probe that evaluates to "true" when the value returned by
+     * Create a probe that evaluates to {@code true} when the value returned by
      * {@code p1} is greater than the value returned by {@code p2}
      **/
     public Probe gt(Probe p1, Probe p2)
@@ -2916,7 +2985,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a probe that evaluates to "true" when the value returned by
+     * Create a probe that evaluates to {@code true} when the value returned by
      * {@code p1} is less than or equal the value returned by
      * {@code p2}
      **/
@@ -2929,7 +2998,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a probe that evaluates to "true" when the value returned by
+     * Create a probe that evaluates to {@code true} when the value returned by
      * {@code p1} is greater than or equal the value returned by
      * {@code p2}
      **/
@@ -2942,7 +3011,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a probe that evaluates to "true" when the value returned by
+     * Create a probe that evaluates to {@code true} when the value returned by
      * {@code p1} is equal to the value returned by {@code p2}
      **/
     public Probe eq(Probe p1, Probe p2)
@@ -2954,7 +3023,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a probe that evaluates to "true" when the value {@code p1} and {@code p2} evaluate to "true".
+     * Create a probe that evaluates to {@code true} when the value {@code p1} and {@code p2} evaluate to {@code true}.
      **/
     public Probe and(Probe p1, Probe p2)
     {
@@ -2965,7 +3034,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a probe that evaluates to "true" when the value {@code p1} or {@code p2} evaluate to "true".
+     * Create a probe that evaluates to {@code true} when the value {@code p1} or {@code p2} evaluate to {@code true}.
      **/
     public Probe or(Probe p1, Probe p2)
     {
@@ -2976,7 +3045,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a probe that evaluates to "true" when the value {@code p} does not evaluate to "true".
+     * Create a probe that evaluates to {@code true} when the value {@code p} does not evaluate to {@code true}.
      **/
     public Probe not(Probe p)
     {
@@ -3287,7 +3356,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a numeral of FloatingPoint sort from a float.
+     * Create a numeral of FloatingPoint sort from a double.
      * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
@@ -3299,7 +3368,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of FloatingPoint sort from an int.
-     * * @param v numeral value.
+     * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/                    
@@ -3311,8 +3380,8 @@ public class Context implements AutoCloseable {
     /**
      * Create a numeral of FloatingPoint sort from a sign bit and two integers.
      * @param sgn the sign.
-     * @param sig the significand.
      * @param exp the exponent.
+     * @param sig the significand.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/            
@@ -3324,8 +3393,8 @@ public class Context implements AutoCloseable {
     /**
      * Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
      * @param sgn the sign.
-     * @param sig the significand.
      * @param exp the exponent.
+     * @param sig the significand.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/
@@ -3346,7 +3415,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a numeral of FloatingPoint sort from a float.
+     * Create a numeral of FloatingPoint sort from a double.
      * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
@@ -3378,7 +3447,7 @@ public class Context implements AutoCloseable {
      **/                     
     public FPNum mkFP(boolean sgn, int exp, int sig, FPSort s)
     {
-        return mkFPNumeral(sgn, sig, exp, s);
+        return mkFPNumeral(sgn, exp, sig, s);
     }
 
     /**
@@ -3391,7 +3460,7 @@ public class Context implements AutoCloseable {
      **/                     
     public FPNum mkFP(boolean sgn, long exp, long sig, FPSort s)
     {
-        return mkFPNumeral(sgn, sig, exp, s);
+        return mkFPNumeral(sgn, exp, sig, s);
     }
 
 

@@ -31,6 +31,10 @@ Revision History:
 #include "muz/base/dl_rule.h"
 #include "muz/base/dl_util.h"
 #include "util/stopwatch.h"
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS
+#endif
+#include <inttypes.h>
 
 namespace datalog {
 
@@ -111,8 +115,7 @@ namespace datalog {
         expr_ref tmp(m);
         for (unsigned i = 0; i < tgt.size(); ++i) {
             if (tgt[i].get()) {
-                vs(tgt[i].get(), sub.size(), sub.c_ptr(), tmp);
-                tgt[i] = tmp;
+                tgt[i] = vs(tgt[i].get(), sub.size(), sub.c_ptr());
             }
             else {
                 tgt[i] = sub[i];
@@ -165,7 +168,7 @@ namespace datalog {
             }
 
             expr * arg = f->get_arg(i);
-            uint64 sym_num;
+            uint64_t sym_num;
             SASSERT(is_app(arg));
             VERIFY( ctx.get_decl_util().is_numeral_ext(to_app(arg), sym_num) );
             relation_sort sort = pred_decl->get_domain(i);            
@@ -385,24 +388,32 @@ namespace datalog {
     public:
         skip_model_converter() {}
  
-        model_converter * translate(ast_translation & translator) override {
+        model_converter * translate(ast_translation & translator) override { 
             return alloc(skip_model_converter);
         }
+
+        void operator()(model_ref&) override {}
+
+        void display(std::ostream & out) override { }
+
+        void get_units(obj_map<expr, bool>& units) override {}
 
     };
 
     model_converter* mk_skip_model_converter() { return alloc(skip_model_converter); }
 
     class skip_proof_converter : public proof_converter {
-        void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) override {
+
+        proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
             SASSERT(num_source == 1);
-            result = source[0];
+            return proof_ref(source[0], m);
         }
 
         proof_converter * translate(ast_translation & translator) override {
             return alloc(skip_proof_converter);
         }
 
+        void display(std::ostream & out) override { out << "(skip-proof-converter)\n"; }
     };
 
     proof_converter* mk_skip_proof_converter() { return alloc(skip_proof_converter); }
@@ -513,10 +524,9 @@ namespace datalog {
     }
 
     void collect_and_transform(const unsigned_vector & src, const unsigned_vector & translation, 
-            unsigned_vector & res) {
-        unsigned n = src.size();
-        for(unsigned i=0; i<n; i++) {
-            unsigned translated = translation[src[i]];
+                               unsigned_vector & res) {
+        for (unsigned s : src) {
+            unsigned translated = translation[s];
             if(translated!=UINT_MAX) {
                 res.push_back(translated);
             }
@@ -525,10 +535,8 @@ namespace datalog {
 
 
     void transform_set(const unsigned_vector & map, const idx_set & src, idx_set & result) {
-        idx_set::iterator it = src.begin();
-        idx_set::iterator end = src.end();
-        for(; it!=end; ++it) {
-            result.insert(map[*it]);
+        for (unsigned s : src) {
+            result.insert(map[s]);
         }
     }
 
@@ -621,11 +629,11 @@ namespace datalog {
         return name.substr(ofs, count);
     }
 
-    bool string_to_uint64(const char * s, uint64 & res) {
+    bool string_to_uint64(const char * s, uint64_t & res) {
 #if _WINDOWS
-        int converted = sscanf_s(s, "%I64u", &res);
+        int converted = sscanf_s(s, "%" SCNu64, &res);
 #else
-        int converted = sscanf(s, "%llu", &res);
+        int converted = sscanf(s, "%" SCNu64, &res);
 #endif
         if(converted==0) {
             return false;
@@ -634,9 +642,9 @@ namespace datalog {
         return true;
     }
 
-    bool read_uint64(const char * & s, uint64 & res) {
-        static const uint64 max_but_one_digit = ULLONG_MAX/10;
-        static const uint64 max_but_one_digit_safe = (ULLONG_MAX-9)/10;
+    bool read_uint64(const char * & s, uint64_t & res) {
+        static const uint64_t max_but_one_digit = ULLONG_MAX/10;
+        static const uint64_t max_but_one_digit_safe = (ULLONG_MAX-9)/10;
 
         if(*s<'0' || *s>'9') {
             return false;
@@ -664,7 +672,7 @@ namespace datalog {
         return true;
     }
 
-    std::string to_string(uint64 num) {
+    std::string to_string(uint64_t num) {
         std::stringstream stm;
         stm<<num;
         return stm.str();

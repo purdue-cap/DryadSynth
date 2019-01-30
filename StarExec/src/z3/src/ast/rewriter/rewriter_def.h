@@ -212,6 +212,7 @@ bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
     return false;
 }
 
+
 template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
@@ -336,17 +337,14 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             UNREACHABLE();
         }
         // TODO: add rewrite rules support
-        expr * def;
-        proof * def_pr;
-        quantifier * def_q;
+        expr * def = nullptr;
+        proof * def_pr = nullptr;
         // When get_macro succeeds, then
         // we know that:
         // forall X. f(X) = def[X]
         // and def_pr is a proof for this quantifier.
         //
-        // Remark: def_q is only used for proof generation.
-        // It is the quantifier forall X. f(X) = def[X]
-        if (get_macro(f, def, def_q, def_pr)) {
+        if (get_macro(f, def, def_pr)) {
             SASSERT(!f->is_associative() || !flat_assoc(f));
             SASSERT(new_num_args == t->get_num_args());
             SASSERT(m().get_sort(def) == m().get_sort(t));
@@ -448,7 +446,7 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
             m_r = result_stack().back();
             if (!is_ground(m_r)) {
                 m_inv_shifter(m_r, num_args, tmp);
-                m_r = tmp;
+                m_r = std::move(tmp);
             }
             result_stack().shrink(fr.m_spos);
             result_stack().push_back(m_r);
@@ -516,7 +514,12 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     }
     if (ProofGen) {
         quantifier_ref new_q(m().update_quantifier(q, num_pats, new_pats.c_ptr(), num_no_pats, new_no_pats.c_ptr(), new_body), m());
-        m_pr = q == new_q ? nullptr : m().mk_quant_intro(q, new_q, result_pr_stack().get(fr.m_spos));
+        m_pr = nullptr;
+        if (q != new_q) {
+            m_pr = result_pr_stack().get(fr.m_spos);
+            m_pr = m().mk_bind_proof(q, m_pr);
+            m_pr = m().mk_quant_intro(q, new_q, m_pr);
+        }
         m_r = new_q;
         proof_ref pr2(m());
         if (m_cfg.reduce_quantifier(new_q, new_body, new_pats.c_ptr(), new_no_pats.c_ptr(), m_r, pr2)) {
@@ -542,7 +545,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
     }
     result_stack().shrink(fr.m_spos);
     result_stack().push_back(m_r.get());
-    SASSERT(m().is_bool(m_r));
+    SASSERT(m().get_sort(q) == m().get_sort(m_r));
     if (!ProofGen) {
         SASSERT(num_decls <= m_bindings.size());
         m_bindings.shrink(m_bindings.size() - num_decls);
@@ -638,6 +641,17 @@ void rewriter_tpl<Config>::set_inv_bindings(unsigned num_bindings, expr * const 
     }
     TRACE("rewriter", display_bindings(tout););
 }
+
+template<typename Config>
+void rewriter_tpl<Config>::update_inv_binding_at(unsigned i, expr* binding) {
+    m_bindings[i] = binding;
+}
+
+template<typename Config>
+void rewriter_tpl<Config>::update_binding_at(unsigned i, expr* binding) {
+    m_bindings[m_bindings.size() - i - 1] = binding;
+}
+
 
 template<typename Config>
 template<bool ProofGen>

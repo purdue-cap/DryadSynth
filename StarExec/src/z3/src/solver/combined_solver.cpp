@@ -39,7 +39,7 @@ Notes:
 
    The object switches to incremental when:
        - push is used
-       - assertions are peformed after a check_sat
+       - assertions are performed after a check_sat
        - parameter ignore_solver1==false
 */
 class combined_solver : public solver {
@@ -59,7 +59,8 @@ private:
     ref<solver>          m_solver2;
     // We delay sending assertions to solver 2
     // This is relevant for big benchmarks that are meant to be solved
-    // by a non-incremental solver. 
+    // by a non-incremental solver.                                                 );
+
     bool                 m_solver2_initialized;
 
     bool                 m_ignore_solver1;
@@ -137,6 +138,7 @@ public:
     }
 
     solver* translate(ast_manager& m, params_ref const& p) override {
+        TRACE("solver", tout << "translate\n";);
         solver* s1 = m_solver1->translate(m, p);
         solver* s2 = m_solver2->translate(m, p);
         combined_solver* r = alloc(combined_solver, s1, s2, p);
@@ -165,7 +167,7 @@ public:
         m_solver2->set_produce_models(f);
     }
     
-    void assert_expr(expr * t) override {
+    void assert_expr_core(expr * t) override {
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t);
@@ -173,7 +175,7 @@ public:
             m_solver2->assert_expr(t);
     }
 
-    void assert_expr(expr * t, expr * a) override {
+    void assert_expr_core2(expr * t, expr * a) override {
         if (m_check_sat_executed)
             switch_inc_mode();
         m_solver1->assert_expr(t, a);
@@ -184,10 +186,12 @@ public:
     void push() override {
         switch_inc_mode();
         m_solver1->push();
-        m_solver2->push();
+        m_solver2->push();        
+        TRACE("pop", tout << "push\n";);
     }
     
     void pop(unsigned n) override {
+        TRACE("pop", tout << n << "\n";);
         switch_inc_mode();
         m_solver1->pop(n);
         m_solver2->pop(n);
@@ -205,7 +209,7 @@ public:
         }
         catch (z3_exception& ex) {
             if (get_manager().canceled()) {
-                set_reason_unknown(Z3_CANCELED_MSG);
+                throw;
             }
             else {
                 set_reason_unknown(ex.msg());
@@ -276,6 +280,10 @@ public:
         return m_solver1->get_num_assumptions() + m_solver2->get_num_assumptions();
     }
 
+    expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override {
+        return m_solver1->cube(vars, backtrack_level);
+    }
+
     expr * get_assumption(unsigned idx) const override {
         unsigned c1 = m_solver1->get_num_assumptions();
         if (idx < c1) return m_solver1->get_assumption(idx);
@@ -292,14 +300,14 @@ public:
             m_solver1->collect_statistics(st);
     }
 
-    void get_unsat_core(ptr_vector<expr> & r) override {
+    void get_unsat_core(expr_ref_vector & r) override {
         if (m_use_solver1_results)
             m_solver1->get_unsat_core(r);
         else
             m_solver2->get_unsat_core(r);
     }
 
-    void get_model(model_ref & m) override {
+    void get_model_core(model_ref & m) override {
         if (m_use_solver1_results)
             m_solver1->get_model(m);
         else

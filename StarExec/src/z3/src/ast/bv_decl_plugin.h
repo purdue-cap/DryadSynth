@@ -354,6 +354,8 @@ public:
     MATCH_BINARY(is_bv_mul);
     MATCH_BINARY(is_bv_sle);
     MATCH_BINARY(is_bv_ule);
+    MATCH_BINARY(is_bv_ashr);
+    MATCH_BINARY(is_bv_lshr);
     MATCH_BINARY(is_bv_shl);
     MATCH_BINARY(is_bv_urem);
     MATCH_BINARY(is_bv_srem);
@@ -384,7 +386,7 @@ public:
 
     app * mk_numeral(rational const & val, sort* s) const;
     app * mk_numeral(rational const & val, unsigned bv_size) const;
-    app * mk_numeral(uint64 u, unsigned bv_size) const { return mk_numeral(rational(u, rational::ui64()), bv_size); }
+    app * mk_numeral(uint64_t u, unsigned bv_size) const { return mk_numeral(rational(u, rational::ui64()), bv_size); }
     sort * mk_sort(unsigned bv_size);
 
     unsigned get_bv_size(sort const * s) const {

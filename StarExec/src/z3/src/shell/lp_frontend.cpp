@@ -55,8 +55,8 @@ struct front_end_resource_limit : public lp::lp_resource_limit {
 void run_solver(lp_params & params, char const * mps_file_name) {
 
     reslimit rlim;
-    unsigned timeout = gparams::get().get_uint("timeout", 0);
-    unsigned rlimit  = gparams::get().get_uint("rlimit", 0);
+    unsigned timeout = gparams::get_ref().get_uint("timeout", 0);
+    unsigned rlimit  = gparams::get_ref().get_uint("rlimit", 0);
     front_end_resource_limit lp_limit(rlim);
 
     scoped_rlimit _rlimit(rlim, rlimit);
@@ -85,7 +85,7 @@ void run_solver(lp_params & params, char const * mps_file_name) {
     solver->find_maximal_solution();
 
     *(solver->settings().get_message_ostream()) << "status is " << lp_status_to_string(solver->get_status()) << std::endl;
-    if (solver->get_status() == lp::OPTIMAL) {
+    if (solver->get_status() == lp::lp_status::OPTIMAL) {
         if (params.min()) {
             solver->flip_costs();
         }

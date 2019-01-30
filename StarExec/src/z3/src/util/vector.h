@@ -28,6 +28,7 @@ Revision History:
 #include<algorithm>
 #include<type_traits>
 #include<memory.h>
+#include<functional>
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/z3_exception.h"
@@ -188,6 +189,24 @@ public:
         m_data = nullptr;
     }
 
+    bool operator==(vector const & other) const {
+        if (this == &other) {
+            return true;
+        }
+        if (size() != other.size())
+            return false;
+        for (unsigned i = 0; i < size(); i++) {
+            if ((*this)[i] != other[i])
+                return false;
+        }
+        return true;
+    }
+
+    bool operator!=(vector const & other) const {
+        return !(*this == other);
+    }
+
+    
     vector & operator=(vector const & source) {
         if (this == &source) {
             return *this;
@@ -209,6 +228,51 @@ public:
         destroy();
         m_data = nullptr;
         std::swap(m_data, source.m_data);
+        return *this;
+    }
+
+    bool containsp(std::function<bool(T)>& predicate) const {
+        for (auto const& t : *this)
+            if (predicate(t)) 
+                return true;
+        return false;
+    }
+
+    /**
+     * retain elements that satisfy predicate. aka 'where'.
+     */
+    vector filter_pure(std::function<bool(T)>& predicate) const {
+        vector result;
+        for (auto& t : *this)
+            if (predicate(t)) 
+                result.push_back(t);
+        return result;
+    }
+
+    vector& filter_update(std::function<bool(T)>& predicate) {
+        unsigned j = 0;
+        for (auto& t : *this)
+            if (predicate(t)) 
+                set(j++, t);
+        shrink(j);
+        return *this;
+    }
+
+    /**
+     * update elements using f, aka 'select'
+     */
+    template <typename S>
+    vector<S> map_pure(std::function<S(T)>& f) const {
+        vector<S> result;
+        for (auto& t : *this)
+            result.push_back(f(t));
+        return result;
+    }
+
+    vector& map_update(std::function<T(T)>& f) {
+        unsigned j = 0;
+        for (auto& t : *this)
+            set(j++, f(t));
         return *this;
     }
 
@@ -471,7 +535,7 @@ public:
 
     void fill(unsigned sz, T const & elem) {
         resize(sz);
-        fill(sz, elem);
+        fill(elem);
     }
 
     bool contains(T const & elem) const {
@@ -547,6 +611,11 @@ typedef svector<unsigned> unsigned_vector;
 typedef svector<char> char_vector;
 typedef svector<signed char> signed_char_vector;
 typedef svector<double> double_vector;
+
+inline std::ostream& operator<<(std::ostream& out, unsigned_vector const& v) {
+    for (unsigned u : v) out << u << " ";
+    return out;
+}
 
 template<typename Hash, typename Vec>
 struct vector_hash_tpl {

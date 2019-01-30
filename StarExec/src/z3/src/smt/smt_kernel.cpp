@@ -115,6 +115,10 @@ namespace smt {
             return m_kernel.check(num_assumptions, assumptions);
         }
 
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clause) {
+            return m_kernel.check(cube, clause);
+        }        
+
         lbool get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
             return m_kernel.get_consequences(assumptions, vars, conseq, unfixed);
         }
@@ -174,11 +178,15 @@ namespace smt {
         void get_guessed_literals(expr_ref_vector & result) {
             m_kernel.get_guessed_literals(result);
         }
-        
+
+        expr* next_decision() {
+            return m_kernel.next_decision();
+        }
+                
         void collect_statistics(::statistics & st) const {
             m_kernel.collect_statistics(st);
         }
-        
+
         void reset_statistics() {
         }
 
@@ -283,6 +291,11 @@ namespace smt {
         return r;
     }
 
+    lbool kernel::check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
+        return m_imp->check(cube, clauses);
+    }
+
+
     lbool kernel::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq, expr_ref_vector& unfixed) {
         return m_imp->get_consequences(assumptions, vars, conseq, unfixed);
     }
@@ -342,6 +355,10 @@ namespace smt {
     void kernel::get_guessed_literals(expr_ref_vector & result) {
         m_imp->get_guessed_literals(result);
     }
+
+    expr* kernel::next_decision() {
+        return m_imp->next_decision();
+    }        
 
     void kernel::display(std::ostream & out) const {
         m_imp->display(out);

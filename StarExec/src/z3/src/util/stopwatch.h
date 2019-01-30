@@ -20,11 +20,9 @@ Revision History:
 #ifndef STOPWATCH_H_
 #define STOPWATCH_H_
 
-#if defined(_WINDOWS) || defined(_CYGWIN)
+#if defined(_WINDOWS) || defined(_CYGWIN) || defined(_MINGW)
 
 // Does this redefinition work?
-#define ARRAYSIZE_TEMP ARRAYSIZE
-#undef ARRAYSIZE
 
 #include <windows.h>
 
@@ -68,13 +66,11 @@ public:
     }
 };
 
-#undef ARRAYSIZE
-#define ARRAYSIZE ARRAYSIZE_TEMP
 #undef max
 #undef min
 
 
-#elif defined(__APPLE__) && defined (__MACH__) // Mac OS X
+#elif defined(__APPLE__) && defined (__MACH__) // macOS
 
 #include<mach/mach.h>
 #include<mach/clock.h>

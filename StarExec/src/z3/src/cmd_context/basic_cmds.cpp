@@ -17,7 +17,7 @@ Notes:
 --*/
 #include "util/gparams.h"
 #include "util/env_params.h"
-#include "util/version.h"
+#include "util/z3_version.h"
 #include "ast/ast_smt_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp_dot.h"
@@ -59,7 +59,7 @@ public:
         if (c == nullptr) {
             std::string err_msg("unknown command '");
             err_msg = err_msg + s.bare_str() + "'";
-            throw cmd_exception(err_msg);
+            throw cmd_exception(std::move(err_msg));
         }
         m_cmds.push_back(s);
     }
@@ -105,18 +105,18 @@ public:
     char const * get_descr(cmd_context & ctx) const override {
         return "retrieve model for the last check-sat command.\nSupply optional index if retrieving a model corresponding to a box optimization objective";
     }
+
     unsigned get_arity() const override { return VAR_ARITY; }
     cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_UINT; }
     void set_next_arg(cmd_context & ctx, unsigned index) override { m_index = index; }
     void execute(cmd_context & ctx) override {
-        if (!ctx.is_model_available() || ctx.get_check_sat_result() == nullptr)
-            throw cmd_exception("model is not available");
         model_ref m;
+        if (ctx.ignore_check())
+            return;
+        if (!ctx.is_model_available(m) || !ctx.get_check_sat_result())
+            throw cmd_exception("model is not available");
         if (m_index > 0 && ctx.get_opt()) {
             ctx.get_opt()->get_box_model(m, m_index);
-        }
-        else {
-            ctx.get_check_sat_result()->get_model(m);
         }
         ctx.display_model(m);
     }
@@ -127,10 +127,9 @@ public:
 
 
 ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
-    if (!ctx.is_model_available() || ctx.get_check_sat_result() == 0)
-        throw cmd_exception("model is not available");
     model_ref m;
-    ctx.get_check_sat_result()->get_model(m);
+    if (!ctx.is_model_available(m) || ctx.get_check_sat_result() == 0)
+        throw cmd_exception("model is not available");
     ctx.regular_stream() << "(";
     dictionary<macro_decls> const & macros = ctx.get_macros();
     bool first = true;
@@ -138,9 +137,9 @@ ATOMIC_CMD(get_assignment_cmd, "get-assignment", "retrieve assignment", {
         symbol const & name = kv.m_key;
         macro_decls const & _m    = kv.m_value;
         for (auto md : _m) {
-            if (md.m_domain.size() == 0 && ctx.m().is_bool(md.m_body)) {
-                expr_ref val(ctx.m());
-                m->eval(md.m_body, val, true);
+            if (md.m_domain.empty() && ctx.m().is_bool(md.m_body)) {
+                model::scoped_model_completion _scm(*m, true);
+                expr_ref val = (*m)(md.m_body);
                 if (ctx.m().is_true(val) || ctx.m().is_false(val)) {
                     if (first)
                         first = false;
@@ -224,7 +223,7 @@ ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it 
 });
 
 static void print_core(cmd_context& ctx) {
-    ptr_vector<expr> core;
+    expr_ref_vector core(ctx.m());
     ctx.get_check_sat_result()->get_unsat_core(core);
     ctx.regular_stream() << "(";
     bool first = true;
@@ -385,7 +384,7 @@ class set_option_cmd : public set_get_option_cmd {
             std::string msg = "error setting '";
             msg += opt_name.str();
             msg += "', option value cannot be modified after initialization";
-            throw cmd_exception(msg);
+            throw cmd_exception(std::move(msg));
         }
     }
 
@@ -395,7 +394,7 @@ class set_option_cmd : public set_get_option_cmd {
             env_params::updt_params();
             ctx.global_params_updated();
         }
-        catch (gparams::exception ex) {
+        catch (const gparams::exception & ex) {
             throw cmd_exception(ex.msg());
         }
     }
@@ -503,7 +502,7 @@ public:
             ctx.set_random_seed(to_unsigned(val));
         }
         else if (m_option == m_reproducible_resource_limit) {
-            ctx.params().m_rlimit = to_unsigned(val);
+            ctx.params().set_rlimit(to_unsigned(val));
         }
         else if (m_option == m_verbosity) {
             set_verbosity_level(to_unsigned(val));
@@ -620,7 +619,7 @@ public:
             try {
                 ctx.regular_stream() << gparams::get_value(opt) << std::endl;
             }
-            catch (gparams::exception ex) {
+            catch (const gparams::exception &) {
                 ctx.print_unsupported(opt, m_line, m_pos);
             }
         }

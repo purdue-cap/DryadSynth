@@ -271,11 +271,12 @@ namespace datalog {
             m_renaming.insert(orig_rule, unsigned_vector(sz, renaming));
         }
 
-        void operator()(ast_manager& m, unsigned num_source, proof * const * source, proof_ref & result) override {
+        proof_ref operator()(ast_manager& m, unsigned num_source, proof * const * source) override {
             SASSERT(num_source == 1);
-            result = source[0];
+            proof_ref result(source[0], m);
             init_form2rule();
             translate_proof(result);
+            return result;
         }        
 
         proof_converter * translate(ast_translation & translator) override {
@@ -283,6 +284,8 @@ namespace datalog {
             // this would require implementing translation for the dl_context.
             return nullptr;
         }
+
+        void display(std::ostream& out) override { out << "(slice-proof-converter)\n"; }
     };
 
     class mk_slice::slice_model_converter : public model_converter {
@@ -304,6 +307,8 @@ namespace datalog {
             m_pinned.push_back(f);
             m_sliceable.insert(f, bv);
         }
+
+        void get_units(obj_map<expr, bool>& units) override {}
 
         void operator()(model_ref & md) override {
             if (m_slice2old.empty()) {
@@ -347,7 +352,7 @@ namespace datalog {
                     }
                     if (!new_fi->is_partial()) {
                         TRACE("dl", tout << mk_pp(new_fi->get_else(), m) << "\n";);
-                        vs(new_fi->get_else(), subst.size(), subst.c_ptr(), tmp);
+                        tmp = vs(new_fi->get_else(), subst.size(), subst.c_ptr());
                         old_fi->set_else(tmp);
                     }
                     unsigned num_entries = new_fi->num_entries();
@@ -357,7 +362,7 @@ namespace datalog {
                         func_entry const* e = new_fi->get_entry(j);
                         for (unsigned k = 0, l = 0; k < old_p->get_arity(); ++k) {
                             if (!is_sliced.get(k)) {
-                                vs(e->get_arg(l++), subst.size(), subst.c_ptr(), tmp);
+                                tmp = vs(e->get_arg(l++), subst.size(), subst.c_ptr());
                                 args.push_back(tmp);
                             }
                             else {
@@ -365,7 +370,7 @@ namespace datalog {
                             }
                             SASSERT(l <= new_p->get_arity());
                         }
-                        vs(e->get_result(), subst.size(), subst.c_ptr(), res);
+                        res = vs(e->get_result(), subst.size(), subst.c_ptr());
                         old_fi->insert_entry(args.c_ptr(), res.get());
                     }
                     old_model->register_decl(old_p, old_fi);
@@ -395,6 +400,8 @@ namespace datalog {
             UNREACHABLE();
             return nullptr;
         }
+
+        void display(std::ostream& out) override { out << "(slice-model-converter)\n"; }
 
     };
    

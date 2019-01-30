@@ -490,7 +490,6 @@ struct aig_manager::imp {
                     case OP_NOT:
                     case OP_OR:      
                     case OP_AND:
-                    case OP_IFF:
                     case OP_XOR:
                     case OP_IMPLIES:
                     case OP_ITE:
@@ -582,9 +581,6 @@ struct aig_manager::imp {
                 SASSERT(m.m().is_bool(fr.m_t->get_arg(0)));
                 mk_iff(fr.m_spos);
                 break;
-            case OP_IFF:
-                mk_iff(fr.m_spos);
-                break;
             case OP_XOR:
                 mk_xor(fr.m_spos);
                 break;
@@ -635,10 +631,8 @@ struct aig_manager::imp {
         }
 
         bool check_cache() const {
-            obj_map<expr, aig_lit>::iterator it  = m_cache.begin();
-            obj_map<expr, aig_lit>::iterator end = m_cache.end();
-            for (; it != end; ++it) {
-                SASSERT(ref_count(it->m_value) > 0);
+            for (auto const& kv : m_cache) {
+                VERIFY(ref_count(kv.m_value) > 0);
             }
             return true;
         }
@@ -1522,7 +1516,7 @@ public:
             }
             SASSERT(ref_count(r) >= 1);
         }
-    catch (aig_exception ex) {
+    catch (const aig_exception & ex) {
         dec_ref(r);
         throw ex;
     }

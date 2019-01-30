@@ -29,18 +29,13 @@ public:
 
     ~ackermannize_bv_tactic() override { }
 
-    void operator()(goal_ref const & g,
-        goal_ref_buffer & result,
-        model_converter_ref & mc,
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) override {
-        mc = nullptr;
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         tactic_report report("ackermannize", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
         TRACE("ackermannize", g->display(tout << "in\n"););
 
-        expr_ref_vector flas(m);
+        ptr_vector<expr> flas;
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
         lackr lackr(m, m_p, m_st, flas, nullptr);
@@ -52,17 +47,14 @@ public:
             TRACE("ackermannize", tout << "ackermannize not run due to limit" << std::endl;);
             result.reset();
             result.push_back(g.get());
-            mc = nullptr;
-            pc = nullptr;
-            core = nullptr;
             return;
         }
         result.push_back(resg.get());
         // report model
         if (g->models_enabled()) {
-            mc = mk_ackermannize_bv_model_converter(m, lackr.get_info());
+            resg->add(mk_ackermannize_bv_model_converter(m, lackr.get_info()));
         }
-
+        
         resg->inc_depth();
         TRACE("ackermannize", resg->display(tout << "out\n"););
         SASSERT(resg->is_well_sorted());

@@ -948,7 +948,7 @@ namespace algebraic_numbers {
                     // zero is a root of p, and r_i is an isolating interval containing zero,
                     // then c is zero
                     reset(c);
-                    TRACE("algebraic", tout << "reseting\nresult: "; display_root(tout, c); tout << "\n";);
+                    TRACE("algebraic", tout << "resetting\nresult: "; display_root(tout, c); tout << "\n";);
                     return;
                 }
                 int zV = upm().sign_variations_at_zero(seq);
@@ -1728,7 +1728,7 @@ namespace algebraic_numbers {
             COMPARE_INTERVAL();
 
             // if cell_a and cell_b, contain the same polynomial,
-            // and the intervals are overlaping, then they are
+            // and the intervals are overlapping, then they are
             // the same root.
             if (compare_p(cell_a, cell_b)) {
                 m_compare_poly_eq++;
@@ -1825,7 +1825,7 @@ namespace algebraic_numbers {
 
            // Here is an unexplored option for comparing numbers.
            //
-           // The isolating intervals of a and b are still overlaping
+           // The isolating intervals of a and b are still overlapping
            // Then we compute
            //    r(x) = Resultant(x - y1 + y2, p1(y1), p2(y2))
            //    where p1(y1) and p2(y2) are the polynomials defining a and b.
@@ -1989,7 +1989,7 @@ namespace algebraic_numbers {
                     TRACE("anum_eval_sign", tout << "all variables are assigned to rationals, value of p: " << r << "\n";);
                     return qm().sign(r);
                 }
-                catch (opt_var2basic::failed) {
+                catch (const opt_var2basic::failed &) {
                     // continue
                 }
 
@@ -2629,17 +2629,15 @@ namespace algebraic_numbers {
             }
             else if (a.is_basic()) {
                 mpq const & v = basic_value(a);
-                scoped_mpz neg_n(qm());
+                mpz neg_n;
                 qm().set(neg_n, v.numerator());
                 qm().neg(neg_n);
-                unsynch_mpz_manager zmgr;
-                // FIXME: remove these copies
-                mpz coeffs[2] = { zmgr.dup(neg_n.get()), zmgr.dup(v.denominator()) };
+                mpz coeffs[2] = { std::move(neg_n), qm().dup(v.denominator()) };
                 out << "(";
                 upm().display(out, 2, coeffs, "#");
                 out << ", 1)"; // first root of the polynomial d*# - n
-                zmgr.del(coeffs[0]);
-                zmgr.del(coeffs[1]);
+                qm().del(coeffs[0]);
+                qm().del(coeffs[1]);
             }
             else {
                 algebraic_cell * c = a.to_algebraic();
@@ -2679,17 +2677,15 @@ namespace algebraic_numbers {
             }
             else if (a.is_basic()) {
                 mpq const & v = basic_value(a);
-                scoped_mpz neg_n(qm());
+                mpz neg_n;
                 qm().set(neg_n, v.numerator());
                 qm().neg(neg_n);
-                unsynch_mpz_manager zmgr;
-                // FIXME: remove these copies
-                mpz coeffs[2] = { zmgr.dup(neg_n.get()), zmgr.dup(v.denominator()) };
+                mpz coeffs[2] = { std::move(neg_n), qm().dup(v.denominator()) };
                 out << "(root-obj ";
                 upm().display_smt2(out, 2, coeffs, "x");
                 out << " 1)"; // first root of the polynomial d*# - n
-                zmgr.del(coeffs[0]);
-                zmgr.del(coeffs[1]);
+                qm().del(coeffs[0]);
+                qm().del(coeffs[1]);
             }
             else {
                 algebraic_cell * c = a.to_algebraic();

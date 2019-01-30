@@ -21,6 +21,7 @@ Revision History:
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/id_gen.h"
 #include "ast/ast_smt2_pp.h"
+#include "util/gparams.h"
 
 struct arith_decl_plugin::algebraic_numbers_wrapper {
     unsynch_mpq_manager           m_qmanager;
@@ -81,7 +82,7 @@ app * arith_decl_plugin::mk_numeral(algebraic_numbers::anum const & val, bool is
         return mk_numeral(rval, is_int);
     }
     else {
-        if (is_int) {            
+        if (is_int) {
             m_manager->raise_exception("invalid irrational value passed as an integer");
         }
         unsigned idx = aw().mk_id(val);
@@ -351,6 +352,7 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     case OP_MUL:     return is_real ? m_r_mul_decl : m_i_mul_decl;
     case OP_DIV:     return m_r_div_decl;
     case OP_IDIV:    return m_i_div_decl;
+    case OP_IDIVIDES: UNREACHABLE(); 
     case OP_REM:     return m_i_rem_decl;
     case OP_MOD:     return m_i_mod_decl;
     case OP_TO_REAL: return m_to_real_decl;
@@ -482,6 +484,14 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
     }
+    if (k == OP_IDIVIDES) {
+        if (arity != 1 || domain[0] != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
+            m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
+        }
+        return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
+                                       func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
+
     if (m_manager->int_real_coercions() && use_coercion(k)) {
         return mk_func_decl(fix_kind(k, arity), has_real_arg(arity, domain, m_real_decl));
     }
@@ -498,6 +508,13 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     if (num_args == 0 && !is_const_op(k)) {
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
+    }
+    if (k == OP_IDIVIDES) {
+        if (num_args != 1 || m_manager->get_sort(args[0]) != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
+            m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
+        }
+        return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
+                                       func_decl_info(m_family_id, k, num_parameters, parameters));
     }
     if (m_manager->int_real_coercions() && use_coercion(k)) {
         return mk_func_decl(fix_kind(k, num_args), has_real_arg(m_manager, num_args, args, m_real_decl));
@@ -533,6 +550,9 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("*",OP_MUL));
     op_names.push_back(builtin_name("/",OP_DIV));
     op_names.push_back(builtin_name("div",OP_IDIV));
+    if (gparams::get_value("smtlib2_compliant") == "true") {
+        op_names.push_back(builtin_name("divisible",OP_IDIVIDES));
+    }
     op_names.push_back(builtin_name("rem",OP_REM));
     op_names.push_back(builtin_name("mod",OP_MOD));
     op_names.push_back(builtin_name("to_real",OP_TO_REAL));
@@ -638,6 +658,40 @@ bool arith_recognizers::is_numeral(expr const * n, rational & val, bool & is_int
     return true;
 }
 
+bool arith_recognizers::is_irrational_algebraic_numeral(expr const * n) const { 
+    return is_app(n) && to_app(n)->is_app_of(m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM); 
+}
+
+
+#define IS_INT_EXPR_DEPTH_LIMIT 100
+bool arith_recognizers::is_int_expr(expr const *e) const {
+    if (is_int(e)) return true;
+    if (is_uninterp(e)) return false;
+    ptr_buffer<const expr> todo;
+    todo.push_back(e);
+    rational r;
+    unsigned i = 0;
+    while (!todo.empty()) {
+        ++i;
+        if (i > IS_INT_EXPR_DEPTH_LIMIT) {return false;}
+        e = todo.back();
+        todo.pop_back();
+        if (is_to_real(e)) {
+            // pass
+        }
+        else if (is_numeral(e, r) && r.is_int()) {
+            // pass
+        }
+        else if (is_add(e) || is_mul(e)) {
+            todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+        }
+        else {
+            return false;
+        }
+    }
+    return true;
+}
+
 arith_util::arith_util(ast_manager & m):
     arith_recognizers(m.mk_family_id("arith")),
     m_manager(m),
@@ -649,7 +703,7 @@ void arith_util::init_plugin() {
     m_plugin = static_cast<arith_decl_plugin*>(m_manager.get_plugin(m_afid));
 }
 
-bool arith_util::is_irrational_algebraic_numeral(expr const * n, algebraic_numbers::anum & val) {
+bool arith_util::is_irrational_algebraic_numeral2(expr const * n, algebraic_numbers::anum & val) {
     if (!is_app_of(n, m_afid, OP_IRRATIONAL_ALGEBRAIC_NUM))
         return false;
     am().set(val, to_irrational_algebraic_numeral(n));

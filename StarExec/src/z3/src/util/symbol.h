@@ -19,7 +19,7 @@ Revision History:
 #ifndef SYMBOL_H_
 #define SYMBOL_H_
 #include<ostream>
-#include<limits.h>
+#include<climits>
 
 #include "util/util.h"
 #include "util/tptr.h"
@@ -56,7 +56,7 @@ public:
     explicit symbol(char const * d);
     explicit symbol(unsigned idx):
         m_data(BOXTAGINT(char const *, idx, 1)) {
-#ifndef _AMD64_
+#if !defined(__LP64__) && !defined(_WIN64)
         SASSERT(idx < (SIZE_MAX >> PTR_ALIGNMENT));
 #endif
     }
@@ -83,8 +83,7 @@ public:
     // It is the inverse of c_ptr().
     // It was made public to simplify the implementation of the C API.
     static symbol mk_symbol_from_c_ptr(void const * ptr) { 
-        symbol s(ptr); 
-        return s;
+        return symbol(ptr);
     }
     unsigned hash() const { 
         if (m_data == nullptr) return 0x9e3779d9;
@@ -93,7 +92,7 @@ public:
     }
     bool contains(char c) const;
     unsigned size() const;
-    char const * bare_str() const { SASSERT(!is_numerical()); return is_numerical() ? "" : m_data; }
+    char const * bare_str() const { SASSERT(!is_numerical()); return m_data; }
     friend std::ostream & operator<<(std::ostream & target, symbol s) {
         SASSERT(!s.is_marked());
         if (GET_TAG(s.m_data) == 0) {

@@ -72,7 +72,7 @@ namespace datalog {
         ~sparse_table_plugin() override;
 
         bool can_handle_signature(const table_signature & s) override
-        { return s.size()>0; }
+        { return !s.empty(); }
 
         table_base * mk_empty(const table_signature & s) override;
         sparse_table * mk_clone(const sparse_table & t);
@@ -153,7 +153,7 @@ namespace datalog {
            variable. Otherwise \c m_reserve==NO_RESERVE.
 
            The size of m_data is actually 8 bytes larger than stated in m_data_size, so that we may 
-           deref an uint64 pointer at the end of the array.
+           deref an uint64_t pointer at the end of the array.
         */
         storage m_data;
         storage_indexer m_data_indexer;
@@ -290,10 +290,10 @@ namespace datalog {
         //the following two operations allow breaking of the object invariant!
         void resize_data(size_t sz) {
             m_data_size = sz;
-            if (sz + sizeof(uint64) < sz) {
+            if (sz + sizeof(uint64_t) < sz) {
                 throw default_exception("overflow resizing data section for sparse table");
             }
-            m_data.resize(sz + sizeof(uint64));
+            m_data.resize(sz + sizeof(uint64_t));
         }
 
         bool insert_offset(store_offset ofs) {
@@ -321,34 +321,34 @@ namespace datalog {
         class column_info {
             unsigned m_big_offset;
             unsigned m_small_offset;
-            uint64 m_mask;
-            uint64 m_write_mask;
+            uint64_t m_mask;
+            uint64_t m_write_mask;
         public:
             unsigned m_offset; //!< in bits
             unsigned m_length; //!< in bits
-
-            column_info(unsigned offset, unsigned length) \
-                    : m_big_offset(offset/8), 
-                    m_small_offset(offset%8),
-                    m_mask( length==64 ? ULLONG_MAX : (static_cast<uint64>(1)<<length)-1 ),
-                    m_write_mask( ~(m_mask<<m_small_offset) ),
-                    m_offset(offset), 
-                    m_length(length) {
-                SASSERT(length<=64);
-                SASSERT(length+m_small_offset<=64);
+            
+            column_info(unsigned offset, unsigned length) 
+                : m_big_offset(offset / 8), 
+                  m_small_offset(offset % 8),
+                  m_mask( length == 64 ? ULLONG_MAX : (static_cast<uint64_t>(1)<<length)-1 ),
+                  m_write_mask( ~(m_mask << m_small_offset) ),
+                  m_offset(offset), 
+                  m_length(length) {
+                SASSERT(length <= 64);
+                SASSERT(length + m_small_offset <= 64);
             }
             table_element get(const char * rec) const {
-                const uint64 * ptr = reinterpret_cast<const uint64*>(rec+m_big_offset);
-                uint64 res = *ptr;
-                res>>=m_small_offset;
-                res&=m_mask;
+                const uint64_t * ptr = reinterpret_cast<const uint64_t*>(rec + m_big_offset);
+                uint64_t res = *ptr;
+                res >>= m_small_offset;
+                res &= m_mask;
                 return res;
             }
             void set(char * rec, table_element val) const {
                 SASSERT( (val&~m_mask)==0 ); //the value fits into the column
-                uint64 * ptr = reinterpret_cast<uint64*>(rec+m_big_offset);
-                *ptr&=m_write_mask;
-                *ptr|=val<<m_small_offset;
+                uint64_t * ptr = reinterpret_cast<uint64_t*>(rec + m_big_offset);
+                *ptr &= m_write_mask;
+                *ptr |= val << m_small_offset;
             }
             unsigned next_ofs() const { return m_offset+m_length; }
         };

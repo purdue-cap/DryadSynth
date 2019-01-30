@@ -87,7 +87,6 @@ struct cofactor_elim_term_ite::imp {
                 case OP_TRUE:
                 case OP_FALSE:
                 case OP_ITE:
-                case OP_IFF:
                     return;
                 case OP_EQ:
                 case OP_DISTINCT:
@@ -198,7 +197,7 @@ struct cofactor_elim_term_ite::imp {
                     switch (arg->get_kind()) {
                     case AST_VAR:
                     case AST_QUANTIFIER:
-                        // ingore quantifiers
+                        // ignore quantifiers
                         break;
                     case AST_APP:
                         if (to_app(arg)->get_num_args() > 0) {
@@ -265,7 +264,7 @@ struct cofactor_elim_term_ite::imp {
                     switch (arg->get_kind()) {
                     case AST_VAR:
                     case AST_QUANTIFIER:
-                        // ingore quantifiers
+                        // ignore quantifiers
                         break;
                     case AST_APP:
                         if (to_app(arg)->get_num_args() > 0) {
