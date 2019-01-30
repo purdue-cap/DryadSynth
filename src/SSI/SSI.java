@@ -26,7 +26,7 @@ public class SSI extends Thread {
 
     public SSI(Context ctx, SygusProblem problem, Logger logger, int numCore) {
         this.ctx = ctx;
-        this.problem = problem;
+        this.problem = problem.translate(ctx);
         this.logger = logger;
         this.numCore = numCore;
 

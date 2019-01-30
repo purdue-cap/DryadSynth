@@ -20,7 +20,7 @@ public class AT extends Thread {
 
     public AT(Context ctx, SygusProblem problem, Logger logger) {
         this.ctx = ctx;
-        this.problem = problem;
+        this.problem = problem.translate(ctx);
         this.logger = logger;
     }
 

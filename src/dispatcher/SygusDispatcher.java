@@ -3,6 +3,7 @@ import java.util.logging.Logger;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
 import com.microsoft.z3.*;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 public class SygusDispatcher {
     public enum SolveMethod {
@@ -41,6 +42,14 @@ public class SygusDispatcher {
         this.logger = Logger.getLogger("main");
         this.numCore = Runtime.getRuntime().availableProcessors();
         this.mainThread = Thread.currentThread();
+    }
+
+    Context newCtx(){
+		HashMap<String, String> cfg = new HashMap<String, String>();
+		cfg.put("model", "true");
+		Context ctx = new Context(cfg);
+		ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
+        return ctx;
     }
 
     public void setNumCore(int cores) {
@@ -150,9 +159,9 @@ public class SygusDispatcher {
                 threadHandler.setFormatter(new SimpleFormatter());
                 threadLogger.addHandler(threadHandler);
                 if (enableITCEGIS) {
-                    fallbackCEGIS[i] = new ITCegis(env, threadLogger);
+                    fallbackCEGIS[i] = new ITCegis(newCtx(), env, threadLogger);
                 } else {
-                    fallbackCEGIS[i] = new Cegis(env, threadLogger);
+                    fallbackCEGIS[i] = new Cegis(newCtx(), env, threadLogger);
                 }
                 ((Cegis)fallbackCEGIS[i]).iterLimit = this.iterLimit;
             }
@@ -189,7 +198,7 @@ public class SygusDispatcher {
                     FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
                     threadHandler.setFormatter(new SimpleFormatter());
                     threadLogger.addHandler(threadHandler);
-                    threads[i] = new DnCegis(dncEnv, threadLogger);
+                    threads[i] = new DnCegis(newCtx(), dncEnv, threadLogger);
                     ((Cegis)threads[i]).iterLimit = this.iterLimit;
                 }
             } else {
@@ -212,7 +221,7 @@ public class SygusDispatcher {
             logger.info("Initializing SSI-Commu algorithms.");
             // Single thread only algorithm, ignoring numCore settings.
             threads = new Thread[1];
-            threads[0] = new SSICommu(z3ctx, problem, logger, numCore);
+            threads[0] = new SSICommu(newCtx(), problem, logger, numCore);
             return;
         }
 
@@ -220,7 +229,7 @@ public class SygusDispatcher {
             logger.info("Initializing SSI algorithms.");
             // Single thread only algorithm, ignoring numCore settings.
             threads = new Thread[1];
-            threads[0] = new SSI(z3ctx, problem, logger, numCore);
+            threads[0] = new SSI(newCtx(), problem, logger, numCore);
             return;
         }
 
@@ -465,7 +474,7 @@ public class SygusDispatcher {
         if (problem.problemType != SygusProblem.ProbType.INV) {
             return false;
         }
-        this.preparedAT = new AT(z3ctx, problem, logger);
+        this.preparedAT = new AT(newCtx(), problem, logger);
         this.preparedAT.init();
         if (this.preparedAT.transfunc != null) {
             Set<Region> regions = this.preparedAT.transfunc.getRegions();
@@ -474,7 +483,7 @@ public class SygusDispatcher {
                     if (r1 == r2) {
                         continue;
                     }
-                    BoolExpr intersec = z3ctx.mkAnd((BoolExpr)r1.toExpr(), (BoolExpr)r2.toExpr());
+                    BoolExpr intersec = z3ctx.mkAnd((BoolExpr)r1.toExpr().translate(z3ctx), (BoolExpr)r2.toExpr().translate(z3ctx));
                     Solver s = z3ctx.mkSolver();
                     s.add(intersec);
                     Status r = s.check();

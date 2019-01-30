@@ -87,10 +87,6 @@ public class ITCegis extends Cegis {
 
 	}
 
-	public ITCegis(CEGISEnv env, Logger logger) {
-		super(env, logger);
-	}
-
 	public ITCegis(Context ctx, CEGISEnv env, Logger logger){
 		super(ctx, env, logger);
 	}

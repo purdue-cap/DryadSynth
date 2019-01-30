@@ -39,10 +39,6 @@ public class Cegis extends Thread{
 	public volatile boolean running = true;
 	public volatile int resultHeight = 0;
 
-	public Cegis(CEGISEnv env, Logger logger) {
-		this(new Context(), env, logger);
-	}
-
 	public Cegis(Context ctx, CEGISEnv env, Logger logger){
 		this.ctx = ctx;
 		this.env = env;

@@ -3,9 +3,6 @@ import com.microsoft.z3.*;
 import java.util.logging.Logger;
 
 public class DnCegis extends Cegis {
-	public DnCegis(DnCEnv env, Logger logger) {
-		super(env, logger);
-	}
 
 	public DnCegis(Context ctx, DnCEnv env, Logger logger){
 		super(ctx, env, logger);
