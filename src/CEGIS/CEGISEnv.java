@@ -14,12 +14,15 @@ public class CEGISEnv {
     public boolean maxsmtFlag = false;
     public boolean checkITOnly = false;
     public boolean tmpltApplied = false;
+    public boolean enforceFHCEGIS = false;
 
     public enum FeedType {
         ALLINONE, FIXED, HEIGHTONLY, HEIGHTANDCOND;
     }
     public FeedType feedType = null;
 	public Set<Expr[]> counterExamples = new LinkedHashSet<Expr[]>();
+
+    public Map<SygusProblem, Set<CounterExample>> cntrExpMap = new LinkedHashMap<SygusProblem, Set<CounterExample>>();
 
     public class Tmplts {
         public DefinedFunc[] array = null;

@@ -29,6 +29,7 @@ public class Run {
         oParser.acceptsAll(Arrays.asList("b", "formattingBound"), "Bound of output size to used string formatting instead of parser formatting")
             .withRequiredArg().ofType(Integer.class).defaultsTo(65535);
         oParser.acceptsAll(Arrays.asList("C", "CEGISOnly"), "Run synthesiszer in CEGIS mode only, disable all decidable fragments");
+        oParser.acceptsAll(Arrays.asList("F", "FHCEGIS"), "Enable Fixed Height CEGIS algorithm for INV benchamrks, single thread only.");
         oParser.acceptsAll(Arrays.asList("I", "ITCEGIS"), "Enable Inductive Template in CEGIS algorithms");
         oParser.acceptsAll(Arrays.asList("M", "modeCheckOnly"), "Run mode check to determine fragment of the problem only, skipping all synthesis");
         oParser.acceptsAll(Arrays.asList("v", "verbose"), "Enable verbose output of logs to stdout");
@@ -101,6 +102,7 @@ public class Run {
 		dispatcher.setMinInfinite(minInfinite);
 		dispatcher.setMaxSMTFlag(maxsmtFlag);
         dispatcher.setEnforceCEGIS(options.has("C"));
+        dispatcher.setEnforceFHCEGIS(options.has("F"));
         dispatcher.setEnableITCEGIS(options.has("I"));
 		dispatcher.setHeightsOnly(options.has("H"));
 		dispatcher.prescreen();

@@ -20,6 +20,7 @@ public class SygusDispatcher {
     int minInfinite = 5;
     boolean maxsmtFlag = false;
     boolean enforceCEGIS = false;
+    boolean enforceFHCEGIS = false;
     boolean enableITCEGIS = false;
     boolean heightsOnly = false;
     Thread mainThread;
@@ -69,6 +70,10 @@ public class SygusDispatcher {
 
     public void setEnforceCEGIS(boolean enforce) {
         this.enforceCEGIS = enforce;
+    }
+
+    public void setEnforceFHCEGIS(boolean fhcegis) {
+        this.enforceFHCEGIS = fhcegis;
     }
 
     public void setEnableITCEGIS(boolean enable) {
@@ -138,6 +143,7 @@ public class SygusDispatcher {
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
         env.maxsmtFlag = maxsmtFlag;
+        env.enforceFHCEGIS = enforceFHCEGIS;
         fallbackCEGIS = new Thread[numCore];
         env.pdc1D = new Producer1D();
         env.pdc1D.heightsOnly = heightsOnly;

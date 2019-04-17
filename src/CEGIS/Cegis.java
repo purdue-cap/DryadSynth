@@ -12,6 +12,7 @@ public class Cegis extends Thread{
 	protected int minFinite;
 	protected int minInfinite;
 	protected boolean maxsmtFlag;
+	protected boolean enforceFHCEGIS;
 	protected int fixedHeight = -1;
 	protected int fixedCond = -1;
 	protected int fixedVectorLength = -1;
@@ -51,6 +52,7 @@ public class Cegis extends Thread{
 		this.minFinite = env.minFinite;
 		this.minInfinite = env.minInfinite;
 		this.maxsmtFlag = env.maxsmtFlag;
+		this.enforceFHCEGIS = env.enforceFHCEGIS;
 
 		switch (env.feedType) {
 			case FIXED:
@@ -94,6 +96,10 @@ public class Cegis extends Thread{
 	// for subclass overriding
 	public Set<Expr[]> getCE() {
 		return this.env.counterExamples;
+	}
+
+	public Set<CounterExample> getCntrExp(SygusProblem prblm) {
+		return this.env.cntrExpMap.get(prblm);
 	}
 
 	public void addRandomInitialExamples() {
@@ -472,7 +478,7 @@ public class Cegis extends Thread{
 						f[j][i] = ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
 
 					} else {
-						boolean isINV = problem.requests.get(problem.names.get(j)).getRange().toString().equals("Bool");
+						boolean isINV = problem.rdcdRequests.get(problem.names.get(j)).getRange().toString().equals("Bool");
 						if (isINV) {
 							f[j][i] = ctx.mkITE(cond, ctx.mkTrue(), ctx.mkFalse());
 						} else {
@@ -617,7 +623,13 @@ public class Cegis extends Thread{
 			while (results == null && running) {
 				fixedHeight = pdc1D.get();
 				logger.info("Started loop with fixedHeight = " + fixedHeight);
-				cegis();
+				// test region below
+				cegisFixedHeight(1);
+				// running = false;
+				// search(int height, Expr spec, functions) // add height-based cegis here
+				// System.exit(0);
+				// test region above
+				// cegis();
 	            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
 					synchronized(env) {
 						env.notify();
@@ -1041,4 +1053,431 @@ public class Cegis extends Thread{
 			}
 		}
 	}
+
+	public void cegisFixedHeight(int fixedHeight) {		// counterexample sets to be modified
+
+		if (fixedHeight > 0) {
+			heightBound = fixedHeight;
+		} else {
+			heightBound = 1;
+		}
+		if (fixedCond > 0) {
+			condBound = fixedCond;
+		} else {
+			condBound = 1;
+			condBoundInc = 1;
+		}
+		long startTime = System.currentTimeMillis();
+
+		//print out initial examples
+		synchronized(getCE()) {
+			logger.info("Initial examples:" + Arrays.deepToString(getCE().toArray()));
+		}
+
+		// Subprocedure classes
+		if (testVerifier == null) {
+			testVerifier = this.createVerifier();
+		}
+		if (testSynthesizer == null) {
+			testSynthesizer = this.createSynthesizer();
+		}
+		if (expand == null) {
+			expand = new Expand(ctx, problem);
+		}
+		expand.setHeightBound(heightBound);
+
+		while(running) {
+
+			logger.info("heightBound: " + heightBound + ". fixedHeight: " + fixedHeight);
+
+			iterCount = iterCount + 1;
+
+            if (this.iterLimit > 0 && iterCount > this.iterLimit) {
+                logger.info("Iteration Limit Hit, returning without a result.");
+                this.results = null;
+                return;
+            }
+			logger.info("Iteration : " + iterCount);
+
+			logger.info("Start synthesizing");
+
+			Status synth = Status.UNKNOWN;
+
+			if (!maxsmtFlag) {
+				synth = testSynthesizer.synthesis(condBound);
+			} else {
+				synth = testSynthesizer.synthesisWithSMT();
+			}
+
+			//print out for debug
+			logger.info("Synthesis Done");
+
+			if (synth == null) {
+				logger.info("Synthesizer actively exited synthesis due to " + testSynthesizer.lastFailReason);
+				if (fixedCond > 0 || fixedHeight > 0) {
+					logger.info(String.format("Exited height %d, cond %d due to ", fixedHeight, fixedCond) + testSynthesizer.lastFailReason);
+					return;
+				} else {
+					continue;
+				}
+			}
+
+			if (synth == Status.UNSATISFIABLE) {
+				logger.info("Synthesizer : Unsatisfiable");
+				if (fixedCond > 0) {
+					logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
+					return;
+				}
+				if (condBoundInc > searchRegions) {		//for 2, >5		//for 4, >3	64 	//infinite 5
+					if (fixedHeight > 0) {
+						logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
+						return;
+					}
+					// heightBound = heightBound + 1;
+					// expand.setHeightBound(heightBound);
+					// logger.info("Synthesizer : Increase height bound to " + heightBound);
+					// condBound = 1;
+					// if (fixedCond > 0) {
+					// 	condBound = fixedCond;
+					// }
+					// condBoundInc = 1;
+				} else {
+					if (condBoundInc == searchRegions) {
+						condBound = -1;
+						logger.info("Synthesizer : Increase coefficient bound to infinity");
+					} else {
+						condBound = (int)Math.pow(64, condBoundInc);	//64
+						logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+					}
+
+					condBoundInc = condBoundInc + 1;
+				}
+				startTime = System.currentTimeMillis();
+				continue;
+			} else if (synth != Status.SATISFIABLE) {
+				logger.severe("Synthesizer Error : Unknown");
+				return;
+			}
+
+			SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
+			logger.info("Start decoding synthesizer output");
+			synthDecoder.generateFunction(functions);
+			logger.info("Synthesizer output decode done");
+			for (String name : problem.names) {
+				logger.info(name + " : " + functions.get(name).toString());
+			}
+
+			logger.info("Start verifying");
+
+			Status v = testVerifier.verify(functions);
+
+			if (v == Status.UNSATISFIABLE) {
+				results = new DefinedFunc[problem.rdcdRequests.size()];
+				int i = 0;
+				for (String name : problem.rdcdRequests.keySet()) {
+					Expr def = functions.get(name);
+					if (def.isBool()) {
+						def = SygusFormatter.elimITE(this.ctx, def);
+					}
+					results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
+					resultHeight = heightBound;
+					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
+                    logger.info(String.format("Total iteration count: %d", iterCount));
+					i = i + 1;
+				}
+				return;
+			} else if (v != Status.SATISFIABLE) {
+				logger.severe("Verifier Error : Unknown");
+				return;
+			}
+
+			logger.info("Verifier results:" + testVerifier.s.getModel());
+			VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
+
+			Expr[] cntrExmp = decoder.decode();
+			synchronized(getCE()) {
+				getCE().add(cntrExmp);
+				logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(getCE().toArray()));
+			}
+
+			if (condBoundInc > 1) {
+				if (condBoundInc <= searchRegions) {
+					if (System.currentTimeMillis() - startTime > 60000 * this.minFinite) {
+						if (fixedCond > 0) {
+							logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
+							return;
+						}
+						if (condBoundInc == searchRegions) {
+							condBound = -1;
+							logger.info("Synthesizer : Increase coefficient bound to infinity");
+						} else {
+							condBound = (int)Math.pow(64, condBoundInc);	//64
+							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+						}
+						condBoundInc = condBoundInc + 1;
+						startTime = System.currentTimeMillis();
+					}
+				} else {
+					if (System.currentTimeMillis() - startTime > 60000 * this.minInfinite) {
+						if (fixedHeight > 0) {
+							logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
+							return;
+						}
+						// heightBound = heightBound + 1;
+						// expand.setHeightBound(heightBound);
+						// logger.info("Synthesizer : Increase height bound to " + heightBound);
+						// condBound = 1;
+						// if (fixedCond > 0) {
+						// 	condBound = fixedCond;
+						// }
+						// condBoundInc = 1;
+						// startTime = System.currentTimeMillis();
+
+					}
+				}
+			}
+		}
+	}
+
+	public Map<SygusProblem, DefinedFunc[]> triedProblem;	// should be shared in env in multithread version
+	// public Map<SygusProblem, DefinedFunc[] results> solvedProblem;	// should be shared in env in multithread version
+
+
+	public void gradualSynth() {
+		int height = 1;
+		boolean runningFlag = true;
+		SygusProblem origProblem = new SygusProblem(problem);
+		while (runningFlag) {
+			origProblem.searchHeight = height;
+			search(height, origProblem);
+			if (triedProblem.get(origProblem) != null) {
+				logger.info("Found the results in height " + height + ". Exit searching process.");
+				runningFlag = false;
+			}
+			height = height + 1;
+		}
+		DefinedFunc[] results = triedProblem.get(origProblem);
+	}
+
+	public SygusProblem getProbWithHeight(SygusProblem p, int ht) {
+		SygusProblem newP = new SygusProblem(p);
+		newP.searchHeight = ht;
+		return newP;
+	}
+
+	public void search(int height, SygusProblem prblm) {
+
+		if (height <= 0) {
+			logger.severe("Search Error: search height <= 0.");
+		}
+
+		if (height > 1) {
+			SygusProblem smallerProb = getProbWithHeight(prblm, height - 1);
+
+			search(height - 1, smallerProb);
+
+			if (triedProblem.get(smallerProb) != null) {
+				logger.info("");
+				triedProblem.put(prblm, triedProblem.get(smallerProb));
+				return;
+			}
+
+			// create transformed problem (should create to-be-synthesized function E 
+			// and some uninterpreted function and save those uninterpreted functions
+
+			SygusProblem tmpProb = getProbWithHeight(prblm, height - 1);
+			SygusProblem trnsfedProb = getTransfProb(tmpProb);
+
+			search(height - 1, trnsfedProb);
+			if (triedProblem.get(trnsfedProb) != null) {
+				// verify which kind of simplification here
+
+				// then construct a new problem (should synthesize one of the uninterpreted function before
+
+				search(height - 1, simplfiedProb);
+				if (triedProblem.get(simplfiedProb) != null) {	// if an f can be found
+
+					// combime f and E together (for example, get E \/ f), and put the results in the map
+					// combinedResults
+
+					triedProblem.put(prblm, combinedResults);
+					return;
+				}
+			}
+
+		}
+
+		problem = getProbWithHeight(prblm, height);
+		if (!triedProblem.containsKey(problem)) {
+			logger.info("Problem is not solved before: " + problem.finalConstraint.toString());
+			logger.info("Solving the problem at height: " + height);
+			cegisFixedHeight(height);
+			triedProblem.put(problem, results);
+		}
+		return;
+
+	}
+
+	public SygusProblem getTransfProb(SygusProblem prob) {
+		// assume that all the functions are boolean functions, need to be modified for CLIA
+
+		SygusProblem transfProb = new SygusProblem(prob);
+		List<String> funcNames = prob.names;
+		Map<String, FuncDecl> synthFuncs = prob.rdcdRequests;
+		Map<String, Expr[]> usedArgs = prob.requestUsedArgs;
+
+		for (String name : funcNames) {
+			FuncDecl func = synthFuncs.get(name);
+			Expr[] arguments = usedArgs.get(name);
+			Sort[] domain = func.getDomain();
+			Sort range = func.getRange();
+			String uf0Name = "uf0_" + name;
+			String uf1Name = "uf1_" + name;
+			FuncDecl uf0 = ctx.mkFuncDecl(uf0Name, domain, range);
+			FuncDecl uf1 = ctx.mkFuncDecl(uf1Name, domain, range);
+			transfProb.ufNames.add(uf0Name);
+			transfProb.ufNames.add(uf1Name);
+			transfProb.uninterpFuncs.put(uf0Name, uf0);
+			transfProb.uninterpFuncs.put(uf1Name, uf1);
+			transfProb.ufArgs.put(uf0Name, arguments);
+			transfProb.ufArgs.put(uf1Name, arguments);
+
+			String eName = "sube_" + name;
+			FuncDecl subFunc = ctx.mkFuncDecl(eName, domain, range);
+			transfProb.names.add(transfProb.names.indexOf(name), eName);
+			transfProb.names.remove(name);
+			transfProb.rdcdRequests.remove(name, func);
+			transfProb.rdcdRequests.put(eName, subFunc);
+			transfProb.requestUsedArgs.put(eName, transfProb.requestUsedArgs.remove(name));
+			transfProb.requestArgs.put(eName, transfProb.requestArgs.remove(name));
+			transfProb.vars.put(eName, transfProb.vars.remove(name));
+
+			transfProb.funcMap.put(name, eName);
+			transfProb.ufMap.put(eName, new String[]{uf0Name, uf1Name});
+
+			// Expr transfFuncBody = ctx.mkITE((BoolExpr)subFunc.apply(arguments), uf0.apply(arguments), uf1.apply(arguments));
+			// DefinedFunc definedfunc = new DefinedFunc(ctx, arguments, transfFuncBody);
+			// specPre = (BoolExpr)definedfunc.rewrite(specPre, func);
+		}
+
+		// write a function to get all the combinations of spec
+		// can use a linkedlist to store the combinations
+		// function return a linkedlist
+		// loop over each to-be-synthesized func
+		// for each element in the list, rewrite the current func in the iteration,
+		// add resulted four element in the list, and delete the original element
+
+		BoolExpr specPre = getSpecPre(prob, transfProb);
+		LinkedList<BoolExpr> specCons = getSpecCons(prob, transfProb);
+		BoolExpr specCon = null;
+		for (BoolExpr con : specCons) {
+			if (specCon == null) {
+				specCon = con;
+			} else {
+				specCon = ctx.mkOr(specCon, con);
+			}
+		}
+
+		// specPre => specCon
+		BoolExpr newSpec = ctx.mkOr(ctx.mkNot(specPre), specCon);
+		transfProb.finalConstraint = newSpec;
+
+		return transfProb;
+	}
+
+	public BoolExpr getSpecPre(SygusProblem prob, SygusProblem transfProb) {
+		// assume transfProb is a transformed problem, i.e. with all the UFs added
+
+		BoolExpr specPre = prob.finalConstraint;
+
+		for (String name : prob.names) {
+			
+			FuncDecl func = prob.rdcdRequests.get(name);
+			String subFuncName = transfProb.funcMap.get(name);
+			FuncDecl subFunc = transfProb.rdcdRequests.get(subFuncName);
+			String[] ufName = transfProb.ufMap.get(subFuncName);
+			if (ufName.length != 2) {
+				logger.severe("Number of uninterpreted function mismatch! Existing.");
+				System.exit(1);
+			}
+			String uf0Name = ufName[0];
+			String uf1Name = ufName[1];
+			FuncDecl uf0 = transfProb.uninterpFuncs.get(uf0Name);
+			FuncDecl uf1 = transfProb.uninterpFuncs.get(uf1Name);
+
+			Expr[] arguments = prob.requestUsedArgs.get(name);
+			if (!Arrays.equals(arguments, transfProb.requestUsedArgs.get(subFuncName))) {
+				logger.severe("Args mismatch in origProb and TransfProb! Existing.");
+				System.exit(1);
+			}
+
+			Expr transfFuncBody = ctx.mkITE((BoolExpr)subFunc.apply(arguments), uf0.apply(arguments), uf1.apply(arguments));
+
+			DefinedFunc definedfunc = new DefinedFunc(ctx, arguments, transfFuncBody);
+			specPre = (BoolExpr)definedfunc.rewrite(specPre, func);
+		}
+
+		return specPre;
+	}
+
+	public LinkedList<BoolExpr> getSpecCons(SygusProblem prob, SygusProblem transfProb) {
+		// assume transfProb is a transformed problem, i.e. with all the UFs added
+		// assume that all the functions are boolean functions, need to be modified for CLIA
+
+		LinkedList<BoolExpr> specCons = new LinkedList<BoolExpr>();
+		BoolExpr spec = prob.finalConstraint;
+
+		for (String name : prob.names) {
+			
+			FuncDecl func = prob.rdcdRequests.get(name);
+
+			String subFuncName = transfProb.funcMap.get(name);
+			FuncDecl subFunc = transfProb.rdcdRequests.get(subFuncName);
+			String[] ufName = transfProb.ufMap.get(subFuncName);
+			if (ufName.length != 2) {
+				logger.severe("Number of uninterpreted function mismatch! Existing.");
+				System.exit(1);
+			}
+			String uf0Name = ufName[0];
+			String uf1Name = ufName[1];
+			FuncDecl uf0 = transfProb.uninterpFuncs.get(uf0Name);
+			FuncDecl uf1 = transfProb.uninterpFuncs.get(uf1Name);
+
+			Expr[] arguments = prob.requestUsedArgs.get(name);
+			if (!Arrays.equals(arguments, transfProb.requestUsedArgs.get(subFuncName))) {
+				logger.severe("Args mismatch in origProb and TransfProb! Existing.");
+				System.exit(1);
+			}
+
+			BoolExpr[] fourCase = new BoolExpr[4];
+			fourCase[0] = ctx.mkOr((BoolExpr)subFunc.apply(arguments), (BoolExpr)uf1.apply(arguments));
+			fourCase[1] = ctx.mkOr(ctx.mkNot((BoolExpr)subFunc.apply(arguments)), (BoolExpr)uf0.apply(arguments));
+			fourCase[2] = ctx.mkAnd((BoolExpr)subFunc.apply(arguments), (BoolExpr)uf0.apply(arguments));
+			fourCase[3] = ctx.mkAnd(ctx.mkNot((BoolExpr)subFunc.apply(arguments)), (BoolExpr)uf1.apply(arguments));
+
+			if (specCons.isEmpty()) {
+				for (int i = 0; i < 4; i++) {
+					DefinedFunc definedfunc = new DefinedFunc(ctx, arguments, fourCase[i]);
+					specCons.add((BoolExpr)definedfunc.rewrite(spec, func));
+				}
+
+			} else {
+				LinkedList<BoolExpr> updated = new LinkedList<BoolExpr>();
+				for (BoolExpr con : specCons) {
+					for (int i = 0; i < 4; i++) {
+						DefinedFunc definedfunc = new DefinedFunc(ctx, arguments, fourCase[i]);
+						updated.add((BoolExpr)definedfunc.rewrite(con, func));
+					}
+				}
+				specCons.clear().addAll(updated);
+
+			}
+
+		}
+
+		return specCons;
+	}
+
+	
+
 }
