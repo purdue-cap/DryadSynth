@@ -710,7 +710,7 @@ public class SygusExtractor extends SygusBaseListener {
             return z3ctx.mkReal(ctx.realConst().getText());
         }
         if (ctx.boolConst()!= null) {
-            return ctx.boolConst().getText() == "true" ? z3ctx.mkTrue() : z3ctx.mkFalse();
+            return ctx.boolConst().getText().equals("true") ? z3ctx.mkTrue() : z3ctx.mkFalse();
         }
         return null;
     }
