@@ -22,7 +22,7 @@ public class CEGISEnv {
     public FeedType feedType = null;
 	public Set<Expr[]> counterExamples = new LinkedHashSet<Expr[]>();
 
-    public Map<SygusProblem, Set<CounterExample>> cntrExpMap = new LinkedHashMap<SygusProblem, Set<CounterExample>>();
+    public Map<SygusProblem, Set<Expr[]>> cntrExpMap = new LinkedHashMap<SygusProblem, Set<Expr[]>>();
 
     public class Tmplts {
         public DefinedFunc[] array = null;

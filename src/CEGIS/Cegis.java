@@ -98,7 +98,7 @@ public class Cegis extends Thread{
 		return this.env.counterExamples;
 	}
 
-	public Set<CounterExample> getCntrExp(SygusProblem prblm) {
+	public Set<Expr[]> getCntrExp(SygusProblem prblm) {
 		return this.env.cntrExpMap.get(prblm);
 	}
 
@@ -624,12 +624,12 @@ public class Cegis extends Thread{
 				fixedHeight = pdc1D.get();
 				logger.info("Started loop with fixedHeight = " + fixedHeight);
 				// test region below
-				cegisFixedHeight(1);
+				// cegisFixedHeight(1);
 				// running = false;
 				// search(int height, Expr spec, functions) // add height-based cegis here
 				// System.exit(0);
 				// test region above
-				// cegis();
+				cegis();
 	            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
 					synchronized(env) {
 						env.notify();
@@ -1271,41 +1271,41 @@ public class Cegis extends Thread{
 			logger.severe("Search Error: search height <= 0.");
 		}
 
-		if (height > 1) {
-			SygusProblem smallerProb = getProbWithHeight(prblm, height - 1);
+		// if (height > 1) {
+		// 	SygusProblem smallerProb = getProbWithHeight(prblm, height - 1);
 
-			search(height - 1, smallerProb);
+		// 	search(height - 1, smallerProb);
 
-			if (triedProblem.get(smallerProb) != null) {
-				logger.info("");
-				triedProblem.put(prblm, triedProblem.get(smallerProb));
-				return;
-			}
+		// 	if (triedProblem.get(smallerProb) != null) {
+		// 		logger.info("");
+		// 		triedProblem.put(prblm, triedProblem.get(smallerProb));
+		// 		return;
+		// 	}
 
-			// create transformed problem (should create to-be-synthesized function E 
-			// and some uninterpreted function and save those uninterpreted functions
+		// 	// create transformed problem (should create to-be-synthesized function E 
+		// 	// and some uninterpreted function and save those uninterpreted functions
 
-			SygusProblem tmpProb = getProbWithHeight(prblm, height - 1);
-			SygusProblem trnsfedProb = getTransfProb(tmpProb);
+		// 	SygusProblem tmpProb = getProbWithHeight(prblm, height - 1);
+		// 	SygusProblem trnsfedProb = getTransfProb(tmpProb);
 
-			search(height - 1, trnsfedProb);
-			if (triedProblem.get(trnsfedProb) != null) {
-				// verify which kind of simplification here
+		// 	search(height - 1, trnsfedProb);
+		// 	if (triedProblem.get(trnsfedProb) != null) {
+		// 		// verify which kind of simplification here
 
-				// then construct a new problem (should synthesize one of the uninterpreted function before
+		// 		// then construct a new problem (should synthesize one of the uninterpreted function before
 
-				search(height - 1, simplfiedProb);
-				if (triedProblem.get(simplfiedProb) != null) {	// if an f can be found
+		// 		search(height - 1, simplfiedProb);
+		// 		if (triedProblem.get(simplfiedProb) != null) {	// if an f can be found
 
-					// combime f and E together (for example, get E \/ f), and put the results in the map
-					// combinedResults
+		// 			// combime f and E together (for example, get E \/ f), and put the results in the map
+		// 			// combinedResults
 
-					triedProblem.put(prblm, combinedResults);
-					return;
-				}
-			}
+		// 			triedProblem.put(prblm, combinedResults);
+		// 			return;
+		// 		}
+		// 	}
 
-		}
+		// }
 
 		problem = getProbWithHeight(prblm, height);
 		if (!triedProblem.containsKey(problem)) {
@@ -1469,7 +1469,8 @@ public class Cegis extends Thread{
 						updated.add((BoolExpr)definedfunc.rewrite(con, func));
 					}
 				}
-				specCons.clear().addAll(updated);
+				specCons = new LinkedList<BoolExpr>();
+				specCons.addAll(updated);
 
 			}
 
