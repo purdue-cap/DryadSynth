@@ -631,12 +631,36 @@ public class Transf {
         return null;
     }
 
-    // distribute and over over
+    public List<Expr> getArgsListForOr(Expr expr) {
+        // to find args that are connected by "or"
+        List<Expr> argList = new ArrayList<Expr>();
+        if (!expr.isOr()) {
+            argList.add(expr);
+            return argList;
+        }
+        for (Expr e : expr.getArgs()) {
+            if (!e.isOr()) {
+                argList.add(e);
+            } else {
+                List<Expr> innerArgList = new ArrayList<Expr>();
+                innerArgList = getArgsListForOr(e);
+                argList.addAll(innerArgList);
+            }
+        }
+        return argList;
+    }
+
+    public Expr[] getArgsForOr(Expr expr) {
+        List<Expr> argList = getArgsListForOr(expr);
+        return argList.toArray(new Expr[argList.size()]);
+    }
+
+    // distribute and over or
     // assume or1.isOr() /\ or2.isOr()
     // assume or1 and or2 are connected by /\ in the original formula
     public Expr distributeAnd(Expr or1, Expr or2, Expr and) {
-        Expr[] or1Args = or1.getArgs();
-        Expr[] or2Args = or2.getArgs();
+        Expr[] or1Args = getArgsForOr(or1);
+        Expr[] or2Args = getArgsForOr(or2);
         Expr ret = z3ctx.mkFalse();
         // Anything "or" with False should node change the validity of that formula
         if (or1.isFalse()) {
@@ -679,10 +703,146 @@ public class Transf {
         return ret;
     }
 
-    public Expr convertToDNF(Expr expr) {
+    // Convert NNF to CNF
+    // Distribute \/ over /\
+    // (f1 /\ f2) \/ f3 -> (f1 \/ f3) /\ (f2 \/ f3)
+    public Expr convertNNFToCNF(Expr expr) {
+        if (Region.isAtom(expr)) {
+            return expr;
+        }
+        if (expr.isAnd()) {
+            List<Expr> argList = new ArrayList<Expr>();
+            for (Expr e: expr.getArgs()) {
+                argList.add(convertNNFToCNF((BoolExpr)e));
+            }
+            return z3ctx.mkAnd(argList.toArray(new BoolExpr[argList.size()]));
+        }
+        if (expr.isOr()) {
+            List<Expr> andList = new ArrayList<Expr>();
+            List<Expr> otherList = new ArrayList<Expr>();
+            for (Expr e: expr.getArgs()) {
+                // First convert all the subformulae to CNF format
+                e = convertNNFToCNF(e);
+                // Store "and" subformula and other (including "or" and "not") subformula into different list
+                if (e.isAnd()) {
+                    andList.add(e);
+                } else {
+                    otherList.add(e);
+                }
+            }
+            // All the other formula (other than "and") can be combined together
+            Expr orExpr;
+            if (otherList.size() == 0) {
+                // Eliminate redundant (or ...) if there is no "other" expr
+                orExpr = null;
+            } else if (otherList.size() == 1) {
+                // Eliminate redundant (or ...) if there is only one "other" expr
+                orExpr = otherList.get(0);
+            } else {
+                orExpr = z3ctx.mkOr(otherList.toArray(new BoolExpr[otherList.size()]));
+            }
+            if (andList.size() == 0) {
+                // If there is no "and" subformula inside, then simply return all the other subformula
+                return orExpr;
+            }
+            // distribute \/ over /\
+            Expr result = z3ctx.mkTrue();
+            for (Expr andExpr: andList) {
+                result = distributeOr(result, andExpr, orExpr);
+            }
+            return result;
+        }
+        // Anything reaches here is not valid, generating an error using null
+        return null;
+    }
+
+    public List<Expr> getArgsListForAnd(Expr expr) {
+        // to find args that are connected by "and"
+        List<Expr> argList = new ArrayList<Expr>();
+        if (!expr.isAnd()) {
+            argList.add(expr);
+            return argList;
+        }
+        for (Expr e : expr.getArgs()) {
+            if (!e.isAnd()) {
+                argList.add(e);
+            } else {
+                List<Expr> innerArgList = new ArrayList<Expr>();
+                innerArgList = getArgsListForAnd(e);
+                argList.addAll(innerArgList);
+            }
+        }
+        return argList;
+    }
+
+    public Expr[] getArgsForAnd(Expr expr) {
+        List<Expr> argList = getArgsListForAnd(expr);
+        return argList.toArray(new Expr[argList.size()]);
+    }
+
+    // distribute or over and
+    // assume and1.isAnd() /\ and2.isAnd()
+    // assume and1 and and2 are connected by \/ in the original formula
+    public Expr distributeOr(Expr and1, Expr and2, Expr or) {
+        Expr[] and1Args = getArgsForAnd(and1);
+        Expr[] and2Args = getArgsForAnd(and2);
+        Expr ret = z3ctx.mkTrue();
+        // Anything "and" with True should node change the validity of that formula
+        if (and1.isTrue()) {
+            // Consider the case where and1 is True in the first iteration
+            List<Expr> ands = new ArrayList<Expr>();
+            for (Expr e2: and2Args) {
+                if (or == null) {
+                    // If "or" is null, then no need to disjuct "or" with subformula of "or"
+                    // Simply return the original subformula to eliminate redundant (or ...)
+                    ands.add(e2);
+                } else {
+                    ands.add(z3ctx.mkOr((BoolExpr)e2, (BoolExpr)or));
+                }
+            }
+            return z3ctx.mkAnd(ands.toArray(new BoolExpr[ands.size()]));
+        }
+        if (or == null) {
+            // If "or" is null, do not disjunct "or"
+            for (Expr e1: and1Args) {
+                for (Expr e2: and2Args) {
+                    if (ret.isTrue()) {
+                        // Consider the case where ret is True in the first iteration
+                        ret = z3ctx.mkOr((BoolExpr)e1, (BoolExpr)e2);
+                    } else {
+                        ret = z3ctx.mkAnd((BoolExpr)ret, z3ctx.mkOr((BoolExpr)e1, (BoolExpr)e2));
+                    }
+                }
+            }
+        } else {
+            for (Expr e1: and1Args) {
+                for (Expr e2: and2Args) {
+                    if (ret.isTrue()) {
+                        ret = z3ctx.mkOr((BoolExpr)e1, (BoolExpr)e2, (BoolExpr)or);
+                    } else {
+                        ret = z3ctx.mkAnd((BoolExpr)ret, z3ctx.mkOr((BoolExpr)e1, (BoolExpr)e2, (BoolExpr)or));
+                    }
+                }
+            }
+        }
+        return ret;
+    }
+
+    public Expr convertToNNF(Expr expr) {
         Expr ret = eliminateImpEq(expr);
         ret = pushNegIn(ret);
+        return ret;
+    }
+
+    public Expr convertToDNF(Expr expr) {
+        Expr ret = convertToNNF(expr);
         ret = convertNNFToDNF(ret);
+        return ret;
+    }
+
+    public Expr convertToCNF(Expr expr) {
+        Expr ret = convertToNNF(expr);
+        ret = convertNNFToCNF(ret);
         return ret;
     }
 

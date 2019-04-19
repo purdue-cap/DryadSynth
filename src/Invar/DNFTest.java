@@ -1,9 +1,11 @@
 import java.util.*;
 import com.microsoft.z3.*;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 
 public class DNFTest {
     public static void main(String[] args) {
         Context ctx = new Context();
+        ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
         ArithExpr w = (ArithExpr)ctx.mkConst("w", ctx.mkIntSort());
         ArithExpr a = (ArithExpr)ctx.mkConst("a", ctx.mkIntSort());
         ArithExpr b = (ArithExpr)ctx.mkConst("b", ctx.mkIntSort());
@@ -12,6 +14,8 @@ public class DNFTest {
         BoolExpr y = (BoolExpr)ctx.mkConst("y", ctx.mkBoolSort());
         BoolExpr z = (BoolExpr)ctx.mkConst("z", ctx.mkBoolSort());
         BoolExpr r = (BoolExpr)ctx.mkConst("r", ctx.mkBoolSort());
+        BoolExpr p = (BoolExpr)ctx.mkConst("p", ctx.mkBoolSort());
+        BoolExpr q = (BoolExpr)ctx.mkConst("q", ctx.mkBoolSort());
 
         // Expr e = ctx.mkNot(ctx.mkNot(ctx.mkGe(w, ctx.mkInt(2))));
 
@@ -26,17 +30,26 @@ public class DNFTest {
         //           )
         //         );
 
+        // Expr e = ctx.mkAnd(
+        //         (BoolExpr)ctx.mkITE(
+        //            x,
+        //            y,
+        //            z
+        //           ),
+        //         x
+        //         );
+
         Expr e = ctx.mkAnd(
-                (BoolExpr)ctx.mkITE(
+                ctx.mkNot((BoolExpr)ctx.mkITE(
                    x,
                    y,
                    z
-                  ),
-                x
-                // ctx.mkOr(
-                //    ctx.mkGe(w, ctx.mkInt(0)),
-                //    ctx.mkLe(w, ctx.mkInt(4))
-                //   )
+                  )),
+                ctx.mkNot((BoolExpr)ctx.mkITE(
+                   x,
+                   y,
+                   z
+                  ))
                 );
 
         // Expr e = ctx.mkOr(ctx.mkNot(ctx.mkNot(ctx.mkOr(x, y))), ctx.mkNot(ctx.mkOr(ctx.mkAnd(y, z), ctx.mkNot(x))));
@@ -54,6 +67,9 @@ public class DNFTest {
         Expr dnf = trans.convertToDNF(e);
         System.out.println("After converting:");
         System.out.println(dnf);
+        System.out.println(dnf.simplify());
+        System.out.println("Simplified args length:");
+        System.out.println(dnf.simplify().getArgs().length);
 
     }
 
