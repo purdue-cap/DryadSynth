@@ -36,5 +36,15 @@ public class RewriteTest {
         Expr iteElimed = SygusFormatter.elimITE(ctx, ite);
         System.out.println("ITE Elim :" + iteElimed);
         System.out.println("Splfied  :" + iteElimed.simplify());
+        System.out.println();
+        Expr a = ctx.mkConst("a", ctx.mkBoolSort());
+        FuncDecl func = ctx.mkFuncDecl("func", new Sort[]{ctx.mkIntSort(), ctx.mkIntSort()}, ctx.mkBoolSort());
+        Expr spec = ctx.mkAnd((BoolExpr)func.apply(x1, x2), (BoolExpr)func.apply(x3, x4));
+        Expr def3 = ctx.mkAnd((BoolExpr)func.apply(x, y), (BoolExpr)a);
+        DefinedFunc func3 = new DefinedFunc(ctx, "func", new Expr[]{x, y}, def3);
+        BoolExpr rewritten3 = (BoolExpr)func3.rewrite(spec, func);
+        System.out.println("Spec     :" + spec);
+        System.out.println("Func Def :" + func3);
+        System.out.println("Rewritten:" + rewritten3);
     }
 }

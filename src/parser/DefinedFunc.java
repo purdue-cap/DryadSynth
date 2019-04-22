@@ -192,7 +192,7 @@ public class DefinedFunc {
         return ASTDef;
     }
 
-    public final Expr getDef () {
+    public final Expr getDef() {
         return definition;
     }
 

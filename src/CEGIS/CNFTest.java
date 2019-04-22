@@ -13,6 +13,9 @@ public class CNFTest {
         BoolExpr a = (BoolExpr)ctx.mkConst("a", ctx.mkBoolSort());
         BoolExpr b = (BoolExpr)ctx.mkConst("b", ctx.mkBoolSort());
         BoolExpr c = (BoolExpr)ctx.mkConst("c", ctx.mkBoolSort());
+
+        IntExpr p = (IntExpr)ctx.mkConst("p", ctx.mkIntSort());
+        IntExpr q = (IntExpr)ctx.mkConst("q", ctx.mkIntSort());
         // BoolExpr spec = ctx.mkOr(
         //                     ctx.mkGe(
         //                         (IntExpr)f.apply(a, b),
@@ -49,10 +52,8 @@ public class CNFTest {
 
         Expr and = ctx.mkAnd(x, y, z, a);
         System.out.println("and length: " + and.getArgs().length);
-
         Expr or = ctx.mkOr(ctx.mkAnd(x, y), ctx.mkAnd(a, b), c);
         System.out.println("or length: " + or.getArgs().length);
-
         System.out.println("x length: " + x.getArgs().length);
 
         System.out.println("Specification: " + spec);
@@ -96,6 +97,26 @@ public class CNFTest {
         System.out.println(cnf.simplify());
         System.out.println("Simplified args length:");
         System.out.println(cnf.simplify().getArgs().length);
+
+        System.out.println("f DeclKindind: " + f.getDeclKind());    // Z3_OP_UNINTERPRETED
+        FuncDecl specfunc = spec.getFuncDecl();
+        System.out.println("specfunc DeclKindind: " + specfunc.getDeclKind());      // Z3_OP_OR
+        Expr withFunc = ctx.mkOr(ctx.mkGe((ArithExpr)f.apply(p, q), ctx.mkInt(0)), x);
+        FuncDecl withfunc = withFunc.getFuncDecl();
+        System.out.println("withfunc DeclKindind: " + withfunc.getDeclKind());      // Z3_OP_OR
+        FuncDecl cons = x.getFuncDecl();
+        System.out.println("cons DeclKindind: " + cons.getDeclKind());      // Z3_OP_UNINTERPRETED
+        System.out.println("x isConst: " + x.isConst());      // true
+        Expr funcapply = f.apply(p, q);
+        FuncDecl app = funcapply.getFuncDecl();
+        System.out.println("app DeclKindind: " + app.getDeclKind());      // Z3_OP_UNINTERPRETED
+        System.out.println("funcapply isConst: " + funcapply.isConst());      // false
+        FuncDecl t = ctx.mkTrue().getFuncDecl();
+        System.out.println("true DeclKindind: " + t.getDeclKind());      // Z3_OP_TRUE
+        System.out.println("true isConst: " + ctx.mkTrue().isConst());      // true
+        FuncDecl one = ctx.mkInt(1).getFuncDecl();
+        System.out.println("one DeclKindind: " + one.getDeclKind());      // Z3_OP_ANUM
+        System.out.println("one isConst: " + ctx.mkInt(1).isConst());      // false
 
     }
 

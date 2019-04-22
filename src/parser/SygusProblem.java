@@ -13,11 +13,6 @@ public class SygusProblem {
     public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
 
     public int searchHeight;    // the search height tried in fixed-height-cegis
-    public Map<String, FuncDecl> uninterpFuncs = new LinkedHashMap<String, FuncDecl>();  // Uninterpreted functions introduced by transformation in search
-    public List<String> ufNames = new LinkedList<String>();    // Names of uninterpreted functions
-    public Map<String, Expr[]> ufArgs = new LinkedHashMap<String, Expr[]>();    // Args of uninterpreted functions
-    public Map<String, String> funcMap = new LinkedHashMap<String, String>();   // Mapping between original function and their subexpression
-    public Map<String, String[]> ufMap = new LinkedHashMap<String, String[]>();   // Mapping between a subexpression and their corresponding uninterpreted functions
 
     public enum ProbType {
         CLIA, INV, GENERAL;
@@ -120,11 +115,6 @@ public class SygusProblem {
         this.isGeneral = src.isGeneral;
 
         this.searchHeight = src.searchHeight;
-        this.uninterpFuncs = src.uninterpFuncs;
-        this.ufNames = src.ufNames;
-        this.ufArgs = src.ufArgs;
-        this.funcMap = src.funcMap;
-        this.ufMap = src.ufMap;
     }
 
     public SygusProblem translate(Context ctx) {
