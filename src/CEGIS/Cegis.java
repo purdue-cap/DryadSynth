@@ -698,6 +698,9 @@ public class Cegis extends Thread{
 			logger.info(Thread.currentThread().getName() + " Started");
 			logger.info("Starting fixed height search CEGIS");
 			SygusProblem origProblem = new SygusProblem(problem);
+
+			origProblem.finalConstraint = getIndFinalConstraint(origProblem);
+
 			if (pdc1D != null) {
 				while (results == null && running) {
 					fixedHeight = pdc1D.get();
@@ -706,7 +709,12 @@ public class Cegis extends Thread{
 					search(fixedHeight, origProblem, ProbType.NORMAL);
 					if (getSolution(triedProblem.get(origProblem.finalConstraint)) != null) {
 						logger.info("Found the results in height " + fixedHeight + ". Exit searching process.");
-						results = getSolution(triedProblem.get(origProblem.finalConstraint));
+						DefinedFunc[] partial = getSolution(triedProblem.get(origProblem.finalConstraint));
+						if (origProblem.invConstraints != null) {
+							results = combineInvPartial(origProblem, partial);
+						} else {
+							results = partial;
+						}
 						synchronized(env) {
 							env.notify();
 						}
@@ -1367,6 +1375,60 @@ public class Cegis extends Thread{
 		return null;
 	}
 
+	public BoolExpr getIndFinalConstraint(SygusProblem origProblem) {
+		BoolExpr newFinal = origProblem.finalConstraint;
+		if (origProblem.invConstraints != null) {
+			Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
+			newFinal = ctx.mkTrue();
+			for (String key : invConstr.keySet()) {
+				DefinedFunc pre = invConstr.get(key)[0];
+				DefinedFunc trans = invConstr.get(key)[1];
+				DefinedFunc post = invConstr.get(key)[2];
+				logger.info("pre: " + pre.getDef());
+				logger.info("trans: " + trans.getDef());
+				logger.info("post: " + post.getDef());
+				FuncDecl inv = origProblem.rdcdRequests.get(key);
+				Expr[] vars = origProblem.requestUsedArgs.get(key);
+				Expr invapp = inv.apply(vars);
+		        Expr[] primedArgs = new Expr[vars.length];
+		        for (int i = 0; i < vars.length; i++) {
+		        	String name = vars[i].toString();
+		        	primedArgs[i] = ctx.mkConst(name + "!", vars[i].getSort());
+		        }
+		        BoolExpr inductive = ctx.mkImplies(ctx.mkAnd((BoolExpr)trans.getDef(),
+                                            (BoolExpr)invapp),
+                            		(BoolExpr)inv.apply(primedArgs));
+		        logger.info("inductive before rewriting: " + inductive);
+		        Expr newDef = ctx.mkAnd((BoolExpr)post.getDef(), ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)invapp));
+		        logger.info("new inv with template: " + newDef);
+		        DefinedFunc newinv = new DefinedFunc(ctx, key, vars, newDef);
+				inductive = (BoolExpr)newinv.rewrite(inductive, inv);
+				logger.info("inductive after rewriting: " + inductive);
+				if (invConstr.size() > 1) {
+					newFinal = ctx.mkAnd(newFinal, inductive);
+				} else if (invConstr.size() == 1) {
+					newFinal = inductive;
+				}
+			}
+		}
+		return (BoolExpr)newFinal;
+	}
+
+	public DefinedFunc[] combineInvPartial(SygusProblem origProblem, DefinedFunc[] partial) {
+		DefinedFunc[] combined = new DefinedFunc[partial.length];
+		Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
+		for (int i = 0; i < partial.length; i++) {
+			DefinedFunc inv = partial[i];
+			String name = inv.getName();
+			DefinedFunc pre = invConstr.get(name)[0];
+			DefinedFunc post = invConstr.get(name)[2];
+			Expr newdef = ctx.mkAnd((BoolExpr)post.getDef(), 
+								ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)inv.getDef()));
+			combined[i] = new DefinedFunc(ctx, name, inv.getArgs(), newdef);
+		}
+		return combined;
+	}
+
 	public DefinedFunc[] gradualSynth() {
 		int height = 1;
 		boolean runningFlag = true;
@@ -1380,7 +1442,14 @@ public class Cegis extends Thread{
 			}
 			height = height + 1;
 		}
-		return getSolution(triedProblem.get(origProblem.finalConstraint));
+		DefinedFunc[] partial = getSolution(triedProblem.get(origProblem.finalConstraint));
+		DefinedFunc[] combined = new DefinedFunc[partial.length];
+		if (origProblem.invConstraints != null) {
+			combined = combineInvPartial(origProblem, partial);
+		} else {
+			combined = partial;
+		}
+		return combined;
 	}
 
 	public boolean isPos(Expr orexpr) {
@@ -1481,17 +1550,22 @@ public class Cegis extends Thread{
 
 	public void search(int height, SygusProblem prblm, ProbType type) {
 
+		logger.info("Start searching at height " + height);
+
 		if (height <= 0) {
 			logger.severe("Search height <= 0.");
 		}
 
 		if (height > 1) {
 
+			logger.info("Height > 1, first searching at a smaller height " + (height - 1));
+
 			SygusProblem smallerProb = getProbWithHeight(prblm, prblm.searchHeight - 1);
-			search(height - 1, smallerProb, type);
+			// search(height - 1, smallerProb, type);
 
 			if (getSolution(triedProblem.get(prblm.finalConstraint)) != null) {
 				logger.info(String.format("Find a smaller solution at searchHeight %d", height - 1));
+				logger.info("The solution is :" + Arrays.toString(getSolution(triedProblem.get(prblm.finalConstraint))));
 				return;
 			}
 
@@ -1563,6 +1637,7 @@ public class Cegis extends Thread{
 					DefinedFunc[] combined = getCombinedResults(subexpr, subf, true);
 					logger.info(String.format("Found solution with the help of pos & mix solution at searchHeight %d", simpProb.searchHeight));
 					logger.info("The solution is :" + Arrays.toString(subf));
+					logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
 					logger.info("Combined solution is :" + Arrays.toString(combined));
 					if (triedProblem.containsKey(prblm.finalConstraint)) {
 						Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
@@ -1603,6 +1678,7 @@ public class Cegis extends Thread{
 					DefinedFunc[] combined = getCombinedResults(subexpr, subf, false);
 					logger.info(String.format("Found solution with the help of neg & mix solution at searchHeight %d", simpProb.searchHeight));
 					logger.info("The solution is :" + Arrays.toString(subf));
+					logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
 					logger.info("Combined solution is :" + Arrays.toString(combined));
 					if (triedProblem.containsKey(prblm.finalConstraint)) {
 						Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
