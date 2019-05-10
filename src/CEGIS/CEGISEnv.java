@@ -23,6 +23,7 @@ public class CEGISEnv {
 	public Set<Expr[]> counterExamples = new LinkedHashSet<Expr[]>();
 
     public Map<Expr, Set<Expr[]>> cntrExpMap = new LinkedHashMap<Expr, Set<Expr[]>>();
+    public Map<Expr, Map<Integer, DefinedFunc[]>> triedProblem = new LinkedHashMap<Expr, Map<Integer, DefinedFunc[]>>();
 
     public class Tmplts {
         public DefinedFunc[] array = null;
