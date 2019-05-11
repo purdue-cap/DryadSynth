@@ -123,6 +123,10 @@ public class Run {
         if (results == null) {
             System.exit(1);
         }
+        if (dispatcher.nosolution) {
+        	System.out.println("No solution.");
+        	System.exit(0);
+        }
 
 
 		// ANTLRInputStream is deprecated as of antlr 4.7, use it with antlr 4.5 only

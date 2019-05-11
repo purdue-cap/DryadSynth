@@ -41,6 +41,8 @@ public class Cegis extends Thread{
 	public volatile boolean running = true;
 	public volatile int resultHeight = 0;
 
+	public boolean nosolution = false;
+
 	public enum ProbType {
         POSMIX,
         NEGMIX,
@@ -699,6 +701,8 @@ public class Cegis extends Thread{
 		if (enforceFHCEGIS) {
 			logger.info(Thread.currentThread().getName() + " Started");
 			logger.info("Starting fixed height search CEGIS");
+			// store the original problem to do a final check
+			SygusProblem storeProblem = new SygusProblem(problem);
 			SygusProblem origProblem = new SygusProblem(problem);
 
 			origProblem.finalConstraint = getIndFinalConstraint(origProblem);
@@ -719,9 +723,27 @@ public class Cegis extends Thread{
 						logger.info("Found the results in height " + fixedHeight + ". Exit searching process.");
 						if (origProblem.invConstraints != null) {
 							results = combineInvPartial(origProblem, partial);
+							this.problem = new SygusProblem(storeProblem);
+							if (testVerifier == null) {
+								testVerifier = this.createVerifier();
+							}
+							logger.info("Doing a final check for returned INV results.");
+
+							Map<String, Expr> resultfunc = new LinkedHashMap<String, Expr>();
+							for (DefinedFunc f : results) {
+								resultfunc.put(f.getName(), f.getDef());
+							}
+
+							Status v = testVerifier.verify(resultfunc);
+							if (v == Status.SATISFIABLE) {
+								// 	NO SOLUTION
+								logger.info("There is no invariant for this benchmark.");
+								this.nosolution = true;
+							}
 						} else {
 							results = partial;
 						}
+
 						synchronized(env) {
 							env.notify();
 						}
@@ -1438,6 +1460,7 @@ public class Cegis extends Thread{
 	public DefinedFunc[] gradualSynth() {
 		int height = 1;
 		boolean runningFlag = true;
+		SygusProblem storeProblem = new SygusProblem(problem);
 		SygusProblem origProblem = new SygusProblem(problem);
 		DefinedFunc[] partial = new DefinedFunc[origProblem.rdcdRequests.size()];
 		while (runningFlag) {
@@ -1457,6 +1480,21 @@ public class Cegis extends Thread{
 		DefinedFunc[] combined = new DefinedFunc[partial.length];
 		if (origProblem.invConstraints != null) {
 			combined = combineInvPartial(origProblem, partial);
+			this.problem = new SygusProblem(storeProblem);
+			if (testVerifier == null) {
+				testVerifier = this.createVerifier();
+			}
+			logger.info("Doing a final check for returned INV results.");
+			Map<String, Expr> resultfunc = new LinkedHashMap<String, Expr>();
+			for (DefinedFunc f : combined) {
+				resultfunc.put(f.getName(), f.getDef());
+			}
+			Status v = testVerifier.verify(resultfunc);
+			if (v == Status.SATISFIABLE) {
+				// 	NO SOLUTION
+				logger.info("There is no invariant for this benchmark.");
+				this.nosolution = true;
+			}
 		} else {
 			combined = partial;
 		}

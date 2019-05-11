@@ -35,6 +35,8 @@ public class SygusDispatcher {
     AT preparedAT;
     Thread [] fallbackCEGIS = null;
 
+    boolean nosolution = false;
+
     SygusDispatcher(Context z3ctx, SygusExtractor extractor) {
         this.z3ctx = z3ctx;
         this.extractor = extractor;
@@ -311,6 +313,9 @@ public class SygusDispatcher {
         				if (cegis.results != null) {
                             results = cegis.results;
                             resultHeight = cegis.resultHeight;
+                            if (cegis.nosolution) {
+                                nosolution = true;
+                            }
         				}
         			}
                     if (env.runningThreads.get() == 0) {
@@ -333,6 +338,9 @@ public class SygusDispatcher {
                 fallbackCEGIS[0].run();
                 results = ((Cegis)fallbackCEGIS[0]).results;
                 resultHeight = ((Cegis)fallbackCEGIS[0]).resultHeight;
+                if (((Cegis)fallbackCEGIS[0]).nosolution) {
+                    nosolution = true;
+                }
                 if (heightsOnly) {
                     System.out.println("resultHeight:" + new Integer(resultHeight).toString());
                     return null;
