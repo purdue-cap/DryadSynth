@@ -9,7 +9,7 @@ public class Producer1D {
             i = height;
             height++;
             if (heightsOnly) {
-                System.out.println("heightEntered:" + new Integer(height).toString());
+                System.out.println("heightEntered:" + new Integer(i).toString());
             }
         }
         return i;
