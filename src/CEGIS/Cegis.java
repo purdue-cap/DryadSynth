@@ -709,6 +709,7 @@ public class Cegis extends Thread{
 
 			if (pdc1D != null) {
 				while (results == null && running) {
+					logger.info("exiting height: " + fixedHeight + ". Fetching another height.");
 					fixedHeight = pdc1D.get();
 					origProblem.searchHeight = fixedHeight;
 					logger.info("Started loop with fixedHeight = " + fixedHeight);
@@ -1625,8 +1626,9 @@ public class Cegis extends Thread{
 			BoolExpr constraint = prblm.finalConstraint;
 			Transf trans = new Transf(null, ctx);
 			BoolExpr cnf = (BoolExpr)trans.convertToCNF(constraint);
-			cnf = (BoolExpr) cnf.simplify();		// may have unexpected behavior with simplify()
+			// cnf = (BoolExpr) cnf.simplify();		// may have unexpected behavior with simplify()
 
+			// System.out.println("cnf object ID: " + System.identityHashCode(cnf));
 			List<Expr> andList = trans.getArgsListForAnd(cnf);
 
 			// figure out the pos mix neg subformula
