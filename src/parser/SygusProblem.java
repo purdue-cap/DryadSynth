@@ -12,6 +12,8 @@ public class SygusProblem {
     public Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
     public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
 
+    public int searchHeight;    // the search height tried in fixed-height-cegis
+
     public enum ProbType {
         CLIA, INV, GENERAL;
     }
@@ -111,6 +113,8 @@ public class SygusProblem {
             this.cfgs.put(key, new SygusProblem.CFG(src.cfgs.get(key)));
         }
         this.isGeneral = src.isGeneral;
+
+        this.searchHeight = src.searchHeight;
     }
 
     public SygusProblem translate(Context ctx) {

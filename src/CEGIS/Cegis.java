@@ -2,6 +2,7 @@ import java.util.*;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
+import com.microsoft.z3.enumerations.Z3_decl_kind;
 
 public class Cegis extends Thread{
 
@@ -12,6 +13,7 @@ public class Cegis extends Thread{
 	protected int minFinite;
 	protected int minInfinite;
 	protected boolean maxsmtFlag;
+	protected boolean enforceFHCEGIS;
 	protected int fixedHeight = -1;
 	protected int fixedCond = -1;
 	protected int fixedVectorLength = -1;
@@ -39,6 +41,15 @@ public class Cegis extends Thread{
 	public volatile boolean running = true;
 	public volatile int resultHeight = 0;
 
+	public boolean nosolution = false;
+
+	public enum ProbType {
+        POSMIX,
+        NEGMIX,
+        NORMAL
+        ;
+    }
+
 	public Cegis(CEGISEnv env, Logger logger) {
 		this(new Context(), env, logger);
 	}
@@ -51,6 +62,7 @@ public class Cegis extends Thread{
 		this.minFinite = env.minFinite;
 		this.minInfinite = env.minInfinite;
 		this.maxsmtFlag = env.maxsmtFlag;
+		this.enforceFHCEGIS = env.enforceFHCEGIS;
 
 		switch (env.feedType) {
 			case FIXED:
@@ -94,6 +106,29 @@ public class Cegis extends Thread{
 	// for subclass overriding
 	public Set<Expr[]> getCE() {
 		return this.env.counterExamples;
+	}
+
+	public Map<Expr, Set<Expr[]>> getCntrExp() {
+		return this.env.cntrExpMap;
+	}
+
+	public Map<Expr, Map<Integer, DefinedFunc[]>> getTriedProb() {
+		return this.env.triedProblem;
+	}
+
+	public void resetFunctions() {
+		this.functions = new LinkedHashMap<String, Expr>();
+		if (!problem.isGeneral) {
+			for(String name : problem.names) {
+				FuncDecl func = problem.rdcdRequests.get(name);
+
+				if (func.getRange().toString().equals("Bool")) {
+					functions.put(name, ctx.mkTrue());
+				} else {
+					functions.put(name, ctx.mkInt(0));
+				}
+			}
+		}
 	}
 
 	public void addRandomInitialExamples() {
@@ -254,6 +289,61 @@ public class Cegis extends Thread{
 
 			synchronized(getCE()) {
 				for (Expr[] params : getCE()) {
+					Expr[] newParas = new Expr[params.length];
+					for (int i = 0; i < params.length; i++) {
+						newParas[i] = params[i].translate(ctx);
+					}
+					BoolExpr expandSpec = (BoolExpr) spec.substitute(problem.vars.values().toArray(new Expr[problem.vars.size()]), newParas);
+					q = ctx.mkAnd(q, expandSpec);
+				}
+			}
+
+			s.add(q);
+
+			Status sts = s.check();
+
+			if (sts == Status.SATISFIABLE) {
+				m = s.getModel();
+			}
+
+			s.pop();
+			return sts;
+
+		}
+
+		public Status synthesisFixedHeight(int condBound, ProbType type) {
+
+			s.push();
+
+			Expr spec = problem.finalConstraint;
+
+			BoolExpr q = expand.expandCoefficient(condBound);
+
+			int k = 0;
+			for (String name : problem.names) {
+				FuncDecl f = problem.rdcdRequests.get(name);
+				Expr[] var = problem.requestUsedArgs.get(name);
+				Expr eval = this.getEval(k);
+				DefinedFunc definedfunc = new DefinedFunc(ctx, var, eval);
+				spec = definedfunc.rewrite(spec, f);
+				k = k + 1;
+
+				// assume all f are boolean functions
+				if (type == ProbType.POSMIX) {
+					Expr ffalse = ctx.mkEq(f.apply(var), ctx.mkFalse());
+					ffalse = definedfunc.rewrite(ffalse, f);
+					q = ctx.mkAnd(q, (BoolExpr)ffalse);
+					logger.info("For function: " + name + ". Added ffalse constraint: " + ffalse.toString());
+				} else if (type == ProbType.NEGMIX) {
+					Expr ftrue = ctx.mkEq(f.apply(var), ctx.mkTrue());
+					ftrue = definedfunc.rewrite(ftrue, f);
+					q = ctx.mkAnd(q, (BoolExpr)ftrue);
+					logger.info("For function: " + name + ". Added ftrue constraint: " + ftrue.toString());
+				}
+			}
+
+			synchronized(getCntrExp()) {
+				for (Expr[] params : getCntrExp().get(problem.finalConstraint)) {
 					Expr[] newParas = new Expr[params.length];
 					for (int i = 0; i < params.length; i++) {
 						newParas[i] = params[i].translate(ctx);
@@ -472,7 +562,7 @@ public class Cegis extends Thread{
 						f[j][i] = ctx.mkITE(cond, f[j][2*i + 1], f[j][2*i + 2]);
 
 					} else {
-						boolean isINV = problem.requests.get(problem.names.get(j)).getRange().toString().equals("Bool");
+						boolean isINV = problem.rdcdRequests.get(problem.names.get(j)).getRange().toString().equals("Bool");
 						if (isINV) {
 							f[j][i] = ctx.mkITE(cond, ctx.mkTrue(), ctx.mkFalse());
 						} else {
@@ -606,6 +696,80 @@ public class Cegis extends Thread{
 			env.runningThreads.decrementAndGet();
 			return;
 		}
+
+		//
+		if (enforceFHCEGIS) {
+			logger.info(Thread.currentThread().getName() + " Started");
+			logger.info("Starting fixed height search CEGIS");
+			// store the original problem to do a final check
+			SygusProblem storeProblem = new SygusProblem(problem);
+			SygusProblem origProblem = new SygusProblem(problem);
+
+			origProblem.finalConstraint = getIndFinalConstraint(origProblem);
+
+			if (pdc1D != null) {
+				while (results == null && running) {
+					logger.info("exiting height: " + fixedHeight + ". Fetching another height.");
+					fixedHeight = pdc1D.get();
+					origProblem.searchHeight = fixedHeight;
+					logger.info("Started loop with fixedHeight = " + fixedHeight);
+					search(fixedHeight, origProblem, ProbType.NORMAL);
+
+					DefinedFunc[] partial = new DefinedFunc[origProblem.rdcdRequests.size()];
+					synchronized(getTriedProb()) {
+						partial = getSolution(getTriedProb().get(origProblem.finalConstraint));
+					}
+
+					if (partial != null) {
+						logger.info("Found the results in height " + fixedHeight + ". Exit searching process.");
+						if (origProblem.invConstraints != null) {
+							results = combineInvPartial(origProblem, partial);
+							this.problem = new SygusProblem(storeProblem);
+							if (testVerifier == null) {
+								testVerifier = this.createVerifier();
+							}
+							logger.info("Doing a final check for returned INV results.");
+
+							Map<String, Expr> resultfunc = new LinkedHashMap<String, Expr>();
+							for (DefinedFunc f : results) {
+								resultfunc.put(f.getName(), f.getDef());
+							}
+
+							Status v = testVerifier.verify(resultfunc);
+							if (v == Status.SATISFIABLE) {
+								// 	NO SOLUTION
+								logger.info("There is no invariant for this benchmark.");
+								this.nosolution = true;
+							}
+						} else {
+							results = partial;
+						}
+
+						synchronized(env) {
+							env.notify();
+						}
+						env.runningThreads.decrementAndGet();
+		                return;
+					}
+
+		    //         if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+						// synchronized(env) {
+						// 	env.notify();
+						// }
+						// env.runningThreads.decrementAndGet();
+		    //             return;
+		    //         }
+				}
+				synchronized(env) {
+					env.notify();
+				}
+			} else {
+				results = gradualSynth();
+			}
+			env.runningThreads.decrementAndGet();
+			return;
+		}
+
 		logger.info("Check for possible candidates from parser.");
 		for (String name : problem.candidate.keySet()) {
 			DefinedFunc df = problem.candidate.get(name);
@@ -613,6 +777,7 @@ public class Cegis extends Thread{
 			functions.put(name, df.getDef());
 		}
 		logger.info(Thread.currentThread().getName() + " Started");
+
 		if (pdc1D != null) {
 			while (results == null && running) {
 				fixedHeight = pdc1D.get();
@@ -1041,4 +1206,666 @@ public class Cegis extends Thread{
 			}
 		}
 	}
+
+	public DefinedFunc[] cegisFixedHeight(int fixedHeight, ProbType type) {		// counterexample sets to be modified
+
+		iterCount = 0;
+
+		if (fixedHeight > 0) {
+			heightBound = fixedHeight;
+		} else {
+			heightBound = 1;
+		}
+		if (fixedCond > 0) {
+			condBound = fixedCond;
+		} else {
+			condBound = 1;
+			condBoundInc = 1;
+		}
+		long startTime = System.currentTimeMillis();
+
+		// print out initial examples
+		synchronized(getCntrExp()) {
+			if (!getCntrExp().containsKey(problem.finalConstraint)) {
+				Set<Expr[]> ce = new LinkedHashSet<Expr[]>();
+				getCntrExp().put(problem.finalConstraint, ce);
+			}
+			logger.info("Initial examples:" + Arrays.deepToString(getCntrExp().get(problem.finalConstraint).toArray()));
+		}
+
+		// Subprocedure classes
+		if (testVerifier == null) {
+			testVerifier = this.createVerifier();
+		}
+		if (testSynthesizer == null) {
+			testSynthesizer = this.createSynthesizer();
+		}
+		if (expand == null) {
+			expand = new Expand(ctx, problem);
+		}
+		expand.setHeightBound(heightBound);
+
+		resetFunctions();
+
+		while(running) {
+
+			logger.info("heightBound: " + heightBound + ". fixedHeight: " + fixedHeight);
+
+			iterCount = iterCount + 1;
+
+            if (this.iterLimit > 0 && iterCount > this.iterLimit) {
+                logger.info("Iteration Limit Hit, returning without a result.");
+                // this.results = null;
+                return null;
+            }
+			logger.info("Iteration : " + iterCount);
+
+			logger.info("Start synthesizing");
+
+			Status synth = testSynthesizer.synthesisFixedHeight(condBound, type);
+
+			// if (!maxsmtFlag) {
+			// 	synth = testSynthesizer.synthesis(condBound);
+			// } else {
+			// 	synth = testSynthesizer.synthesisWithSMT();
+			// }
+
+			//print out for debug
+			logger.info("Synthesis Done");
+
+			if (synth == null) {
+				logger.info("Synthesizer actively exited synthesis due to " + testSynthesizer.lastFailReason);
+				if (fixedCond > 0 || fixedHeight > 0) {
+					logger.info(String.format("Exited height %d, cond %d due to ", fixedHeight, fixedCond) + testSynthesizer.lastFailReason);
+					return null;
+				} else {
+					continue;
+				}
+			}
+
+			if (synth == Status.UNSATISFIABLE) {
+				logger.info("Synthesizer : Unsatisfiable");
+				if (fixedCond > 0) {
+					logger.info(String.format("Exited height %d, cond %d due to UNSAT", fixedHeight, fixedCond));
+					return null;
+				}
+				if (condBoundInc > searchRegions) {		//for 2, >5		//for 4, >3	64 	//infinite 5
+					if (fixedHeight > 0) {
+						logger.info(String.format("Exited height %d due to UNSAT", fixedHeight));
+						return null;
+					}
+					// heightBound = heightBound + 1;
+					// expand.setHeightBound(heightBound);
+					// logger.info("Synthesizer : Increase height bound to " + heightBound);
+					// condBound = 1;
+					// if (fixedCond > 0) {
+					// 	condBound = fixedCond;
+					// }
+					// condBoundInc = 1;
+				} else {
+					if (condBoundInc == searchRegions) {
+						condBound = -1;
+						logger.info("Synthesizer : Increase coefficient bound to infinity");
+					} else {
+						condBound = (int)Math.pow(64, condBoundInc);	//64
+						logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+					}
+
+					condBoundInc = condBoundInc + 1;
+				}
+				startTime = System.currentTimeMillis();
+				continue;
+			} else if (synth != Status.SATISFIABLE) {
+				logger.severe("Synthesizer Error : Unknown");
+				return null;
+			}
+
+			SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
+			logger.info("Start decoding synthesizer output");
+			synthDecoder.generateFunction(functions);
+			logger.info("Synthesizer output decode done");
+			for (String name : problem.names) {
+				logger.info(name + " : " + functions.get(name).toString());
+			}
+
+			logger.info("Start verifying");
+
+			Status v = testVerifier.verify(functions);
+
+			if (v == Status.UNSATISFIABLE) {
+				DefinedFunc[] func = new DefinedFunc[problem.rdcdRequests.size()];
+				int i = 0;
+				for (String name : problem.rdcdRequests.keySet()) {
+					Expr def = functions.get(name);
+					if (def.isBool()) {
+						def = SygusFormatter.elimITE(this.ctx, def);
+					}
+					func[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
+					// resultHeight = heightBound;
+					logger.info("Done, Synthesized function(s):" + Arrays.toString(func));
+                    logger.info(String.format("Total iteration count: %d", iterCount));
+					i = i + 1;
+				}
+				return func;
+			} else if (v != Status.SATISFIABLE) {
+				logger.severe("Verifier Error : Unknown");
+				return null;
+			}
+
+			logger.info("Verifier results:" + testVerifier.s.getModel());
+			VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
+
+			Expr[] cntrExmp = decoder.decode();
+			synchronized(getCntrExp()) {
+				Set<Expr[]> ce = getCntrExp().get(problem.finalConstraint);
+				ce.add(cntrExmp);
+				getCntrExp().put(problem.finalConstraint, ce);
+				logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(getCntrExp().get(problem.finalConstraint).toArray()));
+			}
+
+			if (condBoundInc > 1) {
+				if (condBoundInc <= searchRegions) {
+					if (System.currentTimeMillis() - startTime > 60000 * this.minFinite) {
+						if (fixedCond > 0) {
+							logger.info(String.format("Exited height %d, cond %d due to TIMEOUT", fixedHeight, fixedCond));
+							return null;
+						}
+						if (condBoundInc == searchRegions) {
+							condBound = -1;
+							logger.info("Synthesizer : Increase coefficient bound to infinity");
+						} else {
+							condBound = (int)Math.pow(64, condBoundInc);	//64
+							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+						}
+						condBoundInc = condBoundInc + 1;
+						startTime = System.currentTimeMillis();
+					}
+				} else {
+					if (System.currentTimeMillis() - startTime > 60000 * this.minInfinite) {
+						if (fixedHeight > 0) {
+							logger.info(String.format("Exited height %d due to TIMEOUT", fixedHeight));
+							return null;
+						}
+						// heightBound = heightBound + 1;
+						// expand.setHeightBound(heightBound);
+						// logger.info("Synthesizer : Increase height bound to " + heightBound);
+						// condBound = 1;
+						// if (fixedCond > 0) {
+						// 	condBound = fixedCond;
+						// }
+						// condBoundInc = 1;
+						// startTime = System.currentTimeMillis();
+
+					}
+				}
+			}
+		}
+
+		return null;
+	}
+
+	public BoolExpr getIndFinalConstraint(SygusProblem origProblem) {
+		BoolExpr newFinal = origProblem.finalConstraint;
+		if (origProblem.invConstraints != null) {
+			Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
+			newFinal = ctx.mkTrue();
+			for (String key : invConstr.keySet()) {
+				DefinedFunc pre = invConstr.get(key)[0];
+				DefinedFunc trans = invConstr.get(key)[1];
+				DefinedFunc post = invConstr.get(key)[2];
+				logger.info("pre: " + pre.getDef());
+				logger.info("trans: " + trans.getDef());
+				logger.info("post: " + post.getDef());
+				FuncDecl inv = origProblem.rdcdRequests.get(key);
+				Expr[] vars = origProblem.requestUsedArgs.get(key);
+				Expr invapp = inv.apply(vars);
+		        Expr[] primedArgs = new Expr[vars.length];
+		        for (int i = 0; i < vars.length; i++) {
+		        	String name = vars[i].toString();
+		        	primedArgs[i] = ctx.mkConst(name + "!", vars[i].getSort());
+		        }
+		        BoolExpr inductive = ctx.mkImplies(ctx.mkAnd((BoolExpr)trans.getDef(),
+                                            (BoolExpr)invapp),
+                            		(BoolExpr)inv.apply(primedArgs));
+		        logger.info("inductive before rewriting: " + inductive);
+		        Expr newDef = ctx.mkAnd((BoolExpr)post.getDef(), ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)invapp));
+		        logger.info("new inv with template: " + newDef);
+		        DefinedFunc newinv = new DefinedFunc(ctx, key, vars, newDef);
+				inductive = (BoolExpr)newinv.rewrite(inductive, inv);
+				logger.info("inductive after rewriting: " + inductive);
+				if (invConstr.size() > 1) {
+					newFinal = ctx.mkAnd(newFinal, inductive);
+				} else if (invConstr.size() == 1) {
+					newFinal = inductive;
+				}
+			}
+		}
+		return (BoolExpr)newFinal;
+	}
+
+	public DefinedFunc[] combineInvPartial(SygusProblem origProblem, DefinedFunc[] partial) {
+		DefinedFunc[] combined = new DefinedFunc[partial.length];
+		Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
+		for (int i = 0; i < partial.length; i++) {
+			DefinedFunc inv = partial[i];
+			String name = inv.getName();
+			DefinedFunc pre = invConstr.get(name)[0];
+			DefinedFunc post = invConstr.get(name)[2];
+			Expr newdef = ctx.mkAnd((BoolExpr)post.getDef(), 
+								ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)inv.getDef()));
+			combined[i] = new DefinedFunc(ctx, name, inv.getArgs(), newdef);
+		}
+		return combined;
+	}
+
+	public DefinedFunc[] gradualSynth() {
+		int height = 1;
+		boolean runningFlag = true;
+		SygusProblem storeProblem = new SygusProblem(problem);
+		SygusProblem origProblem = new SygusProblem(problem);
+		DefinedFunc[] partial = new DefinedFunc[origProblem.rdcdRequests.size()];
+		while (runningFlag) {
+			origProblem.searchHeight = height;
+			search(height, origProblem, ProbType.NORMAL);
+
+			synchronized(getTriedProb()) {
+				partial = getSolution(getTriedProb().get(origProblem.finalConstraint));
+			}
+
+			if (partial != null) {
+				logger.info("Found the results in height " + height + ". Exit searching process.");
+				runningFlag = false;
+			}
+			height = height + 1;
+		}
+		DefinedFunc[] combined = new DefinedFunc[partial.length];
+		if (origProblem.invConstraints != null) {
+			combined = combineInvPartial(origProblem, partial);
+			this.problem = new SygusProblem(storeProblem);
+			if (testVerifier == null) {
+				testVerifier = this.createVerifier();
+			}
+			logger.info("Doing a final check for returned INV results.");
+			Map<String, Expr> resultfunc = new LinkedHashMap<String, Expr>();
+			for (DefinedFunc f : combined) {
+				resultfunc.put(f.getName(), f.getDef());
+			}
+			Status v = testVerifier.verify(resultfunc);
+			if (v == Status.SATISFIABLE) {
+				// 	NO SOLUTION
+				logger.info("There is no invariant for this benchmark.");
+				this.nosolution = true;
+			}
+		} else {
+			combined = partial;
+		}
+		return combined;
+	}
+
+	public boolean isPos(Expr orexpr) {
+		// assume functions are all boolean functions
+		if (orexpr.isConst()) {
+			return false;
+		}
+		if (orexpr.isApp()) {
+			Expr[] args = orexpr.getArgs();
+			if (orexpr.isNot()) {
+				Expr inner = args[0];
+                Expr[] innerArgs = inner.getArgs();
+                if (inner.isNot()) {
+                	return isPos(innerArgs[0]);
+                }
+			}
+			if (orexpr.getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UNINTERPRETED) {
+				return true;
+            } else {
+            	return false;
+            }
+		}
+		return false;
+	}
+
+	public boolean isNeg(Expr orexpr) {
+		// assume functions are all boolean functions
+		if (orexpr.isConst()) {
+			return false;
+		}
+		if (orexpr.isApp()) {
+			Expr[] args = orexpr.getArgs();
+			if (orexpr.isNot()) {
+				Expr inner = args[0];
+                Expr[] innerArgs = inner.getArgs();
+                if (inner.isNot()) {
+                	return isNeg(innerArgs[0]);
+                }
+                if (inner.getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_UNINTERPRETED && !inner.isConst()) {
+					return true;
+	            } else {
+	            	return false;
+	            }
+			}
+		}
+		return false;
+	}
+
+	public enum ExprType {
+        POS, MIX, NEG;
+    }
+
+	public ExprType getExprType(Expr andexpr) {
+		// assume andexpr is one of a conjunction from the cnf-converted formula
+		Transf trans = new Transf(null, ctx);
+		List<Expr> orList = trans.getArgsListForOr(andexpr);
+		boolean pos = false;
+		boolean neg = false;
+
+		for (Expr orexpr : orList) {
+			if (isPos(orexpr)) {
+				pos = true;
+			}
+			if (isNeg(orexpr)) {
+				neg = true;
+			}
+		}
+
+		if (pos && neg) {
+			return ExprType.MIX;
+		} else if (pos) {
+			return ExprType.POS;
+		} else if (neg) {
+			return ExprType.NEG;
+		} else {
+			// do not exist f.apply in andexpr, return the type to be mixed
+			return ExprType.MIX;
+		}
+	}
+
+	public SygusProblem getProbWithHeight(SygusProblem p, int ht) {
+		SygusProblem newP = new SygusProblem(p);
+		newP.searchHeight = ht;
+		return newP;
+	}
+
+	public DefinedFunc[] getSolution(Map<Integer, DefinedFunc[]> map) {
+		if (map == null) {
+			return null;
+		}
+		for (DefinedFunc[] funcs : map.values()) {
+			if (funcs != null) {
+				return funcs;
+			}
+		}
+		return null;
+	}
+
+	public void search(int height, SygusProblem prblm, ProbType type) {
+
+		logger.info("Start searching at height " + height);
+
+		if (height <= 0) {
+			logger.severe("Search height <= 0.");
+		}
+
+		if (height > 1) {
+
+			logger.info("Height > 1, first searching at a smaller height " + (height - 1));
+
+			SygusProblem smallerProb = getProbWithHeight(prblm, prblm.searchHeight - 1);
+			// search(height - 1, smallerProb, type);
+
+			synchronized(getTriedProb()) {
+				DefinedFunc[] solution = getSolution(getTriedProb().get(prblm.finalConstraint));
+				if (solution != null) {
+					logger.info(String.format("Find a smaller solution at searchHeight %d", height - 1));
+					logger.info("The solution is :" + Arrays.toString(solution));
+					return;
+				}
+			}
+
+			// convert the finalConstraint to CNF
+			BoolExpr constraint = prblm.finalConstraint;
+			Transf trans = new Transf(null, ctx);
+			BoolExpr cnf = (BoolExpr)trans.convertToCNF(constraint);
+			// cnf = (BoolExpr) cnf.simplify();		// may have unexpected behavior with simplify()
+
+			// System.out.println("cnf object ID: " + System.identityHashCode(cnf));
+			List<Expr> andList = trans.getArgsListForAnd(cnf);
+
+			// figure out the pos mix neg subformula
+			List<Expr> posList = new ArrayList<Expr>();
+			List<Expr> mixList = new ArrayList<Expr>();
+			List<Expr> negList = new ArrayList<Expr>();
+
+			for (Expr andexpr : andList) {
+				ExprType exprtype = getExprType(andexpr);
+				if (exprtype == ExprType.POS) {
+					posList.add(andexpr);
+				}
+				if (exprtype == ExprType.NEG) {
+					negList.add(andexpr);
+				}
+				if (exprtype == ExprType.MIX) {
+					mixList.add(andexpr);
+				}
+			}
+
+			// store pos mix neg subformula to three lists
+			BoolExpr posExpr = ctx.mkAnd(posList.toArray(new BoolExpr[posList.size()]));
+			BoolExpr mixExpr = ctx.mkAnd(mixList.toArray(new BoolExpr[mixList.size()]));
+			BoolExpr negExpr = ctx.mkAnd(negList.toArray(new BoolExpr[negList.size()]));
+
+			// // test region below
+			// logger.info("Constraint: " + constraint.toString());
+			// logger.info("Converted to CNF" + cnf.toString());
+			// logger.info("Pos constraint: " + posExpr.toString());
+			// logger.info("Mix constraint: " + mixExpr.toString());
+			// logger.info("Neg constraint: " + negExpr.toString());
+			// Solver testsolver = ctx.mkSolver();
+			// testsolver.add(ctx.mkNot(ctx.mkEq(cnf, ctx.mkAnd(posExpr, mixExpr, negExpr))));
+			// Status resultstatus = testsolver.check();
+			// logger.info("checking result: " + resultstatus);
+			// System.exit(0);
+			// // test region above
+
+			BoolExpr posMix = ctx.mkAnd(posExpr, mixExpr);
+			SygusProblem posMixProb = new SygusProblem(smallerProb);
+			posMixProb.finalConstraint = posMix;
+			logger.info(String.format("Searching for partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
+			logger.info("Pos & Mix constraint: " + posMix);
+
+			search(height - 1, posMixProb, ProbType.POSMIX);
+
+			DefinedFunc[] subexpr = new DefinedFunc[posMixProb.rdcdRequests.size()];
+			synchronized(getTriedProb()) {
+				subexpr = getSolution(getTriedProb().get(posMixProb.finalConstraint));
+			}
+
+			if (subexpr != null) {
+				// then construct a new problem
+				// synthesize "f" that phi(f) => phi(E/\f)
+				logger.info(String.format("Exists a partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
+				SygusProblem simpProb = getSimpProb(smallerProb, subexpr, true);
+
+				logger.info(String.format("Searching with the help of partial solution for pos & mix at searchHeight %d", simpProb.searchHeight));
+				search(height - 1, simpProb, type);
+
+				synchronized(getTriedProb()) {
+					DefinedFunc[] subf = getSolution(getTriedProb().get(simpProb.finalConstraint));
+					if (subf != null) {	// if an f can be found
+						// combime f and E together (get E \/ f), and put the results in the map
+						DefinedFunc[] combined = getCombinedResults(subexpr, subf, true);
+						logger.info(String.format("Found solution with the help of pos & mix solution at searchHeight %d", simpProb.searchHeight));
+						logger.info("The solution is :" + Arrays.toString(subf));
+						logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
+						logger.info("Combined solution is :" + Arrays.toString(combined));
+						if (getTriedProb().containsKey(prblm.finalConstraint)) {
+							Map<Integer, DefinedFunc[]> solumap = getTriedProb().get(prblm.finalConstraint);
+							solumap.put(height - 1, combined);	// height does not matter if we have a solution
+							getTriedProb().put(prblm.finalConstraint, solumap);
+						} else {
+							Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
+							solumap.put(height - 1, combined);
+							getTriedProb().put(prblm.finalConstraint, solumap);
+						}
+						return;
+					}
+				}
+			} else {
+				logger.info(String.format("Did not find partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
+			}
+
+			BoolExpr negMix = ctx.mkAnd(negExpr, mixExpr);
+			SygusProblem negMixProb = new SygusProblem(smallerProb);
+			negMixProb.finalConstraint = negMix;
+			logger.info(String.format("Searching for partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
+			logger.info("Neg & Mix constraint: " + negMix);
+
+			search(height - 1, negMixProb, ProbType.NEGMIX);
+
+			synchronized(getTriedProb()) {
+				subexpr = getSolution(getTriedProb().get(negMixProb.finalConstraint));
+			}
+
+			if (subexpr != null) {
+				// then construct a new problem
+				// synthesize "f" that phi(f) => phi(E\/f)
+				logger.info(String.format("Exists a partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
+				SygusProblem simpProb = getSimpProb(smallerProb, subexpr, false);
+
+				logger.info(String.format("Searching with the help of partial solution for neg & mix at searchHeight %d", simpProb.searchHeight));
+				search(height - 1, simpProb, type);
+
+				synchronized(getTriedProb()) {
+					DefinedFunc[] subf = getSolution(getTriedProb().get(simpProb.finalConstraint));
+					if (subf != null) {	// if an f can be found
+						// combime f and E together (get E /\ f), and put the results in the map
+						DefinedFunc[] combined = getCombinedResults(subexpr, subf, false);
+						logger.info(String.format("Found solution with the help of neg & mix solution at searchHeight %d", simpProb.searchHeight));
+						logger.info("The solution is :" + Arrays.toString(subf));
+						logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
+						logger.info("Combined solution is :" + Arrays.toString(combined));
+						if (getTriedProb().containsKey(prblm.finalConstraint)) {
+							Map<Integer, DefinedFunc[]> solumap = getTriedProb().get(prblm.finalConstraint);
+							solumap.put(height - 1, combined);	// height does not matter if we have a solution
+							getTriedProb().put(prblm.finalConstraint, solumap);
+						} else {
+							Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
+							solumap.put(height - 1, combined);
+							getTriedProb().put(prblm.finalConstraint, solumap);
+						}
+						return;
+					}
+				}
+			} else {
+				logger.info(String.format("Did not find partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
+			}
+		}
+
+		problem = getProbWithHeight(prblm, height);
+		logger.info(String.format("Searching for full tree at searchHeight %d", problem.searchHeight));
+
+		boolean unsolved = false;
+		synchronized(getTriedProb()) {
+			if (!getTriedProb().containsKey(problem.finalConstraint) || !getTriedProb().get(problem.finalConstraint).containsKey(height)) {
+				unsolved = true;
+			}
+		}
+
+		if (unsolved) {
+			logger.info("At height " + height + ". Problem is not solved before: " + problem.finalConstraint.toString());
+			DefinedFunc[] func = cegisFixedHeight(height, type);		// cegisFixedHeight should return DefinedFunc[]
+			logger.info("Found synthesized function(s):" + Arrays.toString(func));
+
+			synchronized(getTriedProb()) {
+				if (getTriedProb().containsKey(prblm.finalConstraint)) {
+					Map<Integer, DefinedFunc[]> solumap = getTriedProb().get(prblm.finalConstraint);
+					solumap.put(height, func);	// height does not matter if we have a solution
+					getTriedProb().put(prblm.finalConstraint, solumap);
+				} else {
+					Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
+					solumap.put(height, func);
+					getTriedProb().put(prblm.finalConstraint, solumap);
+				}
+			}
+			logger.info("Store solutions for later use.");
+		} else {
+			logger.info("At height " + height + ". Problem is solved before: " + problem.finalConstraint.toString());
+			// DefinedFunc[] func = getSolution(triedProblem.get(problem.finalConstraint));
+			// logger.info("The solution is :" + Arrays.toString(func));
+			return;
+		}
+		
+	}
+
+	public SygusProblem getSimpProb(SygusProblem prblm, DefinedFunc[] subexpr, boolean pos) {
+		// construct simplified problem for posmix partial solution if pos is true
+		// construct simplified problem for negmix partial solution if pos is false
+		BoolExpr rewritten = prblm.finalConstraint;
+
+		for (String name : prblm.names) {
+			FuncDecl f = prblm.rdcdRequests.get(name);
+			Expr[] vars = prblm.requestUsedArgs.get(name);
+			Expr fapp = f.apply(vars);
+			boolean found = false;
+			for (DefinedFunc e : subexpr) {
+				if (e.getName().equals(name)) {
+					// assume all to-be-synthesized functions are boolean functions
+					Expr newDef = null;
+					if (pos) {
+						newDef = ctx.mkAnd((BoolExpr)e.getDef(), (BoolExpr)fapp);
+					} else {
+						newDef = ctx.mkOr((BoolExpr)e.getDef(), (BoolExpr)fapp);
+					}
+					DefinedFunc newf = new DefinedFunc(ctx, name, vars, newDef);
+					rewritten = (BoolExpr)newf.rewrite(rewritten, f);
+					found = true;
+				}
+			}
+			if (!found) {
+				logger.severe("Partial solution does not match original problem.");
+			}
+		}
+
+		SygusProblem newProb = new SygusProblem(prblm);
+		newProb.finalConstraint = rewritten;
+		return newProb;
+	}
+
+	public DefinedFunc[] getCombinedResults(DefinedFunc[] subexpr, DefinedFunc[] subf, boolean pos) {
+		// construct combined result for posmix partial solution if pos is true
+		// construct combined result for negmix partial solution if pos is false
+		if (subexpr.length != subf.length) {
+			logger.severe("Partial solutions length do not match.");
+		}
+
+		DefinedFunc[] combined = new DefinedFunc[subf.length];
+
+		for (int i = 0; i < subexpr.length; i++) {
+			DefinedFunc e = subexpr[i];
+			String name = e.getName();
+			Expr[] args = e.getArgs();
+			Expr edef = e.getDef();
+			boolean found = false;
+
+			for (DefinedFunc f : subf) {
+				if (f.getName().equals(name)) {
+					Expr newDef = null;
+					Expr fdef = f.getDef();
+					if (pos) {
+						newDef = ctx.mkAnd((BoolExpr)edef, (BoolExpr)fdef);
+					} else {
+						newDef = ctx.mkOr((BoolExpr)edef, (BoolExpr)fdef);
+					}
+					combined[i] = new DefinedFunc(ctx, name, args, newDef);
+				}
+				found = true;
+			}
+			if (!found) {
+				logger.severe("Partial solution does not match original problem.");
+			}
+		}
+
+		return combined;
+	}
+
 }

@@ -20,6 +20,7 @@ public class SygusDispatcher {
     int minInfinite = 5;
     boolean maxsmtFlag = false;
     boolean enforceCEGIS = false;
+    boolean enforceFHCEGIS = false;
     boolean enableITCEGIS = false;
     boolean heightsOnly = false;
     Thread mainThread;
@@ -33,6 +34,8 @@ public class SygusDispatcher {
 
     AT preparedAT;
     Thread [] fallbackCEGIS = null;
+
+    boolean nosolution = false;
 
     SygusDispatcher(Context z3ctx, SygusExtractor extractor) {
         this.z3ctx = z3ctx;
@@ -69,6 +72,10 @@ public class SygusDispatcher {
 
     public void setEnforceCEGIS(boolean enforce) {
         this.enforceCEGIS = enforce;
+    }
+
+    public void setEnforceFHCEGIS(boolean fhcegis) {
+        this.enforceFHCEGIS = fhcegis;
     }
 
     public void setEnableITCEGIS(boolean enable) {
@@ -138,6 +145,7 @@ public class SygusDispatcher {
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
         env.maxsmtFlag = maxsmtFlag;
+        env.enforceFHCEGIS = enforceFHCEGIS;
         fallbackCEGIS = new Thread[numCore];
         env.pdc1D = new Producer1D();
         env.pdc1D.heightsOnly = heightsOnly;
@@ -305,6 +313,9 @@ public class SygusDispatcher {
         				if (cegis.results != null) {
                             results = cegis.results;
                             resultHeight = cegis.resultHeight;
+                            if (cegis.nosolution) {
+                                nosolution = true;
+                            }
         				}
         			}
                     if (env.runningThreads.get() == 0) {
@@ -327,6 +338,9 @@ public class SygusDispatcher {
                 fallbackCEGIS[0].run();
                 results = ((Cegis)fallbackCEGIS[0]).results;
                 resultHeight = ((Cegis)fallbackCEGIS[0]).resultHeight;
+                if (((Cegis)fallbackCEGIS[0]).nosolution) {
+                    nosolution = true;
+                }
                 if (heightsOnly) {
                     System.out.println("resultHeight:" + new Integer(resultHeight).toString());
                     return null;
