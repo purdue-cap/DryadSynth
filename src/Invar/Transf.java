@@ -636,14 +636,10 @@ public class Transf {
         List<Expr> argList = new ArrayList<Expr>();
         if (!expr.isOr()) {
             argList.add(expr);
-            return argList;
-        }
-        for (Expr e : expr.getArgs()) {
-            if (!e.isOr()) {
-                argList.add(e);
-            } else {
-                List<Expr> innerArgList = new ArrayList<Expr>();
-                innerArgList = getArgsListForOr(e);
+        } else {
+            Expr[] args = expr.getArgs();
+            for (int i = 0; i < args.length; i++) {
+                List<Expr> innerArgList = getArgsListForOr(args[i]);
                 argList.addAll(innerArgList);
             }
         }
@@ -761,14 +757,11 @@ public class Transf {
         List<Expr> argList = new ArrayList<Expr>();
         if (!expr.isAnd()) {
             argList.add(expr);
-            return argList;
-        }
-        for (Expr e : expr.getArgs()) {
-            if (!e.isAnd()) {
-                argList.add(e);
-            } else {
-                List<Expr> innerArgList = new ArrayList<Expr>();
-                innerArgList = getArgsListForAnd(e);
+        } else {
+            Expr[] args = expr.getArgs();
+            for (int i = 0; i < args.length; i++) {
+                // System.out.println("expr " + i + " object ID: " + System.identityHashCode(args[i]));
+                List<Expr> innerArgList = getArgsListForAnd(args[i]);
                 argList.addAll(innerArgList);
             }
         }
