@@ -494,12 +494,14 @@ public class Cegis extends Thread{
 		protected Synthesizer synth;
 		protected Model model;
 		protected IntExpr[][][] c;
+		protected BoolExpr[][] eq;
 		protected IntExpr[][] t;
 
 		public SynthDecoder(Synthesizer synth) {
 			this.synth = synth;
 			this.model = synth.getLastModel();
 			this.c = expand.getCoefficients();
+			this.eq = expand.getEquationFlags();
 			this.t = expand.getTerms();
 		}
 
@@ -520,6 +522,20 @@ public class Cegis extends Thread{
 			return coeff;
 		}
 
+		public BoolExpr[][] evaluteEquationFlag() {
+
+			BoolExpr[][] eqflag = new BoolExpr[eq.length][0];
+
+			for (int i = 0; i < eq.length; i++) {
+				eqflag[i] = new BoolExpr[eq[i].length];
+				for (int j = 0; j < c[i].length; j++) {
+					eqflag[i][j] = (BoolExpr) model.evaluate(eq[i][j], true);
+				}
+			}
+
+			return eqflag;
+		}
+
 		public int[][] evaluateTerm() {
 			int[][] terms = new int[t.length][];
 
@@ -536,6 +552,7 @@ public class Cegis extends Thread{
 
 		public void generateFunction(Map<String, Expr> functions) {
 			IntExpr[][][] coeff = evaluteCoefficient();
+			BoolExpr[][] eqflag = evaluteEquationFlag();
 
 			ArithExpr[][] p = new ArithExpr[coeff.length][0];
 			Expr[][] f = new Expr[coeff.length][0];
@@ -555,7 +572,9 @@ public class Cegis extends Thread{
 			for (int j = 0; j < coeff.length; j++) {
 				f[j] = new Expr[coeff[j].length];
 				for (int i = coeff[j].length - 1; i >= 0; i--) {
-					BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
+					// BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
+					BoolExpr cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
+									, ctx.mkEq(p[j][i], ctx.mkInt(0)));
 
 					if (i < ((coeff[j].length - 1)/2)) {
 

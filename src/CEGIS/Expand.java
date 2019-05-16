@@ -5,6 +5,8 @@ public class Expand {
 
 	// Coefficients for CLIA/INV
 	public IntExpr[][][] c;
+	// Boolean flags for CLIA/INV to indicate whether the condition is an "equation" or "greater than" 
+	public BoolExpr[][] eq;
 	// Terms for General
 	public IntExpr[][] t;
 	// Bound is coefficient array length for CLIA/INV
@@ -45,6 +47,7 @@ public class Expand {
 		assert !problem.isGeneral;
 		this.bound = (int)Math.pow(2, heightBound) - 1;
 		c = new IntExpr[numFunc][bound][0];
+		eq = new BoolExpr[numFunc][bound];
 		declareConstants();
 	}
 
@@ -57,6 +60,12 @@ public class Expand {
 				for (int i = 0; i < argCount + 1; i++) {
 					c[k][j][i] = ctx.mkIntConst("f" + k + "_c" + j + "_" + i);
 				}
+			}
+		}
+
+		for (int k = 0; k < numFunc; k++) {
+			for (int j = 0; j < bound; j++) {
+				eq[k][j] = ctx.mkBoolConst("f" + k + "_eq" + j);
 			}
 		}
 	}
@@ -130,6 +139,10 @@ public class Expand {
 
 	public IntExpr[][][] getCoefficients() {
 		return c;
+	}
+
+	public BoolExpr[][] getEquationFlags() {
+		return eq;
 	}
 
 	public IntExpr[][] getTerms() {
@@ -209,12 +222,15 @@ public class Expand {
 			poly = ctx.mkAdd(poly, ctx.mkMul(c[k][i][j], (ArithExpr)var[j - 1]));
 		}
 
+		BoolExpr condition = ctx.mkOr(ctx.mkAnd(ctx.mkGt(poly, ctx.mkInt(0)), eq[k][i])
+							, ctx.mkEq(poly, ctx.mkInt(0)));
+
 		if (i < ((bound - 1)/2)) {
-			return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), generateEval(k, 2*i + 1), generateEval(k, 2*i + 2));
+			return ctx.mkITE(condition, generateEval(k, 2*i + 1), generateEval(k, 2*i + 2));
 		} else {
 			boolean isBool = problem.requests.get(name).getRange().toString().equals("Bool");
 			if (isBool) {
-				return ctx.mkITE(ctx.mkGe(poly, ctx.mkInt(0)), ctx.mkTrue(), ctx.mkFalse());
+				return ctx.mkITE(condition, ctx.mkTrue(), ctx.mkFalse());
 			} else {
 				return poly;
 			}
