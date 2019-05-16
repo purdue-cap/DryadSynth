@@ -1472,7 +1472,7 @@ public class Cegis extends Thread{
 			DefinedFunc post = invConstr.get(name)[2];
 			Expr newdef = ctx.mkAnd((BoolExpr)post.getDef(), 
 								ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)inv.getDef()));
-			combined[i] = new DefinedFunc(ctx, name, inv.getArgs(), newdef);
+			combined[i] = new DefinedFunc(ctx, name, inv.getArgs(), newdef.simplify());
 		}
 		return combined;
 	}
