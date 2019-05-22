@@ -13,6 +13,7 @@ public class SygusProblem {
     public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
 
     public int searchHeight;    // the search height tried in fixed-height-cegis
+    public boolean changed = false;     // flag indicates that if a problem is the original problem
 
     public enum ProbType {
         CLIA, INV, GENERAL;
@@ -115,6 +116,7 @@ public class SygusProblem {
         this.isGeneral = src.isGeneral;
 
         this.searchHeight = src.searchHeight;
+        this.changed = src.changed;
     }
 
     public SygusProblem translate(Context ctx) {

@@ -42,6 +42,7 @@ public class Cegis extends Thread{
 	public volatile int resultHeight = 0;
 
 	public boolean nosolution = false;
+	public int inputIterLimit = 0;
 
 	public enum ProbType {
         POSMIX,
@@ -114,6 +115,10 @@ public class Cegis extends Thread{
 
 	public Map<Expr, Map<Integer, DefinedFunc[]>> getTriedProb() {
 		return this.env.triedProblem;
+	}
+
+	public void setInputIterLimit(int input) {
+		this.inputIterLimit = input;
 	}
 
 	public void resetFunctions() {
@@ -726,10 +731,13 @@ public class Cegis extends Thread{
 
 			origProblem.finalConstraint = getIndFinalConstraint(origProblem);
 
+			setInputIterLimit(this.iterLimit);
+
 			if (pdc1D != null) {
 				while (results == null && running) {
 					logger.info("exiting height: " + fixedHeight + ". Fetching another height.");
 					fixedHeight = pdc1D.get();
+					// System.out.println("Entered height: " + fixedHeight);
 					origProblem.searchHeight = fixedHeight;
 					logger.info("Started loop with fixedHeight = " + fixedHeight);
 					search(fixedHeight, origProblem, ProbType.NORMAL);
@@ -741,6 +749,7 @@ public class Cegis extends Thread{
 
 					if (partial != null) {
 						logger.info("Found the results in height " + fixedHeight + ". Exit searching process.");
+						// System.out.println("Found solution in height: " + fixedHeight);
 						if (origProblem.invConstraints != null) {
 							results = combineInvPartial(origProblem, partial);
 							this.problem = new SygusProblem(storeProblem);
@@ -1228,6 +1237,10 @@ public class Cegis extends Thread{
 
 	public DefinedFunc[] cegisFixedHeight(int fixedHeight, ProbType type) {		// counterexample sets to be modified
 
+		// set the iterLimit to be inputIterLimit * fixedHeight
+		// this.iterLimit = fixedHeight * inputIterLimit;
+		this.iterLimit = fixedHeight * fixedHeight * inputIterLimit;
+
 		iterCount = 0;
 
 		if (fixedHeight > 0) {
@@ -1266,7 +1279,11 @@ public class Cegis extends Thread{
 
 		resetFunctions();
 
-		while(running) {
+		long start = System.currentTimeMillis();
+		long elapsed = start;
+		boolean timeout = false;
+
+		while(running && !timeout) {
 
 			logger.info("heightBound: " + heightBound + ". fixedHeight: " + fixedHeight);
 
@@ -1418,6 +1435,22 @@ public class Cegis extends Thread{
 					}
 				}
 			}
+
+			elapsed = System.currentTimeMillis() - start;
+
+			if (problem.changed) {
+				int timeoutuner = (int)Math.pow(2, fixedHeight - 1);
+				if (elapsed >= 1000 * timeoutuner) {
+					timeout = true;
+					logger.info("Changed problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
+				}
+			} else {
+				int timeoutuner = (int)Math.pow(3, 2 * fixedHeight - 1);
+				if (elapsed >= 1000 * timeoutuner) {
+					timeout = true;
+					logger.info("Original problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
+				}
+			}
 		}
 
 		return null;
@@ -1485,6 +1518,7 @@ public class Cegis extends Thread{
 		DefinedFunc[] partial = new DefinedFunc[origProblem.rdcdRequests.size()];
 		while (runningFlag) {
 			origProblem.searchHeight = height;
+			// System.out.println("Entered height: " + height);
 			search(height, origProblem, ProbType.NORMAL);
 
 			synchronized(getTriedProb()) {
@@ -1493,6 +1527,7 @@ public class Cegis extends Thread{
 
 			if (partial != null) {
 				logger.info("Found the results in height " + height + ". Exit searching process.");
+				// System.out.println("Found solution in height: " + height);
 				runningFlag = false;
 			}
 			height = height + 1;
@@ -1645,7 +1680,7 @@ public class Cegis extends Thread{
 			BoolExpr constraint = prblm.finalConstraint;
 			Transf trans = new Transf(null, ctx);
 			BoolExpr cnf = (BoolExpr)trans.convertToCNF(constraint);
-			// cnf = (BoolExpr) cnf.simplify();		// may have unexpected behavior with simplify()
+			cnf = (BoolExpr) cnf.simplify();		// may have unexpected behavior with simplify()
 
 			// System.out.println("cnf object ID: " + System.identityHashCode(cnf));
 			List<Expr> andList = trans.getArgsListForAnd(cnf);
@@ -1689,6 +1724,7 @@ public class Cegis extends Thread{
 			BoolExpr posMix = ctx.mkAnd(posExpr, mixExpr);
 			SygusProblem posMixProb = new SygusProblem(smallerProb);
 			posMixProb.finalConstraint = posMix;
+			posMixProb.changed = true;
 			logger.info(String.format("Searching for partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
 			logger.info("Pos & Mix constraint: " + posMix);
 
@@ -1704,6 +1740,7 @@ public class Cegis extends Thread{
 				// synthesize "f" that phi(f) => phi(E/\f)
 				logger.info(String.format("Exists a partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
 				SygusProblem simpProb = getSimpProb(smallerProb, subexpr, true);
+				simpProb.changed = true;
 
 				logger.info(String.format("Searching with the help of partial solution for pos & mix at searchHeight %d", simpProb.searchHeight));
 				search(height - 1, simpProb, type);
@@ -1736,6 +1773,7 @@ public class Cegis extends Thread{
 			BoolExpr negMix = ctx.mkAnd(negExpr, mixExpr);
 			SygusProblem negMixProb = new SygusProblem(smallerProb);
 			negMixProb.finalConstraint = negMix;
+			negMixProb.changed = true;
 			logger.info(String.format("Searching for partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
 			logger.info("Neg & Mix constraint: " + negMix);
 
@@ -1750,6 +1788,7 @@ public class Cegis extends Thread{
 				// synthesize "f" that phi(f) => phi(E\/f)
 				logger.info(String.format("Exists a partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
 				SygusProblem simpProb = getSimpProb(smallerProb, subexpr, false);
+				simpProb.changed = true;
 
 				logger.info(String.format("Searching with the help of partial solution for neg & mix at searchHeight %d", simpProb.searchHeight));
 				search(height - 1, simpProb, type);
