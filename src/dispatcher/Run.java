@@ -95,6 +95,54 @@ public class Run {
 
 		logger.info("Final Constraints:" + extractor.finalConstraint.toString());
 
+		if (extractor.isGeneral) {
+			Map<String, SygusProblem.CFG> cfgs = extractor.cfgs;
+			System.out.println("cfgs size: " + cfgs.size());
+			for (String name : cfgs.keySet()) {
+				System.out.println("Synth-func name: " + name);
+				SygusProblem.CFG currentCFG = cfgs.get(name);
+				Map<String, List<String[]>>  grammarRules = currentCFG.grammarRules;
+				for (String currentSymbol : grammarRules.keySet()) {
+					System.out.println();
+					System.out.println("Current symbol: " + currentSymbol);
+					List<String[]> ruleLists = grammarRules.get(currentSymbol);
+					for (String[] rules : ruleLists) {
+						System.out.println();
+						for (String rule : rules) {
+							System.out.println("Grammar rule: " + rule);
+						}
+					}
+				}
+
+				Map<String, Sort> grammarSybSort = currentCFG.grammarSybSort;
+				System.out.println();
+				System.out.println("grammarSybSort map: ");
+				for (String s : grammarSybSort.keySet()) {
+					System.out.println("Name: " + s + ". Sort: " + grammarSybSort.get(s).toString());
+				}
+
+				Map<String, SygusProblem.SybType> sybTypeTbl = currentCFG.sybTypeTbl;
+				System.out.println();
+				System.out.println("sybTypeTbl map: ");
+				for (String s : sybTypeTbl.keySet()) {
+					System.out.println("Symbol: " + s + ". Sort: " + sybTypeTbl.get(s).toString());
+				}
+
+				Map<String, Expr> localArgs = currentCFG.localArgs;
+				System.out.println();
+				System.out.println("localArgs map: ");
+				for (String s : localArgs.keySet()) {
+					System.out.println("localArgs name: " + s + ". Expr: " + localArgs.get(s).toString());
+				}
+
+				SygusDispatcher testdispatcher = new SygusDispatcher(ctx, extractor);
+				System.out.println("containsArgs: " + Boolean.toString(testdispatcher.containsInputArgs(name, currentCFG)));
+
+			}
+
+		}
+		// System.exit(0);
+
 		SygusDispatcher dispatcher = new SygusDispatcher(ctx, extractor);
 		dispatcher.setNumCore(numCore);
 		dispatcher.setIterLimit(iterLimit);
@@ -120,11 +168,19 @@ public class Run {
         }
 		dispatcher.initAlgorithm();
 		DefinedFunc[] results = dispatcher.runAlgorithm();
+		dispatcher.postFormatting(results);
         if (results == null) {
             System.exit(1);
         }
         if (dispatcher.nosolution) {
         	System.out.println("No solution.");
+        	System.exit(0);
+        }
+        if (dispatcher.resultStr != null) {
+        	String[] strs = dispatcher.resultStr;
+        	for (String str : strs) {
+        		System.out.println(str);
+        	}
         	System.exit(0);
         }
 
