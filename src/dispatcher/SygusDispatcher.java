@@ -36,6 +36,11 @@ public class SygusDispatcher {
     Thread [] fallbackCEGIS = null;
 
     boolean nosolution = false;
+    public enum ConvertMethod {
+        FULLCLIA, NONE
+    }
+    ConvertMethod converted = ConvertMethod.NONE;
+    String[] resultStr = null;
 
     SygusDispatcher(Context z3ctx, SygusExtractor extractor) {
         this.z3ctx = z3ctx;
@@ -86,7 +91,20 @@ public class SygusDispatcher {
         this.heightsOnly = flag;
     }
 
+    public void prescreenGeneral() {
+        // first check if a General track problem can be convert to CLIA or not
+        if (this.isFullCLIA()) {
+            // TODO: distinguish clia & inv
+            problem.problemType = SygusProblem.ProbType.CLIA;
+            problem.isGeneral = false;
+            this.converted = ConvertMethod.FULLCLIA;
+        }
+        return;
+    }
+
     public void prescreen() {
+        // first check if a General track problem can be convert to CLIA or not
+        prescreenGeneral();
         if (this.enforceCEGIS) {
             logger.info("Enforcing CEGIS algorithms, skipping prescreen.");
             this.method = SolveMethod.CEGIS;
@@ -351,6 +369,27 @@ public class SygusDispatcher {
 
     }
 
+    public void postFormatting(DefinedFunc[] results) {
+        if (this.converted == ConvertMethod.NONE) {
+            logger.info("Nothing to format.");
+            return;
+        }
+        if (this.converted == ConvertMethod.FULLCLIA) {
+            logger.info("Formatting FullCLIA problem to fit in the grammar.");
+            resultStr = new String[results.length];
+            for (int i = 0; i < results.length; i++) {
+                DefinedFunc result = results[i];
+                Expr def = result.getDef();
+                Map<Expr, String> cache = new LinkedHashMap<Expr, String>();
+                Expr newdef = formatFullCLIA(def, cache);
+                logger.info("Function: " + result.getName() + ". Done formatting.");
+                resultStr[i] = cache.get(def);
+            }
+            return;
+        }
+        return;
+    }
+
     public boolean checkTmplt() throws Exception {
         boolean oldCEGIS = this.enforceCEGIS;
         boolean oldITCEGIS = this.enableITCEGIS;
@@ -558,4 +597,297 @@ public class SygusDispatcher {
         }
         return false;
     }
+
+    boolean isFullCLIA() {
+        boolean result = true;
+        // to check if a General track problem is actually a CLIA problem
+        if (problem.problemType != SygusProblem.ProbType.GENERAL) {
+            return false;
+        }
+        Map<String, SygusProblem.CFG> cfgs = problem.cfgs;
+        for (String name : problem.names) {
+            SygusProblem.CFG cfg = cfgs.get(name);
+            result = result && isCLIA(name, cfg);
+        }
+        return result;
+    }
+
+    boolean isCLIA(String funcname, SygusProblem.CFG cfg) {
+        // recognize the full CLIA grammar, like the one in max2
+
+        // Int expressions
+        boolean containsArgs = containsInputArgs(funcname, cfg);
+        boolean containtsZero = false;
+        boolean containsOne = false;
+        boolean containsAdd = false;
+        boolean containsMinus = false;
+        boolean containsITE = false;
+
+        // Bool expressions
+        boolean containsAnd = false;
+        boolean containsOr = false;
+        boolean containsNot = false;
+        boolean containsLe = false;
+        boolean containsEq = false;
+        boolean containsGe = false;
+
+        Map<String, List<String[]>>  grammarRules = cfg.grammarRules;
+        Map<String, Sort> grammarSybSort = cfg.grammarSybSort;
+
+        if (grammarSybSort.size() != 2 || 
+            !(grammarSybSort.containsValue(z3ctx.getIntSort()) 
+                && grammarSybSort.containsValue(z3ctx.getBoolSort()))) {
+            return false;
+        }
+
+        String intName = null;
+        String boolName = null;
+
+        for (String nonTermName : grammarRules.keySet()) {
+            Sort sort = grammarSybSort.get(nonTermName);
+            if (sort == z3ctx.getIntSort()) {
+                intName = nonTermName;
+            }
+            if (sort == z3ctx.getBoolSort()) {
+                boolName = nonTermName;
+            }
+        }
+
+        List<String[]> intRuleLists = grammarRules.get(intName);
+        for (String[] rules : intRuleLists) {
+            if (rules.length == 1) {
+                // 0 1
+                if (rules[0].equals("0")) {
+                    containtsZero = true;
+                }
+                if (rules[0].equals("1")) {
+                    containsOne = true;
+                }
+            }
+            if (rules.length == 3) {
+                // + -
+                if (rules[0].equals("+") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    containsAdd = true;
+                }
+                if (rules[0].equals("-") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    containsMinus = true;
+                }
+            }
+            if (rules.length == 4) {
+                // ite
+                if (rules[0].equals("ite") && rules[1].equals(boolName) && rules[2].equals(intName) && rules[3].equals(intName)) {
+                    containsITE = true;
+                }
+            }
+        }
+
+        List<String[]> boolRuleLists = grammarRules.get(boolName);
+        for (String[] rules : boolRuleLists) {
+            if (rules.length == 2) {
+                // not
+                if (rules[0].equals("not") && rules[1].equals(boolName)) {
+                    containsNot = true;
+                }
+            }
+            if (rules.length == 3) {
+                if (rules[0].equals("and") && rules[1].equals(boolName) && rules[2].equals(boolName)) {
+                    // and
+                    containsAnd = true;
+                }
+                if (rules[0].equals("or") && rules[1].equals(boolName) && rules[2].equals(boolName)) {
+                    // or
+                    containsOr = true;
+                }
+                if (rules[0].equals("<=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // le
+                    containsLe = true;
+                }
+                if (rules[0].equals("=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // eq
+                    containsEq = true;
+                }
+                if (rules[0].equals(">=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // ge
+                    containsGe = true;
+                }
+            }
+        }
+
+        if (containsArgs && containtsZero && containsOne && containsAdd && containsMinus && containsITE
+            && containsAnd && containsOr && containsNot && containsLe && containsEq && containsGe) {
+            return true;
+        }
+
+        // if the grammar does not match the conditions above, return false
+        return false;
+    }
+
+    boolean containsInputArgs(String funcname, SygusProblem.CFG cfg) {
+        boolean result = true;
+        Map<String, List<String[]>>  grammarRules = cfg.grammarRules;
+        Expr[] args = problem.requestArgs.get(funcname);
+
+        for (Expr arg : args) {
+            boolean containsArg = false;
+            for (String currentSymbol : grammarRules.keySet()) {
+                List<String[]> ruleLists = grammarRules.get(currentSymbol);
+                for (String[] rules : ruleLists) {
+                    String rule = rules[0];
+                    if (rule.equals(arg.toString())) {
+                        // System.out.println("print arg: " + arg.toString());
+                        containsArg = true;
+                    }
+                }
+            }
+            result = result && containsArg;
+        }
+        return result;
+    }
+
+    Expr formatFullCLIA(Expr expr, Map<Expr, String> cache) {
+        if (expr.isConst()) {
+            String conststr = expr.toString();
+            cache.put(expr, conststr);
+            return expr;
+        }
+        if (expr.isIntNum()) {
+            int num = Integer.parseInt(expr.toString());
+            String conststr = expr.toString();
+            if (num >= 2) {
+                Expr plus = z3ctx.mkInt(1);
+                String plusstr = "1";
+                for (int j = 1; j < num; j++) {
+                    plus = z3ctx.mkAdd((ArithExpr)plus, z3ctx.mkInt(1));
+                    plusstr =  "(+ " + plusstr + " 1)";
+                }
+                conststr = plusstr;
+            }
+            if (num < 0) {
+                Expr minus = z3ctx.mkInt(0);
+                String minusstr = "0";
+                for (int j = 0; j < (0 - num); j++) {
+                    minus = z3ctx.mkSub((ArithExpr)minus, z3ctx.mkInt(1));
+                    minusstr =  "(- " + minusstr + " 1)";
+                }
+                conststr = minusstr;
+            }
+            cache.put(expr, conststr);
+            return expr;
+        }
+        if (expr.isApp()) {
+            Expr[] args = expr.getArgs();
+            Expr[] newArgs = new Expr[args.length];
+            for (int i = 0; i < args.length; i++) {
+                newArgs[i] = formatFullCLIA(args[i], cache);
+            }
+            if (expr.isAnd()) {
+                // may have more than 2 conjuctions
+                Expr and = newArgs[0];
+                String andstr = cache.get(args[0]);
+                for (int i = 1; i < args.length; i++) {
+                    and = z3ctx.mkAnd((BoolExpr)and, (BoolExpr)newArgs[i]);
+                    andstr = "(and " + andstr + " " + cache.get(args[i]) + ")";
+                }
+                cache.put(expr, andstr);
+                return and;
+            }
+            if (expr.isOr()) {
+                // may have more than 2 disjuctions
+                Expr or = newArgs[0];
+                String orstr = cache.get(args[0]);
+                for (int i = 1; i < args.length; i++) {
+                    or = z3ctx.mkOr((BoolExpr)or, (BoolExpr)newArgs[i]);
+                    orstr = "(or " + orstr + " " + cache.get(args[i]) + ")";
+                }
+                cache.put(expr, orstr);
+                return or;
+            }
+            if (expr.isNot()) {
+                String notstr = "(not " + cache.get(args[0]) + ")";
+                cache.put(expr, notstr);
+                return z3ctx.mkNot((BoolExpr)newArgs[0]);
+            }
+            if (expr.isMul()) {
+                // since CLIA, one arg is int number, the other one is variable
+                int num = 0;
+                Expr arg = null;
+                if (args[0].isIntNum()) {
+                    num = Integer.parseInt(args[0].toString());
+                    arg = newArgs[1];
+                } else {
+                    arg = newArgs[0];
+                    num = Integer.parseInt(args[1].toString());
+                }
+                if (num == 0) {
+                    cache.put(expr, "0");
+                    return z3ctx.mkInt(0);
+                }
+                if (num > 0) {
+                    Expr add = arg;
+                    String addstr = cache.get(arg);
+                    for (int i = 1; i < num; i++) {
+                        add = z3ctx.mkAdd((ArithExpr)add, (ArithExpr)arg);
+                        addstr = "(+ " + addstr + " " + cache.get(arg) + ")";
+                    }
+                    cache.put(expr, addstr);
+                    return add;
+                }
+                if (num < 0) {
+                    Expr sub = z3ctx.mkInt(0);
+                    String substr = "0"; 
+                    for (int i = 0; i < (0 - num); i++) {
+                        sub = z3ctx.mkSub((ArithExpr)sub, (ArithExpr)arg);
+                        substr = "(- " + substr + " " + cache.get(arg) + ")";
+                    }
+                    cache.put(expr, substr);
+                    return sub;
+                }
+            }
+            if (expr.isAdd()) {
+                Expr add = newArgs[0];
+                String addstr = cache.get(args[0]);
+                for (int i = 1; i < args.length; i++) {
+                    add = z3ctx.mkAdd((ArithExpr)add, (ArithExpr)newArgs[i]);
+                    addstr = "(+ " + addstr + " " + cache.get(args[i]) + ")";
+                    // logger.info("add arg: " + cache.get(args[i]));
+                }
+                cache.put(expr, addstr);
+                return add;
+            }
+            if (expr.isSub()) {
+                Expr sub = newArgs[0];
+                String substr = cache.get(args[0]);
+                for (int i = 1; i < args.length; i++) {
+                    sub = z3ctx.mkSub((ArithExpr)sub, (ArithExpr)newArgs[i]);
+                    substr = "(- " + substr + " " + cache.get(args[i]) + ")";
+                }
+                cache.put(expr, substr);
+                return sub;
+            }
+            if (expr.isITE()) {
+                String itestr = "(ite " + cache.get(args[0]) + " " + cache.get(args[1]) + " " + cache.get(args[2]) + ")";
+                cache.put(expr, itestr);
+                return z3ctx.mkITE((BoolExpr)newArgs[0], newArgs[1], newArgs[2]);
+            }
+            if (expr.isGE()) {
+                String gestr = "(>= " + cache.get(args[0]) + " " + cache.get(args[1]) + ")";
+                cache.put(expr, gestr);
+                return z3ctx.mkGe((ArithExpr)newArgs[0], (ArithExpr)newArgs[1]);
+            }
+            if (expr.isLE()) {
+                String lestr = "(<= " + cache.get(args[0]) + " " + cache.get(args[1]) + ")";
+                cache.put(expr, lestr);
+                return z3ctx.mkLe((ArithExpr)newArgs[0], (ArithExpr)newArgs[1]);
+            }
+            if (expr.isEq()) {
+                String eqstr = "(= " + cache.get(args[0]) + " " + cache.get(args[1]) + ")";
+                cache.put(expr, eqstr);
+                return z3ctx.mkEq(newArgs[0], newArgs[1]);
+            }
+        }
+        // return null as error message
+        logger.info("expr reach the end: " + expr.toString());
+        return null;
+    }
+
 }
