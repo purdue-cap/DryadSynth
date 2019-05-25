@@ -15,6 +15,7 @@ public class CEGISEnv {
     public boolean checkITOnly = false;
     public boolean tmpltApplied = false;
     public boolean enforceFHCEGIS = false;
+    public SygusProblem original = null;
 
     public enum FeedType {
         ALLINONE, FIXED, HEIGHTONLY, HEIGHTANDCOND;
@@ -22,8 +23,11 @@ public class CEGISEnv {
     public FeedType feedType = null;
 	public Set<Expr[]> counterExamples = new LinkedHashSet<Expr[]>();
 
-    public Map<Expr, Set<Expr[]>> cntrExpMap = new LinkedHashMap<Expr, Set<Expr[]>>();
-    public Map<Expr, Map<Integer, DefinedFunc[]>> triedProblem = new LinkedHashMap<Expr, Map<Integer, DefinedFunc[]>>();
+    // public Map<Expr, Set<Expr[]>> cntrExpMap = new LinkedHashMap<Expr, Set<Expr[]>>();
+    
+    // public Map<Expr, Map<Integer, DefinedFunc[]>> triedProblem = new LinkedHashMap<Expr, Map<Integer, DefinedFunc[]>>();
+
+    // public Map<Expr, SolvedResult> triedProblem = new LinkedHashMap<Expr, SolvedResult>();
 
     public class Tmplts {
         public DefinedFunc[] array = null;
