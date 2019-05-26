@@ -257,8 +257,20 @@ public class SygusDispatcher {
         if (this.method == SolveMethod.AT) {
             logger.info("Initializing AT algorithms.");
             // Single thread only algorithm, ignoring numCore settings.
-            threads = new Thread[1];
-            threads[0] = preparedAT;
+            // threads = new Thread[1];
+            // threads[0] = preparedAT;
+
+            if (numCore > 1) {
+                threads = fallbackCEGIS;
+                preparedAT = new AT(new Context(), logger, env);
+                preparedAT.init();
+                threads[0] = preparedAT;
+            } else {
+                threads = new Thread[1];
+                preparedAT.setEnv(env);
+                threads[0] = preparedAT;
+            }
+
             return;
         }
 
@@ -314,9 +326,55 @@ public class SygusDispatcher {
         }
 
         if (this.method == SolveMethod.AT){
-            logger.info("Starting AT algorithms.");
-            threads[0].run();
-            results = ((AT)threads[0]).results;
+            // logger.info("Starting AT algorithms.");
+            // threads[0].run();
+            // results = ((AT)threads[0]).results;
+
+            if (numCore > 1) {
+                for (int i = 0; i < numCore; i++) {
+                    threads[i].start();
+                }
+                while (results == null) {
+                    synchronized(env) {
+                        env.wait();
+                    }
+                    int resultHeight = 0;
+                    AT at = (AT)threads[0];
+                    if (at.results != null) {
+                        results = at.results;
+                        System.out.println("AT got results.");
+                    } 
+                    for (int i = 1; i < numCore; i++) {
+                        Cegis cegis = (Cegis)threads[i];
+                        if (cegis.results != null) {
+                            results = cegis.results;
+                            resultHeight = cegis.resultHeight;
+                            if (cegis.nosolution) {
+                                nosolution = true;
+                            }
+                        }
+                    }
+                    if (env.runningThreads.get() == 0) {
+                        return results;
+                    }
+                    if (env.checkITOnly){
+                        for (int i = 1; i < numCore; i++) {
+                            Cegis cegis = (Cegis)threads[i];
+                            cegis.running = false;
+                        }
+                        return results;
+                    }
+                    if (heightsOnly) {
+                        System.out.println("resultHeight:" + new Integer(resultHeight).toString());
+                        return null;
+                    }
+                }
+            } else {
+                logger.info("Starting AT algorithms.");
+                threads[0].run();
+                results = ((AT)threads[0]).results;
+            }
+
         }
 
         if (this.method == SolveMethod.CEGIS || (results == null) && (iterLimit == 0)) {

@@ -18,10 +18,23 @@ public class AT extends Thread {
 
     public DefinedFunc[] results;
 
+    public CEGISEnv env;
+
     public AT(Context ctx, SygusProblem problem, Logger logger) {
         this.ctx = ctx;
         this.problem = problem;
         this.logger = logger;
+    }
+
+    public AT(Context ctx, Logger logger, CEGISEnv env) {
+        this.ctx = ctx;
+        this.env = env;
+        this.problem = this.env.problem.translate(this.ctx);
+        this.logger = logger;
+    }
+
+    public void setEnv(CEGISEnv env) {
+        this.env = env;
     }
 
     public void init() {
@@ -63,7 +76,12 @@ public class AT extends Thread {
     }
 
     public void run () {
+        env.runningThreads.incrementAndGet();
         this.evaluate(transfunc, pre, post, vars, argParas);
+        synchronized(env) {
+            env.notify();
+        }
+        env.runningThreads.decrementAndGet();
     }
 
     public Expr post_processing(Expr orig) {
