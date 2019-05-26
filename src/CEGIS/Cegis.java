@@ -45,6 +45,9 @@ public class Cegis extends Thread{
 	public int inputIterLimit = 0;
 	public SygusProblem original = null;	// the problem got from parser
 
+	public Map<Expr, Set<Expr[]>> cntrExpMap = new LinkedHashMap<Expr, Set<Expr[]>>();
+    public Map<Expr, Map<Integer, DefinedFunc[]>> triedProblem = new LinkedHashMap<Expr, Map<Integer, DefinedFunc[]>>();
+
 	public enum ProbType {
         POSMIX,
         NEGMIX,
@@ -111,13 +114,13 @@ public class Cegis extends Thread{
 		return this.env.counterExamples;
 	}
 
-	public Map<Expr, Set<Expr[]>> getCntrExp() {
-		return this.env.cntrExpMap;
-	}
+	// public Map<Expr, Set<Expr[]>> getCntrExp() {
+	// 	return this.env.cntrExpMap;
+	// }
 
-	public Map<Expr, Map<Integer, DefinedFunc[]>> getTriedProb() {
-		return this.env.triedProblem;
-	}
+	// public Map<Expr, Map<Integer, DefinedFunc[]>> getTriedProb() {
+	// 	return this.env.triedProblem;
+	// }
 
 	public void setInputIterLimit(int input) {
 		this.inputIterLimit = input;
@@ -349,15 +352,13 @@ public class Cegis extends Thread{
 				}
 			}
 
-			synchronized(getCntrExp()) {
-				for (Expr[] params : getCntrExp().get(problem.finalConstraint)) {
-					Expr[] newParas = new Expr[params.length];
-					for (int i = 0; i < params.length; i++) {
-						newParas[i] = params[i].translate(ctx);
-					}
-					BoolExpr expandSpec = (BoolExpr) spec.substitute(problem.vars.values().toArray(new Expr[problem.vars.size()]), newParas);
-					q = ctx.mkAnd(q, expandSpec);
+			for (Expr[] params : cntrExpMap.get(problem.finalConstraint)) {
+				Expr[] newParas = new Expr[params.length];
+				for (int i = 0; i < params.length; i++) {
+					newParas[i] = params[i].translate(ctx);
 				}
+				BoolExpr expandSpec = (BoolExpr) spec.substitute(problem.vars.values().toArray(new Expr[problem.vars.size()]), newParas);
+				q = ctx.mkAnd(q, expandSpec);
 			}
 
 			s.add(q);
@@ -743,9 +744,7 @@ public class Cegis extends Thread{
 					search(fixedHeight, origProblem, ProbType.NORMAL);
 
 					DefinedFunc[] partial = new DefinedFunc[origProblem.rdcdRequests.size()];
-					synchronized(getTriedProb()) {
-						partial = getSolution(getTriedProb().get(origProblem.finalConstraint));
-					}
+					partial = getSolution(triedProblem.get(origProblem.finalConstraint));
 
 					if (partial != null) {
 						logger.info("Found the results in height " + fixedHeight + ". Exit searching process.");
@@ -1239,7 +1238,7 @@ public class Cegis extends Thread{
 
 		// set the iterLimit to be inputIterLimit * fixedHeight
 		// this.iterLimit = fixedHeight * inputIterLimit;
-		this.iterLimit = fixedHeight * fixedHeight * inputIterLimit;
+		this.iterLimit = inputIterLimit;
 
 		iterCount = 0;
 
@@ -1257,13 +1256,11 @@ public class Cegis extends Thread{
 		long startTime = System.currentTimeMillis();
 
 		// print out initial examples
-		synchronized(getCntrExp()) {
-			if (!getCntrExp().containsKey(problem.finalConstraint)) {
-				Set<Expr[]> ce = new LinkedHashSet<Expr[]>();
-				getCntrExp().put(problem.finalConstraint, ce);
-			}
-			logger.info("Initial examples:" + Arrays.deepToString(getCntrExp().get(problem.finalConstraint).toArray()));
+		if (!cntrExpMap.containsKey(problem.finalConstraint)) {
+			Set<Expr[]> ce = new LinkedHashSet<Expr[]>();
+			cntrExpMap.put(problem.finalConstraint, ce);
 		}
+		logger.info("Initial examples:" + Arrays.deepToString(cntrExpMap.get(problem.finalConstraint).toArray()));
 
 		// Subprocedure classes
 		if (testVerifier == null) {
@@ -1392,12 +1389,10 @@ public class Cegis extends Thread{
 			VerifierDecoder decoder = this.createVerifierDecoder(testVerifier);
 
 			Expr[] cntrExmp = decoder.decode();
-			synchronized(getCntrExp()) {
-				Set<Expr[]> ce = getCntrExp().get(problem.finalConstraint);
-				ce.add(cntrExmp);
-				getCntrExp().put(problem.finalConstraint, ce);
-				logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(getCntrExp().get(problem.finalConstraint).toArray()));
-			}
+			Set<Expr[]> ce = cntrExpMap.get(problem.finalConstraint);
+			ce.add(cntrExmp);
+			cntrExpMap.put(problem.finalConstraint, ce);
+			logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(cntrExpMap.get(problem.finalConstraint).toArray()));
 
 			if (condBoundInc > 1) {
 				if (condBoundInc <= searchRegions) {
@@ -1481,9 +1476,7 @@ public class Cegis extends Thread{
 			// System.out.println("Entered height: " + height);
 			search(height, origProblem, ProbType.NORMAL);
 
-			synchronized(getTriedProb()) {
-				partial = getSolution(getTriedProb().get(origProblem.finalConstraint));
-			}
+			partial = getSolution(triedProblem.get(origProblem.finalConstraint));
 
 			if (partial != null) {
 				logger.info("Found the results in height " + height + ". Exit searching process.");
@@ -1627,13 +1620,11 @@ public class Cegis extends Thread{
 			SygusProblem smallerProb = getProbWithHeight(prblm, prblm.searchHeight - 1);
 			// search(height - 1, smallerProb, type);
 
-			synchronized(getTriedProb()) {
-				DefinedFunc[] solution = getSolution(getTriedProb().get(prblm.finalConstraint));
-				if (solution != null) {
-					logger.info(String.format("Found a smaller solution at searchHeight %d", height - 1));
-					logger.info("The solution is :" + Arrays.toString(solution));
-					return;
-				}
+			DefinedFunc[] solution = getSolution(triedProblem.get(prblm.finalConstraint));
+			if (solution != null) {
+				logger.info(String.format("Found a smaller solution at searchHeight %d", height - 1));
+				logger.info("The solution is :" + Arrays.toString(solution));
+				return;
 			}
 
 			// convert the finalConstraint to CNF
@@ -1691,9 +1682,7 @@ public class Cegis extends Thread{
 			search(height - 1, posMixProb, ProbType.POSMIX);
 
 			DefinedFunc[] subexpr = new DefinedFunc[posMixProb.rdcdRequests.size()];
-			synchronized(getTriedProb()) {
-				subexpr = getSolution(getTriedProb().get(posMixProb.finalConstraint));
-			}
+			subexpr = getSolution(triedProblem.get(posMixProb.finalConstraint));
 
 			if (subexpr != null) {
 				// then construct a new problem
@@ -1705,27 +1694,26 @@ public class Cegis extends Thread{
 				logger.info(String.format("Searching with the help of partial solution for pos & mix at searchHeight %d", simpProb.searchHeight));
 				search(height - 1, simpProb, type);
 
-				synchronized(getTriedProb()) {
-					DefinedFunc[] subf = getSolution(getTriedProb().get(simpProb.finalConstraint));
-					if (subf != null) {	// if an f can be found
-						// combime f and E together (get E \/ f), and put the results in the map
-						DefinedFunc[] combined = getCombinedResults(subexpr, subf, true);
-						logger.info(String.format("Found solution with the help of pos & mix solution at searchHeight %d", simpProb.searchHeight));
-						logger.info("The solution is :" + Arrays.toString(subf));
-						logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
-						logger.info("Combined solution is :" + Arrays.toString(combined));
-						if (getTriedProb().containsKey(prblm.finalConstraint)) {
-							Map<Integer, DefinedFunc[]> solumap = getTriedProb().get(prblm.finalConstraint);
-							solumap.put(height - 1, combined);	// height does not matter if we have a solution
-							getTriedProb().put(prblm.finalConstraint, solumap);
-						} else {
-							Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
-							solumap.put(height - 1, combined);
-							getTriedProb().put(prblm.finalConstraint, solumap);
-						}
-						return;
+				DefinedFunc[] subf = getSolution(triedProblem.get(simpProb.finalConstraint));
+				if (subf != null) {	// if an f can be found
+					// combime f and E together (get E \/ f), and put the results in the map
+					DefinedFunc[] combined = getCombinedResults(subexpr, subf, true);
+					logger.info(String.format("Found solution with the help of pos & mix solution at searchHeight %d", simpProb.searchHeight));
+					logger.info("The solution is :" + Arrays.toString(subf));
+					logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
+					logger.info("Combined solution is :" + Arrays.toString(combined));
+					if (triedProblem.containsKey(prblm.finalConstraint)) {
+						Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
+						solumap.put(height - 1, combined);	// height does not matter if we have a solution
+						triedProblem.put(prblm.finalConstraint, solumap);
+					} else {
+						Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
+						solumap.put(height - 1, combined);
+						triedProblem.put(prblm.finalConstraint, solumap);
 					}
+					return;
 				}
+
 			} else {
 				logger.info(String.format("Did not find partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
 			}
@@ -1738,10 +1726,7 @@ public class Cegis extends Thread{
 			logger.info("Neg & Mix constraint: " + negMix);
 
 			search(height - 1, negMixProb, ProbType.NEGMIX);
-
-			synchronized(getTriedProb()) {
-				subexpr = getSolution(getTriedProb().get(negMixProb.finalConstraint));
-			}
+			subexpr = getSolution(triedProblem.get(negMixProb.finalConstraint));
 
 			if (subexpr != null) {
 				// then construct a new problem
@@ -1753,27 +1738,26 @@ public class Cegis extends Thread{
 				logger.info(String.format("Searching with the help of partial solution for neg & mix at searchHeight %d", simpProb.searchHeight));
 				search(height - 1, simpProb, type);
 
-				synchronized(getTriedProb()) {
-					DefinedFunc[] subf = getSolution(getTriedProb().get(simpProb.finalConstraint));
-					if (subf != null) {	// if an f can be found
-						// combime f and E together (get E /\ f), and put the results in the map
-						DefinedFunc[] combined = getCombinedResults(subexpr, subf, false);
-						logger.info(String.format("Found solution with the help of neg & mix solution at searchHeight %d", simpProb.searchHeight));
-						logger.info("The solution is :" + Arrays.toString(subf));
-						logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
-						logger.info("Combined solution is :" + Arrays.toString(combined));
-						if (getTriedProb().containsKey(prblm.finalConstraint)) {
-							Map<Integer, DefinedFunc[]> solumap = getTriedProb().get(prblm.finalConstraint);
-							solumap.put(height - 1, combined);	// height does not matter if we have a solution
-							getTriedProb().put(prblm.finalConstraint, solumap);
-						} else {
-							Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
-							solumap.put(height - 1, combined);
-							getTriedProb().put(prblm.finalConstraint, solumap);
-						}
-						return;
+				DefinedFunc[] subf = getSolution(triedProblem.get(simpProb.finalConstraint));
+				if (subf != null) {	// if an f can be found
+					// combime f and E together (get E /\ f), and put the results in the map
+					DefinedFunc[] combined = getCombinedResults(subexpr, subf, false);
+					logger.info(String.format("Found solution with the help of neg & mix solution at searchHeight %d", simpProb.searchHeight));
+					logger.info("The solution is :" + Arrays.toString(subf));
+					logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
+					logger.info("Combined solution is :" + Arrays.toString(combined));
+					if (triedProblem.containsKey(prblm.finalConstraint)) {
+						Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
+						solumap.put(height - 1, combined);	// height does not matter if we have a solution
+						triedProblem.put(prblm.finalConstraint, solumap);
+					} else {
+						Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
+						solumap.put(height - 1, combined);
+						triedProblem.put(prblm.finalConstraint, solumap);
 					}
+					return;
 				}
+
 			} else {
 				logger.info(String.format("Did not find partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
 			}
@@ -1783,10 +1767,8 @@ public class Cegis extends Thread{
 		logger.info(String.format("Searching for full tree at searchHeight %d", problem.searchHeight));
 
 		boolean unsolved = false;
-		synchronized(getTriedProb()) {
-			if (!getTriedProb().containsKey(problem.finalConstraint) || !getTriedProb().get(problem.finalConstraint).containsKey(height)) {
-				unsolved = true;
-			}
+		if (!triedProblem.containsKey(problem.finalConstraint) || !triedProblem.get(problem.finalConstraint).containsKey(height)) {
+			unsolved = true;
 		}
 
 		if (unsolved) {
@@ -1794,17 +1776,16 @@ public class Cegis extends Thread{
 			DefinedFunc[] func = cegisFixedHeight(height, type);		// cegisFixedHeight should return DefinedFunc[]
 			logger.info("Found synthesized function(s):" + Arrays.toString(func));
 
-			synchronized(getTriedProb()) {
-				if (getTriedProb().containsKey(prblm.finalConstraint)) {
-					Map<Integer, DefinedFunc[]> solumap = getTriedProb().get(prblm.finalConstraint);
-					solumap.put(height, func);	// height does not matter if we have a solution
-					getTriedProb().put(prblm.finalConstraint, solumap);
-				} else {
-					Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
-					solumap.put(height, func);
-					getTriedProb().put(prblm.finalConstraint, solumap);
-				}
+			if (triedProblem.containsKey(prblm.finalConstraint)) {
+				Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
+				solumap.put(height, func);	// height does not matter if we have a solution
+				triedProblem.put(prblm.finalConstraint, solumap);
+			} else {
+				Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
+				solumap.put(height, func);
+				triedProblem.put(prblm.finalConstraint, solumap);
 			}
+
 			logger.info("Store solutions for later use.");
 		} else {
 			logger.info("At height " + height + ". Problem is solved before: " + problem.finalConstraint.toString());
