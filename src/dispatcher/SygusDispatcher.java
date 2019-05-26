@@ -3,7 +3,6 @@ import java.util.logging.Logger;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
 import com.microsoft.z3.*;
-import java.util.concurrent.TimeUnit;
 
 public class SygusDispatcher {
     public enum SolveMethod {
@@ -160,11 +159,7 @@ public class SygusDispatcher {
 
         logger.info("Initializing CEGIS algorithm as prepared fallback.");
         env = new CEGISEnv();
-        env.original = problem;
         env.problem = problem;
-        if (problem.invConstraints != null) {
-            env.problem.finalConstraint = getIndFinalConstraint(problem);
-        }
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
         env.maxsmtFlag = maxsmtFlag;
@@ -181,9 +176,9 @@ public class SygusDispatcher {
                 threadHandler.setFormatter(new SimpleFormatter());
                 threadLogger.addHandler(threadHandler);
                 if (enableITCEGIS) {
-                    fallbackCEGIS[i] = new ITCegis(z3ctx, env, threadLogger);
+                    fallbackCEGIS[i] = new ITCegis(env, threadLogger);
                 } else {
-                    fallbackCEGIS[i] = new Cegis(z3ctx, env, threadLogger);
+                    fallbackCEGIS[i] = new Cegis(env, threadLogger);
                 }
                 ((Cegis)fallbackCEGIS[i]).iterLimit = this.iterLimit;
             }
@@ -258,8 +253,7 @@ public class SygusDispatcher {
         if (this.method == SolveMethod.AT) {
             logger.info("Initializing AT algorithms.");
             // Single thread only algorithm, ignoring numCore settings.
-            // threads = new Thread[1];
-            threads = fallbackCEGIS;
+            threads = new Thread[1];
             threads[0] = preparedAT;
             return;
         }
@@ -316,50 +310,9 @@ public class SygusDispatcher {
         }
 
         if (this.method == SolveMethod.AT){
-            if (numCore > 1) {
-                for (int i = 0; i < numCore; i++) {
-                    threads[i].start();
-                }
-                while (results == null) {
-                    synchronized(env) {
-                        env.wait();
-                    }
-                    int resultHeight = 0;
-                    AT at = (AT)threads[0];
-                    if (at.results != null) {
-                        results = at.results;
-                    } 
-                    for (int i = 1; i < numCore; i++) {
-                        Cegis cegis = (Cegis)threads[i];
-                        if (cegis.results != null) {
-                            results = cegis.results;
-                            resultHeight = cegis.resultHeight;
-                            if (cegis.nosolution) {
-                                nosolution = true;
-                            }
-                        }
-                    }
-                    // if (env.runningThreads.get() == 0) {
-                    //     return results;
-                    // }
-                    if (env.checkITOnly){
-                        for (int i = 1; i < numCore; i++) {
-                            Cegis cegis = (Cegis)threads[i];
-                            cegis.running = false;
-                        }
-                        return results;
-                    }
-                    if (heightsOnly) {
-                        System.out.println("resultHeight:" + new Integer(resultHeight).toString());
-                        return null;
-                    }
-                }
-
-            } else {
-                logger.info("Starting AT algorithms.");
-                threads[0].run();
-                results = ((AT)threads[0]).results;
-            }
+            logger.info("Starting AT algorithms.");
+            threads[0].run();
+            results = ((AT)threads[0]).results;
         }
 
         if (this.method == SolveMethod.CEGIS || (results == null) && (iterLimit == 0)) {
@@ -367,12 +320,6 @@ public class SygusDispatcher {
             if (numCore > 1) {
                 for (int i = 0; i < numCore; i++) {
                     fallbackCEGIS[i].start();
-                    // try {
-                    //     // TimeUnit.SECONDS.sleep(1);
-                    //     Thread.sleep(100);
-                    // } catch (InterruptedException ie) {
-                    //     System.out.println("Exception!");
-                    // }
                 }
         		while (results == null) {
                     synchronized(env) {
@@ -441,45 +388,6 @@ public class SygusDispatcher {
             return;
         }
         return;
-    }
-
-    public BoolExpr getIndFinalConstraint(SygusProblem origProblem) {
-        BoolExpr newFinal = origProblem.finalConstraint;
-        if (origProblem.invConstraints != null) {
-            Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
-            newFinal = z3ctx.mkTrue();
-            for (String key : invConstr.keySet()) {
-                DefinedFunc pre = invConstr.get(key)[0];
-                DefinedFunc trans = invConstr.get(key)[1];
-                DefinedFunc post = invConstr.get(key)[2];
-                logger.info("pre: " + pre.getDef());
-                logger.info("trans: " + trans.getDef());
-                logger.info("post: " + post.getDef());
-                FuncDecl inv = origProblem.rdcdRequests.get(key);
-                Expr[] vars = origProblem.requestUsedArgs.get(key);
-                Expr invapp = inv.apply(vars);
-                Expr[] primedArgs = new Expr[vars.length];
-                for (int i = 0; i < vars.length; i++) {
-                    String name = vars[i].toString();
-                    primedArgs[i] = z3ctx.mkConst(name + "!", vars[i].getSort());
-                }
-                BoolExpr inductive = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)trans.getDef(),
-                                            (BoolExpr)invapp),
-                                    (BoolExpr)inv.apply(primedArgs));
-                logger.info("inductive before rewriting: " + inductive);
-                Expr newDef = z3ctx.mkAnd((BoolExpr)post.getDef(), z3ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)invapp));
-                logger.info("new inv with template: " + newDef);
-                DefinedFunc newinv = new DefinedFunc(z3ctx, key, vars, newDef);
-                inductive = (BoolExpr)newinv.rewrite(inductive, inv);
-                logger.info("inductive after rewriting: " + inductive);
-                if (invConstr.size() > 1) {
-                    newFinal = z3ctx.mkAnd(newFinal, inductive);
-                } else if (invConstr.size() == 1) {
-                    newFinal = inductive;
-                }
-            }
-        }
-        return (BoolExpr)newFinal;
     }
 
     public boolean checkTmplt() throws Exception {
