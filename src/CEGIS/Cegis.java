@@ -43,6 +43,7 @@ public class Cegis extends Thread{
 
 	public boolean nosolution = false;
 	public int inputIterLimit = 0;
+	public SygusProblem original = null;	// the problem got from parser
 
 	public enum ProbType {
         POSMIX,
@@ -64,6 +65,7 @@ public class Cegis extends Thread{
 		this.minInfinite = env.minInfinite;
 		this.maxsmtFlag = env.maxsmtFlag;
 		this.enforceFHCEGIS = env.enforceFHCEGIS;
+		this.original = env.original;
 
 		switch (env.feedType) {
 			case FIXED:
@@ -726,10 +728,8 @@ public class Cegis extends Thread{
 			logger.info(Thread.currentThread().getName() + " Started");
 			logger.info("Starting fixed height search CEGIS");
 			// store the original problem to do a final check
-			SygusProblem storeProblem = new SygusProblem(problem);
-			SygusProblem origProblem = new SygusProblem(problem);
 
-			origProblem.finalConstraint = getIndFinalConstraint(origProblem);
+			SygusProblem origProblem = new SygusProblem(problem);
 
 			setInputIterLimit(this.iterLimit);
 
@@ -752,7 +752,7 @@ public class Cegis extends Thread{
 						// System.out.println("Found solution in height: " + fixedHeight);
 						if (origProblem.invConstraints != null) {
 							results = combineInvPartial(origProblem, partial);
-							this.problem = new SygusProblem(storeProblem);
+							this.problem = env.original.translate(ctx);
 							if (testVerifier == null) {
 								testVerifier = this.createVerifier();
 							}
@@ -1456,45 +1456,6 @@ public class Cegis extends Thread{
 		return null;
 	}
 
-	public BoolExpr getIndFinalConstraint(SygusProblem origProblem) {
-		BoolExpr newFinal = origProblem.finalConstraint;
-		if (origProblem.invConstraints != null) {
-			Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
-			newFinal = ctx.mkTrue();
-			for (String key : invConstr.keySet()) {
-				DefinedFunc pre = invConstr.get(key)[0];
-				DefinedFunc trans = invConstr.get(key)[1];
-				DefinedFunc post = invConstr.get(key)[2];
-				logger.info("pre: " + pre.getDef());
-				logger.info("trans: " + trans.getDef());
-				logger.info("post: " + post.getDef());
-				FuncDecl inv = origProblem.rdcdRequests.get(key);
-				Expr[] vars = origProblem.requestUsedArgs.get(key);
-				Expr invapp = inv.apply(vars);
-		        Expr[] primedArgs = new Expr[vars.length];
-		        for (int i = 0; i < vars.length; i++) {
-		        	String name = vars[i].toString();
-		        	primedArgs[i] = ctx.mkConst(name + "!", vars[i].getSort());
-		        }
-		        BoolExpr inductive = ctx.mkImplies(ctx.mkAnd((BoolExpr)trans.getDef(),
-                                            (BoolExpr)invapp),
-                            		(BoolExpr)inv.apply(primedArgs));
-		        logger.info("inductive before rewriting: " + inductive);
-		        Expr newDef = ctx.mkAnd((BoolExpr)post.getDef(), ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)invapp));
-		        logger.info("new inv with template: " + newDef);
-		        DefinedFunc newinv = new DefinedFunc(ctx, key, vars, newDef);
-				inductive = (BoolExpr)newinv.rewrite(inductive, inv);
-				logger.info("inductive after rewriting: " + inductive);
-				if (invConstr.size() > 1) {
-					newFinal = ctx.mkAnd(newFinal, inductive);
-				} else if (invConstr.size() == 1) {
-					newFinal = inductive;
-				}
-			}
-		}
-		return (BoolExpr)newFinal;
-	}
-
 	public DefinedFunc[] combineInvPartial(SygusProblem origProblem, DefinedFunc[] partial) {
 		DefinedFunc[] combined = new DefinedFunc[partial.length];
 		Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
@@ -1513,7 +1474,6 @@ public class Cegis extends Thread{
 	public DefinedFunc[] gradualSynth() {
 		int height = 1;
 		boolean runningFlag = true;
-		SygusProblem storeProblem = new SygusProblem(problem);
 		SygusProblem origProblem = new SygusProblem(problem);
 		DefinedFunc[] partial = new DefinedFunc[origProblem.rdcdRequests.size()];
 		while (runningFlag) {
@@ -1535,7 +1495,7 @@ public class Cegis extends Thread{
 		DefinedFunc[] combined = new DefinedFunc[partial.length];
 		if (origProblem.invConstraints != null) {
 			combined = combineInvPartial(origProblem, partial);
-			this.problem = new SygusProblem(storeProblem);
+			this.problem = env.original.translate(ctx);
 			if (testVerifier == null) {
 				testVerifier = this.createVerifier();
 			}
@@ -1670,7 +1630,7 @@ public class Cegis extends Thread{
 			synchronized(getTriedProb()) {
 				DefinedFunc[] solution = getSolution(getTriedProb().get(prblm.finalConstraint));
 				if (solution != null) {
-					logger.info(String.format("Find a smaller solution at searchHeight %d", height - 1));
+					logger.info(String.format("Found a smaller solution at searchHeight %d", height - 1));
 					logger.info("The solution is :" + Arrays.toString(solution));
 					return;
 				}

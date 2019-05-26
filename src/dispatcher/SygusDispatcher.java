@@ -159,7 +159,11 @@ public class SygusDispatcher {
 
         logger.info("Initializing CEGIS algorithm as prepared fallback.");
         env = new CEGISEnv();
+        env.original = problem;
         env.problem = problem;
+        if (problem.invConstraints != null) {
+            env.problem.finalConstraint = getIndFinalConstraint(problem);
+        }
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
         env.maxsmtFlag = maxsmtFlag;
@@ -388,6 +392,45 @@ public class SygusDispatcher {
             return;
         }
         return;
+    }
+
+    public BoolExpr getIndFinalConstraint(SygusProblem origProblem) {
+        BoolExpr newFinal = origProblem.finalConstraint;
+        if (origProblem.invConstraints != null) {
+            Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
+            newFinal = z3ctx.mkTrue();
+            for (String key : invConstr.keySet()) {
+                DefinedFunc pre = invConstr.get(key)[0];
+                DefinedFunc trans = invConstr.get(key)[1];
+                DefinedFunc post = invConstr.get(key)[2];
+                logger.info("pre: " + pre.getDef());
+                logger.info("trans: " + trans.getDef());
+                logger.info("post: " + post.getDef());
+                FuncDecl inv = origProblem.rdcdRequests.get(key);
+                Expr[] vars = origProblem.requestUsedArgs.get(key);
+                Expr invapp = inv.apply(vars);
+                Expr[] primedArgs = new Expr[vars.length];
+                for (int i = 0; i < vars.length; i++) {
+                    String name = vars[i].toString();
+                    primedArgs[i] = z3ctx.mkConst(name + "!", vars[i].getSort());
+                }
+                BoolExpr inductive = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)trans.getDef(),
+                                            (BoolExpr)invapp),
+                                    (BoolExpr)inv.apply(primedArgs));
+                logger.info("inductive before rewriting: " + inductive);
+                Expr newDef = z3ctx.mkAnd((BoolExpr)post.getDef(), z3ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)invapp));
+                logger.info("new inv with template: " + newDef);
+                DefinedFunc newinv = new DefinedFunc(z3ctx, key, vars, newDef);
+                inductive = (BoolExpr)newinv.rewrite(inductive, inv);
+                logger.info("inductive after rewriting: " + inductive);
+                if (invConstr.size() > 1) {
+                    newFinal = z3ctx.mkAnd(newFinal, inductive);
+                } else if (invConstr.size() == 1) {
+                    newFinal = inductive;
+                }
+            }
+        }
+        return (BoolExpr)newFinal;
     }
 
     public boolean checkTmplt() throws Exception {

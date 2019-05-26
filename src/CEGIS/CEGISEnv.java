@@ -15,6 +15,7 @@ public class CEGISEnv {
     public boolean checkITOnly = false;
     public boolean tmpltApplied = false;
     public boolean enforceFHCEGIS = false;
+    public SygusProblem original = null;
 
     public enum FeedType {
         ALLINONE, FIXED, HEIGHTONLY, HEIGHTANDCOND;
