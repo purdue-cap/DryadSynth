@@ -1672,95 +1672,100 @@ public class Cegis extends Thread{
 			// System.exit(0);
 			// // test region above
 
-			BoolExpr posMix = ctx.mkAnd(posExpr, mixExpr);
-			SygusProblem posMixProb = new SygusProblem(smallerProb);
-			posMixProb.finalConstraint = posMix;
-			posMixProb.changed = true;
-			logger.info(String.format("Searching for partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
-			logger.info("Pos & Mix constraint: " + posMix);
+			if (!negList.isEmpty()) {
+				BoolExpr posMix = ctx.mkAnd(posExpr, mixExpr);
+				SygusProblem posMixProb = new SygusProblem(smallerProb);
+				posMixProb.finalConstraint = posMix;
+				posMixProb.changed = true;
+				logger.info(String.format("Searching for partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
+				logger.info("Pos & Mix constraint: " + posMix);
 
-			search(height - 1, posMixProb, ProbType.POSMIX);
+				search(height - 1, posMixProb, ProbType.POSMIX);
 
-			DefinedFunc[] subexpr = new DefinedFunc[posMixProb.rdcdRequests.size()];
-			subexpr = getSolution(triedProblem.get(posMixProb.finalConstraint));
+				DefinedFunc[] subexpr = new DefinedFunc[posMixProb.rdcdRequests.size()];
+				subexpr = getSolution(triedProblem.get(posMixProb.finalConstraint));
 
-			if (subexpr != null) {
-				// then construct a new problem
-				// synthesize "f" that phi(f) => phi(E/\f)
-				logger.info(String.format("Exists a partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
-				SygusProblem simpProb = getSimpProb(smallerProb, subexpr, true);
-				simpProb.changed = true;
+				if (subexpr != null) {
+					// then construct a new problem
+					// synthesize "f" that phi(f) => phi(E/\f)
+					logger.info(String.format("Exists a partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
+					SygusProblem simpProb = getSimpProb(smallerProb, subexpr, true);
+					simpProb.changed = true;
 
-				logger.info(String.format("Searching with the help of partial solution for pos & mix at searchHeight %d", simpProb.searchHeight));
-				search(height - 1, simpProb, type);
+					logger.info(String.format("Searching with the help of partial solution for pos & mix at searchHeight %d", simpProb.searchHeight));
+					search(height - 1, simpProb, type);
 
-				DefinedFunc[] subf = getSolution(triedProblem.get(simpProb.finalConstraint));
-				if (subf != null) {	// if an f can be found
-					// combime f and E together (get E \/ f), and put the results in the map
-					DefinedFunc[] combined = getCombinedResults(subexpr, subf, true);
-					logger.info(String.format("Found solution with the help of pos & mix solution at searchHeight %d", simpProb.searchHeight));
-					logger.info("The solution is :" + Arrays.toString(subf));
-					logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
-					logger.info("Combined solution is :" + Arrays.toString(combined));
-					if (triedProblem.containsKey(prblm.finalConstraint)) {
-						Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
-						solumap.put(height - 1, combined);	// height does not matter if we have a solution
-						triedProblem.put(prblm.finalConstraint, solumap);
-					} else {
-						Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
-						solumap.put(height - 1, combined);
-						triedProblem.put(prblm.finalConstraint, solumap);
+					DefinedFunc[] subf = getSolution(triedProblem.get(simpProb.finalConstraint));
+					if (subf != null) {	// if an f can be found
+						// combime f and E together (get E \/ f), and put the results in the map
+						DefinedFunc[] combined = getCombinedResults(subexpr, subf, true);
+						logger.info(String.format("Found solution with the help of pos & mix solution at searchHeight %d", simpProb.searchHeight));
+						logger.info("The solution is :" + Arrays.toString(subf));
+						logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
+						logger.info("Combined solution is :" + Arrays.toString(combined));
+						if (triedProblem.containsKey(prblm.finalConstraint)) {
+							Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
+							solumap.put(height - 1, combined);	// height does not matter if we have a solution
+							triedProblem.put(prblm.finalConstraint, solumap);
+						} else {
+							Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
+							solumap.put(height - 1, combined);
+							triedProblem.put(prblm.finalConstraint, solumap);
+						}
+						return;
 					}
-					return;
-				}
 
-			} else {
-				logger.info(String.format("Did not find partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
+				} else {
+					logger.info(String.format("Did not find partial solution for pos & mix at searchHeight %d", posMixProb.searchHeight));
+				}
 			}
 
-			BoolExpr negMix = ctx.mkAnd(negExpr, mixExpr);
-			SygusProblem negMixProb = new SygusProblem(smallerProb);
-			negMixProb.finalConstraint = negMix;
-			negMixProb.changed = true;
-			logger.info(String.format("Searching for partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
-			logger.info("Neg & Mix constraint: " + negMix);
+			if (!posList.isEmpty()) {
+				BoolExpr negMix = ctx.mkAnd(negExpr, mixExpr);
+				SygusProblem negMixProb = new SygusProblem(smallerProb);
+				negMixProb.finalConstraint = negMix;
+				negMixProb.changed = true;
+				logger.info(String.format("Searching for partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
+				logger.info("Neg & Mix constraint: " + negMix);
 
-			search(height - 1, negMixProb, ProbType.NEGMIX);
-			subexpr = getSolution(triedProblem.get(negMixProb.finalConstraint));
+				search(height - 1, negMixProb, ProbType.NEGMIX);
+				DefinedFunc[] subexpr = getSolution(triedProblem.get(negMixProb.finalConstraint));
 
-			if (subexpr != null) {
-				// then construct a new problem
-				// synthesize "f" that phi(f) => phi(E\/f)
-				logger.info(String.format("Exists a partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
-				SygusProblem simpProb = getSimpProb(smallerProb, subexpr, false);
-				simpProb.changed = true;
+				if (subexpr != null) {
+					// then construct a new problem
+					// synthesize "f" that phi(f) => phi(E\/f)
+					logger.info(String.format("Exists a partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
+					SygusProblem simpProb = getSimpProb(smallerProb, subexpr, false);
+					simpProb.changed = true;
 
-				logger.info(String.format("Searching with the help of partial solution for neg & mix at searchHeight %d", simpProb.searchHeight));
-				search(height - 1, simpProb, type);
+					logger.info(String.format("Searching with the help of partial solution for neg & mix at searchHeight %d", simpProb.searchHeight));
+					search(height - 1, simpProb, type);
 
-				DefinedFunc[] subf = getSolution(triedProblem.get(simpProb.finalConstraint));
-				if (subf != null) {	// if an f can be found
-					// combime f and E together (get E /\ f), and put the results in the map
-					DefinedFunc[] combined = getCombinedResults(subexpr, subf, false);
-					logger.info(String.format("Found solution with the help of neg & mix solution at searchHeight %d", simpProb.searchHeight));
-					logger.info("The solution is :" + Arrays.toString(subf));
-					logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
-					logger.info("Combined solution is :" + Arrays.toString(combined));
-					if (triedProblem.containsKey(prblm.finalConstraint)) {
-						Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
-						solumap.put(height - 1, combined);	// height does not matter if we have a solution
-						triedProblem.put(prblm.finalConstraint, solumap);
-					} else {
-						Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
-						solumap.put(height - 1, combined);
-						triedProblem.put(prblm.finalConstraint, solumap);
+					DefinedFunc[] subf = getSolution(triedProblem.get(simpProb.finalConstraint));
+					if (subf != null) {	// if an f can be found
+						// combime f and E together (get E /\ f), and put the results in the map
+						DefinedFunc[] combined = getCombinedResults(subexpr, subf, false);
+						logger.info(String.format("Found solution with the help of neg & mix solution at searchHeight %d", simpProb.searchHeight));
+						logger.info("The solution is :" + Arrays.toString(subf));
+						logger.info("The subexpression found before is :" + Arrays.toString(subexpr));
+						logger.info("Combined solution is :" + Arrays.toString(combined));
+						if (triedProblem.containsKey(prblm.finalConstraint)) {
+							Map<Integer, DefinedFunc[]> solumap = triedProblem.get(prblm.finalConstraint);
+							solumap.put(height - 1, combined);	// height does not matter if we have a solution
+							triedProblem.put(prblm.finalConstraint, solumap);
+						} else {
+							Map<Integer, DefinedFunc[]> solumap = new LinkedHashMap<Integer, DefinedFunc[]>();
+							solumap.put(height - 1, combined);
+							triedProblem.put(prblm.finalConstraint, solumap);
+						}
+						return;
 					}
-					return;
-				}
 
-			} else {
-				logger.info(String.format("Did not find partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
+				} else {
+					logger.info(String.format("Did not find partial solution for neg & mix at searchHeight %d", negMixProb.searchHeight));
+				}
 			}
+
 		}
 
 		problem = getProbWithHeight(prblm, height);
