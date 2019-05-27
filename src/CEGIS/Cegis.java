@@ -579,6 +579,7 @@ public class Cegis extends Thread{
 				}
 			}
 
+			int equationBound = (int)Math.pow(2, eqBound) - 1;
 			for (int j = 0; j < coeff.length; j++) {
 				f[j] = new Expr[coeff[j].length];
 				for (int i = coeff[j].length - 1; i >= 0; i--) {
@@ -586,7 +587,7 @@ public class Cegis extends Thread{
 					// BoolExpr cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
 					// 				, ctx.mkEq(p[j][i], ctx.mkInt(0)));
 					BoolExpr cond = null;
-					if (i < (int)Math.pow(2, eqBound) - 1) {
+					if (coeff[j].length <= equationBound) {
 						cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
 									, ctx.mkEq(p[j][i], ctx.mkInt(0)));
 					} else {

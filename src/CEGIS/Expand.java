@@ -229,7 +229,7 @@ public class Expand {
 		}
 
 		BoolExpr condition;
-		if (i < equationBound) {
+		if (c[k].length <= equationBound) {
 			condition = ctx.mkOr(ctx.mkAnd(ctx.mkGt(poly, ctx.mkInt(0)), eq[k][i])
 							, ctx.mkEq(poly, ctx.mkInt(0)));
 		} else {
