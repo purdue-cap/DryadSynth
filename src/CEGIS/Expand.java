@@ -13,6 +13,8 @@ public class Expand {
 	// Bound is term array length for General
 	// Public for outer reference
 	public int bound;
+	// EquationBound is eqflag length for CLIA/INV
+	public int equationBound;
 
 	private Context ctx;
 	private SygusProblem problem;
@@ -35,6 +37,10 @@ public class Expand {
 		this.numFunc = problem.names.size();
 	}
 
+	public void setEquationBound(int eqBound) {
+		this.equationBound = (int)Math.pow(2, eqBound) - 1;
+	}
+
 	public void setVectorBound(int vectorBound) {
 		assert problem.isGeneral;
 		this.bound = vectorBound;
@@ -47,7 +53,11 @@ public class Expand {
 		assert !problem.isGeneral;
 		this.bound = (int)Math.pow(2, heightBound) - 1;
 		c = new IntExpr[numFunc][bound][0];
-		eq = new BoolExpr[numFunc][bound];
+		if (equationBound <= bound) {
+			eq = new BoolExpr[numFunc][equationBound];
+		} else {
+			eq = new BoolExpr[numFunc][bound];
+		}	
 		declareConstants();
 	}
 
@@ -64,7 +74,7 @@ public class Expand {
 		}
 
 		for (int k = 0; k < numFunc; k++) {
-			for (int j = 0; j < bound; j++) {
+			for (int j = 0; j < (equationBound <= bound ? equationBound : bound); j++) {
 				eq[k][j] = ctx.mkBoolConst("f" + k + "_eq" + j);
 			}
 		}
@@ -222,8 +232,13 @@ public class Expand {
 			poly = ctx.mkAdd(poly, ctx.mkMul(c[k][i][j], (ArithExpr)var[j - 1]));
 		}
 
-		BoolExpr condition = ctx.mkOr(ctx.mkAnd(ctx.mkGt(poly, ctx.mkInt(0)), eq[k][i])
+		BoolExpr condition;
+		if (i < equationBound) {
+			condition = ctx.mkOr(ctx.mkAnd(ctx.mkGt(poly, ctx.mkInt(0)), eq[k][i])
 							, ctx.mkEq(poly, ctx.mkInt(0)));
+		} else {
+			condition = ctx.mkGe(poly, ctx.mkInt(0));
+		}
 
 		if (i < ((bound - 1)/2)) {
 			return ctx.mkITE(condition, generateEval(k, 2*i + 1), generateEval(k, 2*i + 2));

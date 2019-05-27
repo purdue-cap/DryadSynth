@@ -11,6 +11,7 @@ public class CEGISEnv {
     public SygusProblem problem = null;
     public int minFinite = -1;
     public int minInfinite = -1;
+    public int eqBound = -1;
     public boolean maxsmtFlag = false;
     public boolean checkITOnly = false;
     public boolean tmpltApplied = false;

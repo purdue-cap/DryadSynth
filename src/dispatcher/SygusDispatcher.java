@@ -18,6 +18,7 @@ public class SygusDispatcher {
     int iterLimit = 0;
     int minFinite = 20;
     int minInfinite = 5;
+    int eqBound = 0;
     boolean maxsmtFlag = false;
     boolean enforceCEGIS = false;
     boolean enforceFHCEGIS = false;
@@ -65,6 +66,10 @@ public class SygusDispatcher {
 
     public void setMinInfinite(int min) {
         this.minInfinite = min;
+    }
+
+    public void setEqBound(int eqbound) {
+        this.eqBound = eqbound;
     }
 
     public void setMaxSMTFlag(boolean maxsmt) {
@@ -166,6 +171,7 @@ public class SygusDispatcher {
         }
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
+        env.eqBound = eqBound;
         env.maxsmtFlag = maxsmtFlag;
         env.enforceFHCEGIS = enforceFHCEGIS;
         fallbackCEGIS = new Thread[numCore];

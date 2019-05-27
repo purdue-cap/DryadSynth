@@ -28,8 +28,10 @@ public class Run {
             .withRequiredArg().ofType(Integer.class).defaultsTo(5);
         oParser.acceptsAll(Arrays.asList("b", "formattingBound"), "Bound of output size to used string formatting instead of parser formatting")
             .withRequiredArg().ofType(Integer.class).defaultsTo(65535);
+        oParser.acceptsAll(Arrays.asList("eq", "EqBound"), "Bound of height for equations in branch condition")
+            .withRequiredArg().ofType(Integer.class).defaultsTo(0);
         oParser.acceptsAll(Arrays.asList("C", "CEGISOnly"), "Run synthesiszer in CEGIS mode only, disable all decidable fragments");
-        oParser.acceptsAll(Arrays.asList("F", "FHCEGIS"), "Enable Fixed Height CEGIS algorithm for INV benchamrks, single thread only.");
+        oParser.acceptsAll(Arrays.asList("F", "FHCEGIS"), "Enable Fixed Height CEGIS algorithm for INV benchamrks.");
         oParser.acceptsAll(Arrays.asList("I", "ITCEGIS"), "Enable Inductive Template in CEGIS algorithms");
         oParser.acceptsAll(Arrays.asList("M", "modeCheckOnly"), "Run mode check to determine fragment of the problem only, skipping all synthesis");
         oParser.acceptsAll(Arrays.asList("v", "verbose"), "Enable verbose output of logs to stdout");
@@ -45,6 +47,7 @@ public class Run {
 		int minFinite = (Integer)options.valuesOf("f").get(0);
 		int minInfinite = (Integer)options.valuesOf("i").get(0);
 		int formattingBound = (Integer)options.valuesOf("b").get(0);
+		int eqBound = (Integer)options.valuesOf("eq").get(0);
 		boolean maxsmtFlag = options.has("m");
 
         if (options.nonOptionArguments().size() < 1) {
@@ -101,6 +104,7 @@ public class Run {
 		dispatcher.setMinFinite(minFinite);
 		dispatcher.setMinInfinite(minInfinite);
 		dispatcher.setMaxSMTFlag(maxsmtFlag);
+		dispatcher.setEqBound(eqBound);
         dispatcher.setEnforceCEGIS(options.has("C"));
         dispatcher.setEnforceFHCEGIS(options.has("F"));
         dispatcher.setEnableITCEGIS(options.has("I"));

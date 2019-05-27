@@ -12,6 +12,7 @@ public class Cegis extends Thread{
 	protected Logger logger;
 	protected int minFinite;
 	protected int minInfinite;
+	protected int eqBound;
 	protected boolean maxsmtFlag;
 	protected boolean enforceFHCEGIS;
 	protected int fixedHeight = -1;
@@ -66,6 +67,7 @@ public class Cegis extends Thread{
 		this.logger = logger;
 		this.minFinite = env.minFinite;
 		this.minInfinite = env.minInfinite;
+		this.eqBound = env.eqBound;
 		this.maxsmtFlag = env.maxsmtFlag;
 		this.enforceFHCEGIS = env.enforceFHCEGIS;
 		this.original = env.original;
@@ -581,8 +583,15 @@ public class Cegis extends Thread{
 				f[j] = new Expr[coeff[j].length];
 				for (int i = coeff[j].length - 1; i >= 0; i--) {
 					// BoolExpr cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
-					BoolExpr cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
+					// BoolExpr cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
+					// 				, ctx.mkEq(p[j][i], ctx.mkInt(0)));
+					BoolExpr cond = null;
+					if (i < (int)Math.pow(2, eqBound) - 1) {
+						cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
 									, ctx.mkEq(p[j][i], ctx.mkInt(0)));
+					} else {
+						cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
+					}
 
 					if (i < ((coeff[j].length - 1)/2)) {
 
@@ -1080,6 +1089,7 @@ public class Cegis extends Thread{
 		}
 		if (expand == null) {
 			expand = new Expand(ctx, problem);
+			expand.setEquationBound(eqBound);
 		}
 		expand.setHeightBound(heightBound);
 
@@ -1271,6 +1281,7 @@ public class Cegis extends Thread{
 		}
 		if (expand == null) {
 			expand = new Expand(ctx, problem);
+			expand.setEquationBound(eqBound);
 		}
 		expand.setHeightBound(heightBound);
 
