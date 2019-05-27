@@ -53,11 +53,7 @@ public class Expand {
 		assert !problem.isGeneral;
 		this.bound = (int)Math.pow(2, heightBound) - 1;
 		c = new IntExpr[numFunc][bound][0];
-		if (equationBound <= bound) {
-			eq = new BoolExpr[numFunc][equationBound];
-		} else {
-			eq = new BoolExpr[numFunc][bound];
-		}	
+		eq = new BoolExpr[numFunc][bound];
 		declareConstants();
 	}
 
@@ -74,7 +70,7 @@ public class Expand {
 		}
 
 		for (int k = 0; k < numFunc; k++) {
-			for (int j = 0; j < (equationBound <= bound ? equationBound : bound); j++) {
+			for (int j = 0; j < bound; j++) {
 				eq[k][j] = ctx.mkBoolConst("f" + k + "_eq" + j);
 			}
 		}
