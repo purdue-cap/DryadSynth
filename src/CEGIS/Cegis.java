@@ -1152,7 +1152,7 @@ public class Cegis extends Thread{
 						condBound = -1;
 						logger.info("Synthesizer : Increase coefficient bound to infinity");
 					} else {
-						condBound = (int)Math.pow(64, condBoundInc);	//64
+						condBound = (int)Math.pow(100, condBoundInc);	//100
 						logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 					}
 
@@ -1217,7 +1217,7 @@ public class Cegis extends Thread{
 							condBound = -1;
 							logger.info("Synthesizer : Increase coefficient bound to infinity");
 						} else {
-							condBound = (int)Math.pow(64, condBoundInc);	//64
+							condBound = (int)Math.pow(100, condBoundInc);	//100
 							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 						}
 						condBoundInc = condBoundInc + 1;
@@ -1352,7 +1352,7 @@ public class Cegis extends Thread{
 						condBound = -1;
 						logger.info("Synthesizer : Increase coefficient bound to infinity");
 					} else {
-						condBound = (int)Math.pow(64, condBoundInc);	//64
+						condBound = (int)Math.pow(100, condBoundInc);	//100
 						logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 					}
 
@@ -1406,6 +1406,37 @@ public class Cegis extends Thread{
 			cntrExpMap.put(problem.finalConstraint, ce);
 			logger.info("Verifier satisfiable, Counter example(s):" + Arrays.deepToString(cntrExpMap.get(problem.finalConstraint).toArray()));
 
+			elapsed = System.currentTimeMillis() - start;
+
+			/* for experiments only:
+			 *
+			if (problem.changed) {
+				int timeoutuner = (int)Math.pow(2, fixedHeight - 1);
+				if (elapsed >= 1000 * timeoutuner) {
+					timeout = true;
+					logger.info("Changed problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
+				}
+			} else {
+				int timeoutuner = (int)Math.pow(3, 2 * fixedHeight - 1);
+				if (elapsed >= 1000 * timeoutuner) {
+					timeout = true;
+					logger.info("Original problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
+				}
+			}
+			*/
+			
+			if (condBoundInc == 1 && System.currentTimeMillis() - startTime > 10000) {
+				if (condBoundInc == searchRegions) {
+					condBound = -1;
+					logger.info("Synthesizer : Increase coefficient bound to infinity");
+				} else {
+					condBound = (int)Math.pow(100, condBoundInc);	//100
+					logger.info("Synthesizer : Increase coefficient bound to " + condBound);
+				}
+				condBoundInc = condBoundInc + 1;
+				startTime = System.currentTimeMillis();
+			}
+
 			if (condBoundInc > 1) {
 				if (condBoundInc <= searchRegions) {
 					if (System.currentTimeMillis() - startTime > 60000 * this.minFinite) {
@@ -1417,7 +1448,7 @@ public class Cegis extends Thread{
 							condBound = -1;
 							logger.info("Synthesizer : Increase coefficient bound to infinity");
 						} else {
-							condBound = (int)Math.pow(64, condBoundInc);	//64
+							condBound = (int)Math.pow(100, condBoundInc);	//100
 							logger.info("Synthesizer : Increase coefficient bound to " + condBound);
 						}
 						condBoundInc = condBoundInc + 1;
@@ -1443,21 +1474,6 @@ public class Cegis extends Thread{
 				}
 			}
 
-			elapsed = System.currentTimeMillis() - start;
-
-			if (problem.changed) {
-				int timeoutuner = (int)Math.pow(2, fixedHeight - 1);
-				if (elapsed >= 1000 * timeoutuner) {
-					timeout = true;
-					logger.info("Changed problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
-				}
-			} else {
-				int timeoutuner = (int)Math.pow(3, 2 * fixedHeight - 1);
-				if (elapsed >= 1000 * timeoutuner) {
-					timeout = true;
-					logger.info("Original problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
-				}
-			}
 		}
 
 		return null;
