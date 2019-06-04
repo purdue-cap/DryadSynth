@@ -1408,8 +1408,6 @@ public class Cegis extends Thread{
 
 			elapsed = System.currentTimeMillis() - start;
 
-			/* for experiments only:
-			 *
 			if (problem.changed) {
 				int timeoutuner = (int)Math.pow(2, fixedHeight - 1);
 				if (elapsed >= 1000 * timeoutuner) {
@@ -1423,8 +1421,9 @@ public class Cegis extends Thread{
 					logger.info("Original problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
 				}
 			}
-			*/
 			
+			/* for experiments only:
+			 *
 			if (condBoundInc == 1 && System.currentTimeMillis() - startTime > 10000) {
 				if (condBoundInc == searchRegions) {
 					condBound = -1;
@@ -1436,6 +1435,7 @@ public class Cegis extends Thread{
 				condBoundInc = condBoundInc + 1;
 				startTime = System.currentTimeMillis();
 			}
+			*/
 
 			if (condBoundInc > 1) {
 				if (condBoundInc <= searchRegions) {
