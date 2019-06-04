@@ -175,6 +175,7 @@ public class Expand {
 
 				BoolExpr coeffEqualOneOrMinusOne = ctx.mkFalse();
 				//BoolExpr coeffEqualOneOrMinusOne = ctx.mkTrue();
+				BoolExpr oneInThree = ctx.mkTrue();
 
 				for (int k = 1; k < c[i][j].length ; k++) {
 					cProp = ctx.mkAnd(cProp, ctx.mkEq(c[i][j][k], ctx.mkInt(0)));
@@ -183,15 +184,21 @@ public class Expand {
 						coefficientBound = ctx.mkAnd(coefficientBound, ctx.mkLe(c[i][j][k], ctx.mkInt(condBound)), ctx.mkGe(c[i][j][k], ctx.mkInt(-condBound)));
 						coefficientBoundLeaf = ctx.mkAnd(coefficientBoundLeaf, ctx.mkLe(c[i][j][k], ctx.mkInt(leafBound)), ctx.mkGe(c[i][j][k], ctx.mkInt(-leafBound)));
 					}
+					for (int t = 1; t < k; t++) {
+						oneInThree = ctx.mkAnd(oneInThree, ctx.mkOr(ctx.mkEq(c[i][j][k], ctx.mkInt(0)), ctx.mkEq(c[i][j][t], ctx.mkInt(0))));
+					}
+					oneInThree = ctx.mkOr(oneInThree, ctx.mkEq(c[i][j][0], ctx.mkInt(0)));
 
 				}
 
 				if (j < ((bound - 1)/2)) {
-					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, ctx.mkNot(cProp), coefficientBound);
+					//coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, coefficientBound);
+					coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, coefficientBound, oneInThree);
 				} else {
 					boolean isBool = problem.requests.get(problem.names.get(i)).getRange().toString().equals("Bool");
 					if (isBool) {
 						coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkOr(coeffEqualOneOrMinusOne, cProp));
+						//coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, coefficientBoundLeaf, oneInThree);
 					}
 					coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf);
 				}
