@@ -197,7 +197,7 @@ public class Expand {
 				} else {
 					boolean isBool = problem.requests.get(problem.names.get(i)).getRange().toString().equals("Bool");
 					if (isBool) {
-						coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkOr(coeffEqualOneOrMinusOne, cProp));
+						coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkOr(coeffEqualOneOrMinusOne, cProp), coefficientBoundLeaf);
 						//coefficientProp = ctx.mkAnd(coefficientProp, coeffEqualOneOrMinusOne, coefficientBoundLeaf, oneInThree);
 					}
 					coefficientProp = ctx.mkAnd(coefficientProp, coefficientBoundLeaf);

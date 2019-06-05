@@ -1415,7 +1415,7 @@ public class Cegis extends Thread{
 					logger.info("Changed problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
 				}
 			} else {
-				int timeoutuner = (int)Math.pow(3, 2 * fixedHeight - 1);
+				int timeoutuner = (int)Math.pow(2, fixedHeight - 1);
 				if (elapsed >= 1000 * timeoutuner) {
 					timeout = true;
 					logger.info("Original problem. Exceed timeout " + timeoutuner + " on height " + fixedHeight + ". Move on to next problem.");
