@@ -1292,13 +1292,15 @@ public class Cegis extends Thread{
 		long elapsed = start;
 		boolean timeout = false;
 
+		int iterLimitWithHeight = this.iterLimit * (fixedHeight + 3);
+
 		while(running && !timeout) {
 
 			logger.info("heightBound: " + heightBound + ". fixedHeight: " + fixedHeight);
 
 			iterCount = iterCount + 1;
 
-            if (this.iterLimit > 0 && iterCount > this.iterLimit) {
+            if (this.iterLimit > 0 && iterCount > iterLimitWithHeight) {
                 logger.info("Iteration Limit Hit, returning without a result.");
                 // this.results = null;
                 return null;
