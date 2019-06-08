@@ -166,7 +166,14 @@ public class SygusDispatcher {
         env = new CEGISEnv();
         env.original = problem;
         env.problem = problem;
-        if (problem.invConstraints != null) {
+        boolean isINV = true;   // CLIA benchmarks do not synthesize boolean functions
+        for(String name : problem.names) {
+            FuncDecl func = problem.rdcdRequests.get(name);
+            if (!func.getRange().toString().equals("Bool")) {
+                isINV = false;
+            }
+        }
+        if (isINV) {
             env.problem.finalConstraint = getIndFinalConstraint(problem);
         }
         env.minFinite = minFinite;

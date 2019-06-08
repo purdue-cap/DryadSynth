@@ -759,7 +759,14 @@ public class Cegis extends Thread{
 					if (partial != null) {
 						logger.info("Found the results in height " + fixedHeight + ". Exit searching process.");
 						// System.out.println("Found solution in height: " + fixedHeight);
-						if (origProblem.invConstraints != null) {
+						boolean isINV = true;   // CLIA benchmarks do not synthesize boolean functions
+				        for(String name : origProblem.names) {
+				            FuncDecl func = origProblem.rdcdRequests.get(name);
+				            if (!func.getRange().toString().equals("Bool")) {
+				                isINV = false;
+				            }
+				        }
+						if (isINV) {
 							results = combineInvPartial(origProblem, partial);
 							this.problem = env.original.translate(ctx);
 							if (testVerifier == null) {
@@ -1516,7 +1523,14 @@ public class Cegis extends Thread{
 			height = height + 1;
 		}
 		DefinedFunc[] combined = new DefinedFunc[partial.length];
-		if (origProblem.invConstraints != null) {
+		boolean isINV = true;   // CLIA benchmarks do not synthesize boolean functions
+		for(String name : origProblem.names) {
+            FuncDecl func = origProblem.rdcdRequests.get(name);
+            if (!func.getRange().toString().equals("Bool")) {
+                isINV = false;
+            }
+        }
+		if (isINV) {
 			combined = combineInvPartial(origProblem, partial);
 			this.problem = env.original.translate(ctx);
 			if (testVerifier == null) {
