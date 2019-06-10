@@ -2,6 +2,7 @@ import java.util.*;
 import java.util.logging.Logger;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 import com.microsoft.z3.*;
 
 public class SygusDispatcher {
@@ -275,7 +276,9 @@ public class SygusDispatcher {
 
             if (numCore > 1) {
                 threads = fallbackCEGIS;
-                preparedAT = new AT(new Context(), logger, env);
+                Context atctx = new Context();
+                atctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
+                preparedAT = new AT(atctx, logger, env);
                 preparedAT.init();
                 threads[0] = preparedAT;
             } else {
