@@ -355,7 +355,7 @@ public class SygusDispatcher {
                     AT at = (AT)threads[0];
                     if (at.results != null) {
                         results = at.results;
-                        System.out.println("AT got results.");
+                        logger.info("AT got results.");
                     } 
                     for (int i = 1; i < numCore; i++) {
                         Cegis cegis = (Cegis)threads[i];
