@@ -174,7 +174,7 @@ public class SygusDispatcher {
                 isINV = false;
             }
         }
-        if (isINV) {
+        if (isINV && !problem.isGeneral) {
             env.problem.finalConstraint = getIndFinalConstraint(problem);
         }
         env.minFinite = minFinite;
@@ -461,7 +461,7 @@ public class SygusDispatcher {
                 Map<Expr, String> cache = new LinkedHashMap<Expr, String>();
                 Expr newdef = formatFullCLIA(def, cache);
                 logger.info("Function: " + result.getName() + ". Done formatting.");
-                resultStr[i] = getResultStr(result, cache.get(def));
+                resultStr[i] = getResultStr(result.getName(), cache.get(def));
             }
             return;
         }
@@ -1007,8 +1007,7 @@ public class SygusDispatcher {
         return null;
     }
 
-    String getResultStr(DefinedFunc result, String defstr) {
-        String name = result.getName();
+    String getResultStr(String name, String defstr) {
         String type = problem.requests.get(name).getRange().toString();
         Expr[] args = problem.requestArgs.get(name);
         String arglist = "";
