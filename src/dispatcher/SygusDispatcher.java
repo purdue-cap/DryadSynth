@@ -461,7 +461,7 @@ public class SygusDispatcher {
                 Map<Expr, String> cache = new LinkedHashMap<Expr, String>();
                 Expr newdef = formatFullCLIA(def, cache);
                 logger.info("Function: " + result.getName() + ". Done formatting.");
-                resultStr[i] = cache.get(def);
+                resultStr[i] = getResultStr(result, cache.get(def));
             }
             return;
         }
@@ -1005,6 +1005,38 @@ public class SygusDispatcher {
         // return null as error message
         logger.info("expr reach the end: " + expr.toString());
         return null;
+    }
+
+    String getResultStr(DefinedFunc result, String defstr) {
+        String name = result.getName();
+        String type = problem.requests.get(name).getRange().toString();
+        Expr[] args = problem.requestArgs.get(name);
+        String arglist = "";
+        if (args.length < 0) {
+            return null;
+        }
+        if (args.length == 0) {
+            arglist = "()";
+        }
+        if (args.length == 1) {
+            String arg = args[0].toString();
+            String sort = args[0].getSort().toString();
+            arglist = "(" + arg + " " + sort + ")";
+        }
+        if (args.length > 1) {
+            for (int i = 0; i < args.length; i++) {
+                String arg = args[i].toString();
+                String sort = args[i].getSort().toString();
+                if (i == 0) {
+                    arglist = "(" + arg + " " + sort + ")";
+                } else {
+                    arglist = arglist + " " + "(" + arg + " " + sort + ")";
+                }
+            }
+            arglist = "(" + arglist + ")";
+        }
+        String output = "(define-fun " + name + " " + arglist + " " + type + " " + defstr + ")";
+        return output;
     }
 
 }
