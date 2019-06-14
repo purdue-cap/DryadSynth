@@ -287,7 +287,7 @@ public class Cegis extends Thread{
 
 			Expr spec = problem.finalConstraint;
 
-			BoolExpr q = expand.expandCoefficient(condBound);
+			BoolExpr q = expand.expandCoefficient(condBound, problem.coeffRange);
 
 			int k = 0;
 			for (String name : problem.names) {
@@ -329,7 +329,7 @@ public class Cegis extends Thread{
 
 			Expr spec = problem.finalConstraint;
 
-			BoolExpr q = expand.expandCoefficient(condBound);
+			BoolExpr q = expand.expandCoefficient(condBound, null);
 
 			int k = 0;
 			for (String name : problem.names) {
