@@ -571,6 +571,10 @@ public class Transf {
             }
             return z3ctx.mkOr(argList.toArray(new BoolExpr[argList.size()]));
         }
+        if (expr.isITE()) {
+            Expr[] args = expr.getArgs();
+            return z3ctx.mkITE((BoolExpr)pushNegIn(args[0]), pushNegIn(args[1]), pushNegIn(args[2]));
+        }
         if (Region.isAtom(expr)) {
             return expr;
         }
