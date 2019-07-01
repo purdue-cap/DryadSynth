@@ -137,10 +137,10 @@ public class DefinedFunc {
         FuncDecl exprFunc;
         while (!todo.empty()) {
             expr = todo.peek();
-            if (expr.isConst()) {
+            if (expr.isConst() && !expr.getFuncDecl().equals(func)) {
                 todo.pop();
                 cache.put(expr, expr);
-            } else if (expr.isApp()) {
+            } else if (expr.isApp() || (expr.isConst() && expr.getFuncDecl().equals(func))) {
                 visited = true;
                 newArgs.clear();
                 args = expr.getArgs();
