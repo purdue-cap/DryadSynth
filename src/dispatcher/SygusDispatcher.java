@@ -39,7 +39,7 @@ public class SygusDispatcher {
 
     boolean nosolution = false;
     public enum ConvertMethod {
-        FULLCLIA, ADDSUB, ITEWOSUB, NONE
+        FULLCLIA, ADDSUB, ITEWOSUB, CONSTONLY, NONE
     }
     public enum CoeffRange {
         ADDONLY, ADDSUB, NONE
@@ -120,6 +120,18 @@ public class SygusDispatcher {
             problem.isGeneral = false;
             this.converted = ConvertMethod.ITEWOSUB;
             logger.info("ITEWOSUB detected.");
+            return;
+        }
+        if (this.isConstantOnly()) {
+            // for constant int functions only
+            problem.problemType = SygusProblem.ProbType.CLIA;
+            problem.isGeneral = false;
+            this.converted = ConvertMethod.CONSTONLY;
+            logger.info("CONSTONLY detected.");
+            // should enforce cegis only,
+            // the functions do not have any argument, they can pass SSI checking
+            // but should not be solved by SSI
+            this.enforceCEGIS = true;
             return;
         }
         coeffRange = new LinkedHashMap<String, CoeffRange>();
@@ -1132,6 +1144,44 @@ public class SygusDispatcher {
         }
 
         // if the grammar does not match the conditions above, return false
+        return false;
+    }
+
+    boolean isConstantOnly() {
+        boolean result = true;
+        // to check if a General track problem is actually synthesizing constant Int functions, basically "General_plus10.sl"
+        if (problem.problemType != SygusProblem.ProbType.GENERAL) {
+            return false;
+        }
+        Map<String, SygusProblem.CFG> cfgs = problem.cfgs;
+        for (String name : problem.names) {
+            SygusProblem.CFG cfg = cfgs.get(name);
+            result = result && isConstantInt(name, cfg);
+        }
+        return result;
+    }
+
+    boolean isConstantInt(String funcname, SygusProblem.CFG cfg) {
+        Map<String, List<String[]>>  grammarRules = cfg.grammarRules;
+        Map<String, Sort> grammarSybSort = cfg.grammarSybSort;
+
+        if (grammarSybSort.size() != 1 || 
+            !grammarSybSort.containsValue(z3ctx.getIntSort())) {
+            return false;
+        }
+        if (grammarRules.size() != 1) {
+            return false;
+        }
+        for (String name : grammarRules.keySet()) {
+            List<String[]> intRuleLists = grammarRules.get(name);
+            if (intRuleLists.size() != 1) {
+                return false;
+            }
+            String[] rules = intRuleLists.get(0);
+            if (rules.length == 1 && rules[0].equals("ConstantInt")) {
+                return true;
+            }
+        }
         return false;
     }
 
