@@ -588,8 +588,16 @@ public class Cegis extends Thread{
 					// 				, ctx.mkEq(p[j][i], ctx.mkInt(0)));
 					BoolExpr cond = null;
 					if (coeff[j].length <= equationBound) {
-						cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
+						// cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
+						// 			, ctx.mkEq(p[j][i], ctx.mkInt(0)));
+						if (eqflag[j][i].isTrue()) {
+							cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
+						} else if (eqflag[j][i].isFalse()) {
+							cond = ctx.mkEq(p[j][i], ctx.mkInt(0));
+						} else {
+							cond = ctx.mkOr(ctx.mkAnd(ctx.mkGt(p[j][i], ctx.mkInt(0)), eqflag[j][i])
 									, ctx.mkEq(p[j][i], ctx.mkInt(0)));
+						}
 					} else {
 						cond = ctx.mkGe(p[j][i], ctx.mkInt(0));
 					}
