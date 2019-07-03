@@ -39,10 +39,10 @@ public class SygusDispatcher {
 
     boolean nosolution = false;
     public enum ConvertMethod {
-        FULLCLIA, ADDSUB, ITEWOSUB, CONSTONLY, NONE
+        FULLCLIA, ADDSUB, ITEWOSUB, CONSTONLY, TENSONLY, NONE
     }
     public enum CoeffRange {
-        ADDONLY, ADDSUB, NONE
+        ADDONLY, ADDSUB, TENSEQUAL, TENS, NONE
     }
     Map<String, CoeffRange> coeffRange;
     ConvertMethod converted = ConvertMethod.NONE;
@@ -147,6 +147,23 @@ public class SygusDispatcher {
             // fix height to 1, so single thread should be enough
             this.numCore = 1;
             logger.info("ADDSUB detected. Setting numCore to 1.");
+            return;
+        }
+        coeffRange = new LinkedHashMap<String, CoeffRange>();
+        if (this.isTensOnly(coeffRange)) {
+            problem.problemType = SygusProblem.ProbType.CLIA;
+            problem.isGeneral = false;
+            problem.coeffRange = coeffRange;
+            this.converted = ConvertMethod.TENSONLY;
+            logger.info("TENSONLY detected.");
+            for (String name : problem.names) {
+                logger.info("func: " + name + ". coeffRange: " + coeffRange.get(name));
+            }
+            this.enforceCEGIS = true;
+            // should use equation, as the grammar allows that
+            this.eqBound = 20;
+            // unexpected simplification for expr.simplify(), have to use single thread
+            this.numCore = 1;
             return;
         }
         return;
@@ -513,6 +530,27 @@ public class SygusDispatcher {
                 Expr def = result.getDef();
                 logger.info("Function: " + result.getName() + " def: " + def.toString() + ".");
                 Expr transdef = def.translate(z3ctx);
+                Map<Expr, String> cache = new LinkedHashMap<Expr, String>();
+                Expr arg0 = result.getArgs()[0].translate(z3ctx);
+                Expr newdef = formatFullCLIA(transdef, cache, arg0);
+                logger.info("Function: " + result.getName() + ". Done formatting.");
+                resultStr[i] = getResultStr(result.getName(), cache.get(transdef));
+            }
+            return;
+        }
+        if (this.converted == ConvertMethod.TENSONLY) {
+            logger.info("Formatting TENSONLY problem to fit in the grammar.");
+            resultStr = new String[results.length];
+            for (int i = 0; i < results.length; i++) {
+                DefinedFunc result = results[i];
+                Expr def = result.getDef();
+                logger.info("Function: " + result.getName() + " def: " + def.toString() + ".");
+                Expr transdef = def.translate(z3ctx);
+
+                transdef = timesTen(transdef);
+                // resultStr[i] = transdef.toString();
+                // System.exit(0);
+
                 Map<Expr, String> cache = new LinkedHashMap<Expr, String>();
                 Expr arg0 = result.getArgs()[0].translate(z3ctx);
                 Expr newdef = formatFullCLIA(transdef, cache, arg0);
@@ -1185,6 +1223,116 @@ public class SygusDispatcher {
         return false;
     }
 
+    boolean isTensOnly(Map<String, CoeffRange> coeffRange) {
+        boolean result = true;
+        // to check if a General track problem is synthesizing functions that only have 0 10 20 30 40 50 60 70 80 90 100
+        if (problem.problemType != SygusProblem.ProbType.GENERAL) {
+            return false;
+        }
+        Map<String, SygusProblem.CFG> cfgs = problem.cfgs;
+        for (String name : problem.names) {
+            SygusProblem.CFG cfg = cfgs.get(name);
+            result = result && isTens(name, cfg, coeffRange);
+        }
+        return result;
+    }
+
+    boolean isTens(String funcname, SygusProblem.CFG cfg, Map<String, CoeffRange> coeffRange) {
+        // recognize the grammar like the one in "s0_d0.sl"
+
+        boolean containsArgs = containsInputArgs(funcname, cfg);
+        boolean containtsTens = false;
+        boolean containsAdd = false;
+        boolean containsMinus = false;
+        boolean containsITE = false;
+
+        // Bool expressions
+        boolean containsLe = false;
+        boolean containsEq = false;
+        boolean containsGe = false;
+
+        Map<String, List<String[]>>  grammarRules = cfg.grammarRules;
+        Map<String, Sort> grammarSybSort = cfg.grammarSybSort;
+
+        if (grammarSybSort.size() != 2 || 
+            !(grammarSybSort.containsValue(z3ctx.getIntSort()) 
+                && grammarSybSort.containsValue(z3ctx.getBoolSort()))) {
+            return false;
+        }
+
+        String intName = null;
+        String boolName = null;
+
+        for (String nonTermName : grammarRules.keySet()) {
+            Sort sort = grammarSybSort.get(nonTermName);
+            if (sort == z3ctx.getIntSort()) {
+                intName = nonTermName;
+            }
+            if (sort == z3ctx.getBoolSort()) {
+                boolName = nonTermName;
+            }
+        }
+
+        List<String> tens = new ArrayList<String>();
+        for (int i = 0; i < 101; i+=10) {
+            tens.add(Integer.toString(i));
+        }
+        List<String[]> intRuleLists = grammarRules.get(intName);
+        for (String[] rules : intRuleLists) {
+            if (rules.length == 1) {
+                // 0 1
+                if (tens.contains(rules[0])) {
+                    tens.remove(rules[0]);
+                }
+            }
+            if (rules.length == 3) {
+                // + -
+                if (rules[0].equals("+") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    containsAdd = true;
+                }
+                if (rules[0].equals("-") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    containsMinus = true;
+                }
+            }
+            if (rules.length == 4) {
+                // ite
+                if (rules[0].equals("ite") && rules[1].equals(boolName) && rules[2].equals(intName) && rules[3].equals(intName)) {
+                    containsITE = true;
+                }
+            }
+        }
+
+        List<String[]> boolRuleLists = grammarRules.get(boolName);
+        for (String[] rules : boolRuleLists) {
+            if (rules.length == 3) {
+                if (rules[0].equals("<=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // le
+                    containsLe = true;
+                }
+                if (rules[0].equals("=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // eq
+                    containsEq = true;
+                }
+                if (rules[0].equals(">=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // ge
+                    containsGe = true;
+                }
+            }
+        }
+
+        if (containsArgs && tens.isEmpty() && containsAdd && containsMinus && containsITE && containsEq && !containsLe && !containsGe) {
+            coeffRange.put(funcname, CoeffRange.TENSEQUAL);
+            return true;
+        }
+        if (containsArgs && tens.isEmpty() && containsAdd && containsMinus && containsITE && containsEq && containsLe && containsGe) {
+            coeffRange.put(funcname, CoeffRange.TENS);
+            return true;
+        }
+
+        // if the grammar does not match the conditions above, return false
+        return false;
+    }
+
     boolean containsInputArgs(String funcname, SygusProblem.CFG cfg) {
         boolean result = true;
         Map<String, List<String[]>>  grammarRules = cfg.grammarRules;
@@ -1196,6 +1344,7 @@ public class SygusDispatcher {
                 List<String[]> ruleLists = grammarRules.get(currentSymbol);
                 for (String[] rules : ruleLists) {
                     String rule = rules[0];
+                    // System.out.println("current rule: " + rule);
                     if (rule.equals(arg.toString())) {
                         // System.out.println("print arg: " + arg.toString());
                         containsArg = true;
@@ -1208,6 +1357,71 @@ public class SygusDispatcher {
         return result;
     }
 
+    Expr timesTen(Expr orig) {
+        Stack<Expr> todo = new Stack<Expr>();
+        todo.push(orig);
+        Map<Expr, Expr> cache = new HashMap<Expr, Expr>();
+
+        boolean visited;
+        Expr expr, newExpr, body;
+        Expr [] args, newArgsArray;
+        List<Expr> newArgs = new ArrayList<Expr>();
+        FuncDecl exprFunc;
+        while (!todo.empty()) {
+            expr = todo.peek();
+            if (expr.isConst()) {
+                todo.pop();
+                cache.put(expr, expr);
+            } else if (expr.isApp()) {
+                visited = true;
+                newArgs.clear();
+                args = expr.getArgs();
+                for (Expr arg: args) {
+                    if (!cache.containsKey(arg)) {
+                        todo.push(arg);
+                        visited = false;
+                    } else {
+                        newArgs.add(cache.get(arg));
+                    }
+                }
+                if (visited) {
+                    boolean isequal = false;
+                    todo.pop();
+                    newArgsArray = newArgs.toArray(new Expr[newArgs.size()]);
+                    if (expr.isEq()) {
+                        for (int i = 0; i < newArgsArray.length; i++) {
+                            // System.out.println("EQ expr: " + expr.toString() + ". Arg: " + newArgsArray[i].toString());
+                            if (newArgsArray[i].isIntNum()) {
+                                int num = Integer.parseInt(newArgsArray[i].toString());
+                                newArgsArray[i] = z3ctx.mkInt(num * 10);
+                            } else {
+                                newArgsArray[i] = z3ctx.mkMul((ArithExpr)newArgsArray[i], z3ctx.mkInt(10));
+                            }
+                            // System.out.println("EQ expr: " + expr.toString() + ". New arg: " + newArgsArray[i].toString());
+                        }
+                        newExpr = expr.update(newArgsArray);
+                    } else {
+                        newExpr = expr.update(newArgsArray);
+                    }
+                    cache.put(expr, newExpr);
+                }
+            } else if(expr.isQuantifier()) {
+                body = ((Quantifier)expr).getBody();
+                if (cache.containsKey(body)) {
+                    todo.pop();
+                    newExpr = expr.update(new Expr[]{ cache.get(body) });
+                    cache.put(expr, newExpr);
+                } else {
+                    todo.push(body);
+                }
+            } else {
+                todo.pop();
+                cache.put(expr, expr);
+            }
+        }
+        return cache.get(orig);
+    }
+
     Expr formatFullCLIA(Expr expr, Map<Expr, String> cache, Expr arg0) {
         if (expr.isConst()) {
             String conststr = expr.toString();
@@ -1215,6 +1429,10 @@ public class SygusDispatcher {
             return expr;
         }
         if (expr.isIntNum()) {
+            if (this.converted == ConvertMethod.TENSONLY) {
+                cache.put(expr, expr.toString());
+                return expr;
+            }
             int num = Integer.parseInt(expr.toString());
             String conststr = expr.toString();
             if (num >= 2) {

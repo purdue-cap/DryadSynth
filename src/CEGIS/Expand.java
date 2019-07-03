@@ -181,6 +181,27 @@ public class Expand {
 					}
 					coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkNot(allzero));
 				}
+			} else if (rangeType == SygusDispatcher.CoeffRange.TENS || rangeType == SygusDispatcher.CoeffRange.TENSEQUAL) {
+				for (int j = 0; j < bound; j++) {
+					BoolExpr from0to100 = ctx.mkOr(ctx.mkEq(c[i][j][0], ctx.mkInt(0)), ctx.mkEq(c[i][j][0], ctx.mkInt(-10))
+												, ctx.mkEq(c[i][j][0], ctx.mkInt(-20)), ctx.mkEq(c[i][j][0], ctx.mkInt(-30))
+												, ctx.mkEq(c[i][j][0], ctx.mkInt(-40)), ctx.mkEq(c[i][j][0], ctx.mkInt(-50))
+												// , ctx.mkEq(c[i][j][0], ctx.mkInt(-60)), ctx.mkEq(c[i][j][0], ctx.mkInt(-70))
+												// , ctx.mkEq(c[i][j][0], ctx.mkInt(-80)), ctx.mkEq(c[i][j][0], ctx.mkInt(-90))
+												// , ctx.mkEq(c[i][j][0], ctx.mkInt(-100))
+												);
+					if (j >= ((bound - 1)/2)) {
+						from0to100 = ctx.mkOr(ctx.mkEq(c[i][j][0], ctx.mkInt(0)), ctx.mkEq(c[i][j][0], ctx.mkInt(10))
+											, ctx.mkEq(c[i][j][0], ctx.mkInt(20)), ctx.mkEq(c[i][j][0], ctx.mkInt(30))
+											, ctx.mkEq(c[i][j][0], ctx.mkInt(40)), ctx.mkEq(c[i][j][0], ctx.mkInt(50))
+											// , ctx.mkEq(c[i][j][0], ctx.mkInt(60)), ctx.mkEq(c[i][j][0], ctx.mkInt(70))
+											// , ctx.mkEq(c[i][j][0], ctx.mkInt(80)), ctx.mkEq(c[i][j][0], ctx.mkInt(90))
+											// , ctx.mkEq(c[i][j][0], ctx.mkInt(100))
+											);
+					}
+					coefficientProp = ctx.mkAnd(coefficientProp, from0to100);
+					coefficientProp = ctx.mkAnd(coefficientProp, ctx.mkEq(eq[i][j], ctx.mkFalse()));
+				}
 			} else {
 				for (int j = 0; j < bound; j++) {
 					//int condBound = 1;
@@ -227,7 +248,6 @@ public class Expand {
 				}
 			}
 		}
-
 		return coefficientProp;
 	}
 
