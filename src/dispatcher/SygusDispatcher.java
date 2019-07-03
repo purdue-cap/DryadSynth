@@ -1,4 +1,6 @@
 import java.util.*;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.logging.Logger;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
@@ -560,7 +562,7 @@ public class SygusDispatcher {
             return;
         }
         if (this.converted == ConvertMethod.ITEWOSUB) {
-            logger.info("Formatting FullCLIA problem to fit in the grammar.");
+            logger.info("Formatting ITEwoSUB problem to fit in the grammar.");
             resultStr = new String[results.length];
             for (int i = 0; i < results.length; i++) {
                 DefinedFunc result = results[i];
@@ -1596,7 +1598,91 @@ public class SygusDispatcher {
         logger.info("expr reach the end: " + expr.toString());
         return null;
     }
+    public int getVal(Expr e)
+    {
+    	if(e.isGE()|e.isLT()|e.isLE()|e.isGT())
+    		return 1;
+    	else if(e.isNot())
+    	{
+    		logger.info("WARNING!NOT APPEAR");
+    		return 2;
+    	}
+    	else if(e.isEq())
+    		return 4;
+    	else if(e.isAnd()|e.isOr())
+    		return 2+e.getArgs().length;
+    	else
+    	{
+    		logger.info("ERROR"+e.toString());
+    		return -1;
+    	}
+    }
+    class Mycomp implements Comparator<Expr>{
+    	@Override
+    	public int compare(Expr e1,Expr e2){
+    		return getVal(e2)-getVal(e1);
+    	}
+    }
+    Expr minimizeITE(Expr expr,Solver s){
+    	
+    	Expr[] args = expr.getArgs();
+    	Expr cond = args[0];
+    	s.push();
+    	s.add((BoolExpr)cond);
+    	Status status = s.check();
+    	if(status == Status.UNSATISFIABLE){
+    		s.pop();
+    		
+    		if(args[2].isITE()){
+    			s.push();
+    			s.add((BoolExpr)z3ctx.mkNot((BoolExpr)cond));
+    			Expr retexp = minimizeITE(args[2],s);
+    			s.pop();
+    			return retexp;
+    		}
+    		else
+    			return args[2];
+    	}
+    	s.pop();
 
+    	s.push();
+    	s.add((BoolExpr)z3ctx.mkNot((BoolExpr)cond));
+    	status = s.check();
+    	if(status == Status.UNSATISFIABLE){
+    		s.pop();
+    		
+    		if(args[1].isITE()){
+    			s.push();
+    			s.add((BoolExpr)cond);
+    			Expr retexp = minimizeITE(args[1],s);
+    			s.pop();
+    			return retexp;
+    		}
+    		else
+    			return args[1];
+    	}
+    	s.pop();
+
+    	Expr retexp1,retexp2;
+    	if(args[1].isITE()){
+    		s.push();
+    		s.add((BoolExpr)cond);
+    		retexp1 = minimizeITE(args[1],s);
+    		s.pop();
+    	}
+    	else
+    		retexp1 = args[1];
+
+    	if(args[2].isITE()){
+    		s.push();
+    		s.add((BoolExpr)z3ctx.mkNot((BoolExpr)cond));
+    		retexp2 = minimizeITE(args[2],s);
+    		s.pop();
+    	}
+    	else
+    		retexp2 = args[2];
+    	return z3ctx.mkITE((BoolExpr)cond,retexp1,retexp2);
+    }
     Expr convertToITE(Expr expr) {
         // eliminate and or not in ite's boolean condition
         if (expr.isConst()) {
@@ -1609,16 +1695,16 @@ public class SygusDispatcher {
             Expr inner = expr.getArgs()[0];
             Expr[] innerArgs = inner.getArgs();
             if (inner.isGE()) {
-                return z3ctx.mkLt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]);
+            	return z3ctx.mkLt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]);
             }
             if (inner.isLE()) {
-                return z3ctx.mkGt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]);
+            	return z3ctx.mkGt((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]);
             }
             if (inner.isGT()) {
-                return z3ctx.mkLe((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]);
+            	return z3ctx.mkLe((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]);
             }
             if (inner.isLT()) {
-                return z3ctx.mkGe((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]);
+            	return z3ctx.mkGe((ArithExpr)innerArgs[0], (ArithExpr)innerArgs[1]);
             }
             // return null as error message
             return null;
@@ -1632,20 +1718,37 @@ public class SygusDispatcher {
             Expr[] innerArgs = convertedArgs[0].getArgs();
             if (convertedArgs[0].isAnd()) {
                 iteConverted = true;
+                Comparator cmp = new Mycomp();
+                Arrays.sort(innerArgs,cmp);
                 Expr ite = z3ctx.mkITE((BoolExpr)innerArgs[0], convertedArgs[1], convertedArgs[2]);
                 for (int i = 1; i < innerArgs.length; i++) {
                     ite = z3ctx.mkITE((BoolExpr)innerArgs[i], ite, convertedArgs[2]);
                 }
-                return ite;
+                logger.info("HERE1"+ite.toString());
+                Solver s = z3ctx.mkSolver();
+                Expr finalite = minimizeITE(ite,s);
+                logger.info("HERE2"+finalite.toString());
+                //return ite;
+                return finalite;
             }
             if (convertedArgs[0].isOr()) {
                 iteConverted = true;
+                // for (int i = 0; i < innerArgs.length; i++) {
+                //     logger.info("beforesort " + innerArgs[i].toString());
+                // }
+                Comparator cmp = new Mycomp();
+                Arrays.sort(innerArgs,cmp);
                 Expr ite = z3ctx.mkITE((BoolExpr)innerArgs[0], convertedArgs[1], convertedArgs[2]);
                 for (int i = 1; i < innerArgs.length; i++) {
                     // logger.info("or in ite: " + i);
                     ite = z3ctx.mkITE((BoolExpr)innerArgs[i], convertedArgs[1], ite);
                 }
-                return ite;
+                logger.info("HERE1"+ite.toString());
+                Solver s = z3ctx.mkSolver();
+                Expr finalite = minimizeITE(ite,s);
+                logger.info("HERE2"+finalite.toString());
+                //return ite;
+                return finalite;
             }
             return z3ctx.mkITE((BoolExpr)convertedArgs[0], convertedArgs[1], convertedArgs[2]);
         }
