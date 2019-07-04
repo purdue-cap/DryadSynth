@@ -111,16 +111,25 @@ public class Run {
 		dispatcher.setHeightsOnly(options.has("H"));
 		dispatcher.prescreen();
         if (options.has("M")) {
-            SygusDispatcher.SolveMethod method = dispatcher.getMethod();
-            System.out.println(method.toString());
-            if (method == SygusDispatcher.SolveMethod.CEGIS && options.has("I")) {
-                if (dispatcher.checkTmplt()) {
-                    System.out.println("TMPLT:TRUE");
-                } else {
-                    System.out.println("TMPLT:FALSE");
-                }
-            }
-            return;
+        	dispatcher.setMethodOnly(options.has("M"));
+        	if (dispatcher.problem.problemType != SygusProblem.ProbType.INV) {
+        		// for INV problems, need to solve them to see which method is used.
+        		SygusDispatcher.SolveMethod method = dispatcher.getMethod();
+	            SygusDispatcher.ConvertMethod converted = dispatcher.getConverted();
+	            if (converted == SygusDispatcher.ConvertMethod.NONE) {
+	            	System.out.println(method.toString());
+	            } else {
+	            	System.out.println("Converted");
+	            }
+	            if (method == SygusDispatcher.SolveMethod.CEGIS && options.has("I")) {
+	                if (dispatcher.checkTmplt()) {
+	                    System.out.println("TMPLT:TRUE");
+	                } else {
+	                    System.out.println("TMPLT:FALSE");
+	                }
+	            }
+	            return;
+        	}
         }
 		dispatcher.initAlgorithm();
 		DefinedFunc[] results = dispatcher.runAlgorithm();

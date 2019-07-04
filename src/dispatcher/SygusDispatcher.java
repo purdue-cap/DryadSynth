@@ -27,6 +27,7 @@ public class SygusDispatcher {
     boolean enforceFHCEGIS = false;
     boolean enableITCEGIS = false;
     boolean heightsOnly = false;
+    boolean methodOnly = false;
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
@@ -87,6 +88,10 @@ public class SygusDispatcher {
         return method;
     }
 
+    public ConvertMethod getConverted(){
+        return converted;
+    }
+
     public void setEnforceCEGIS(boolean enforce) {
         this.enforceCEGIS = enforce;
     }
@@ -101,6 +106,10 @@ public class SygusDispatcher {
 
     public void setHeightsOnly(boolean flag) {
         this.heightsOnly = flag;
+    }
+
+    public void setMethodOnly(boolean checkmethod) {
+        this.methodOnly = checkmethod;
     }
 
     public void prescreenGeneral() {
@@ -438,6 +447,9 @@ public class SygusDispatcher {
                     if (at.results != null) {
                         results = at.results;
                         logger.info("AT got results.");
+                        if (methodOnly) {
+                            System.out.println("AT");
+                        }
                     } 
                     for (int i = 1; i < numCore; i++) {
                         Cegis cegis = (Cegis)threads[i];
@@ -446,6 +458,9 @@ public class SygusDispatcher {
                             resultHeight = cegis.resultHeight;
                             if (cegis.nosolution) {
                                 nosolution = true;
+                            }
+                            if (methodOnly) {
+                                System.out.println("CEGIS");
                             }
                         }
                     }
@@ -459,6 +474,9 @@ public class SygusDispatcher {
                         }
                         return results;
                     }
+                    if (methodOnly) {
+                        return null;
+                    }
                     if (heightsOnly) {
                         System.out.println("resultHeight:" + new Integer(resultHeight).toString());
                         return null;
@@ -466,6 +484,9 @@ public class SygusDispatcher {
                 }
             } else {
                 logger.info("Starting AT algorithms.");
+                if (methodOnly) {
+                    System.out.println("AT");
+                }
                 threads[0].run();
                 results = ((AT)threads[0]).results;
             }
