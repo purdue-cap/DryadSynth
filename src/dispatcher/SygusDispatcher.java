@@ -41,7 +41,7 @@ public class SygusDispatcher {
 
     boolean nosolution = false;
     public enum ConvertMethod {
-        FULLCLIA, ADDSUB, ITEWOSUB, CONSTONLY, TENSONLY, NONE
+        FULLCLIA, ADDSUB, ITEWOSUB, ITEWOADDSUB, CONSTONLY, TENSONLY, NONE
     }
     public enum CoeffRange {
         ADDONLY, ADDSUB, TENSEQUAL, TENS, NONE
@@ -122,6 +122,14 @@ public class SygusDispatcher {
             problem.isGeneral = false;
             this.converted = ConvertMethod.ITEWOSUB;
             logger.info("ITEWOSUB detected.");
+            return;
+        }
+        if (this.isITEOnlyNoAddSub()) {
+            // TODO: distinguish clia & inv
+            problem.problemType = SygusProblem.ProbType.CLIA;
+            problem.isGeneral = false;
+            this.converted = ConvertMethod.ITEWOADDSUB;
+            logger.info("ITEWOADDSUB detected.");
             return;
         }
         if (this.isConstantOnly()) {
@@ -552,7 +560,7 @@ public class SygusDispatcher {
                 transdef = timesTen(transdef);
                 // resultStr[i] = transdef.toString();
                 // System.exit(0);
-
+                logger.info("After timesTen: " + transdef.toString());
                 Map<Expr, String> cache = new LinkedHashMap<Expr, String>();
                 Expr arg0 = result.getArgs()[0].translate(z3ctx);
                 Expr newdef = formatFullCLIA(transdef, cache, arg0);
@@ -586,6 +594,34 @@ public class SygusDispatcher {
                 // Status testresult = testSolver.check();
                 // logger.info("Function: " + result.getName() + " testresult: " + testresult.toInt());
                 // System.exit(0);
+                Map<Expr, String> cache = new LinkedHashMap<Expr, String>();
+                Expr arg0 = result.getArgs()[0].translate(z3ctx);
+                Expr newdef = formatFullCLIA(transdef, cache, arg0);
+                logger.info("Function: " + result.getName() + ". Done formatting.");
+                resultStr[i] = getResultStr(result.getName(), cache.get(transdef));
+            }
+            return;
+        }
+        if (this.converted == ConvertMethod.ITEWOADDSUB) {
+            logger.info("Formatting ITEwoSUB problem to fit in the grammar.");
+            resultStr = new String[results.length];
+            for (int i = 0; i < results.length; i++) {
+                DefinedFunc result = results[i];
+                Expr def = result.getDef();
+                logger.info("Function: " + result.getName() + " def: " + def.toString() + ".");
+                Expr transdef = def.translate(z3ctx);
+                logger.info("Function: " + result.getName() + " transdef: " + transdef.toString() + ".");
+                // first push negation in
+                Transf trans = new Transf(null, z3ctx);
+                transdef = trans.pushNegIn(transdef);
+                logger.info("Function: " + result.getName() + " pushNegIn def: " + transdef.toString() + ".");
+                // then eliminate and or not
+                int counter = 0;
+                while (iteConverted) {
+                    iteConverted = false;
+                    transdef = convertToITE(transdef);
+                }
+                logger.info("Function: " + result.getName() + " iteConverted def: " + transdef.toString() + ".");
                 Map<Expr, String> cache = new LinkedHashMap<Expr, String>();
                 Expr arg0 = result.getArgs()[0].translate(z3ctx);
                 Expr newdef = formatFullCLIA(transdef, cache, arg0);
@@ -1187,6 +1223,142 @@ public class SygusDispatcher {
         return false;
     }
 
+    boolean isITEOnlyNoAddSub() {
+        boolean result = true;
+        // to check if a General track problem is actually a CLIA problem
+        if (problem.problemType != SygusProblem.ProbType.GENERAL) {
+            return false;
+        }
+        Map<String, SygusProblem.CFG> cfgs = problem.cfgs;
+        for (String name : problem.names) {
+            SygusProblem.CFG cfg = cfgs.get(name);
+            result = result && isITENoAddSub(name, cfg);
+        }
+        return result;
+    }
+
+    boolean isITENoAddSub(String funcname, SygusProblem.CFG cfg) {
+        // recognize the partial CLIA grammar, no and or not sub, like the one in array_sum_2_5
+
+        // Int expressions
+        boolean containsArgs = containsInputArgs(funcname, cfg);
+        boolean containtsZero = false;
+        boolean containsOne = false;
+        boolean containsAdd = false;
+        boolean containsMinus = false;
+        boolean containsITE = false;
+
+        // Bool expressions
+        boolean containsAnd = false;
+        boolean containsOr = false;
+        boolean containsNot = false;
+        boolean containsLe = false;
+        boolean containsEq = false;
+        boolean containsGe = false;
+
+        boolean containsLt = false;
+        boolean containsGt = false;
+
+        Map<String, List<String[]>>  grammarRules = cfg.grammarRules;
+        Map<String, Sort> grammarSybSort = cfg.grammarSybSort;
+
+        if (grammarSybSort.size() != 2 || 
+            !(grammarSybSort.containsValue(z3ctx.getIntSort()) 
+                && grammarSybSort.containsValue(z3ctx.getBoolSort()))) {
+            return false;
+        }
+
+        String intName = null;
+        String boolName = null;
+
+        for (String nonTermName : grammarRules.keySet()) {
+            Sort sort = grammarSybSort.get(nonTermName);
+            if (sort == z3ctx.getIntSort()) {
+                intName = nonTermName;
+            }
+            if (sort == z3ctx.getBoolSort()) {
+                boolName = nonTermName;
+            }
+        }
+
+        List<String[]> intRuleLists = grammarRules.get(intName);
+        for (String[] rules : intRuleLists) {
+            if (rules.length == 1) {
+                // 0 1
+                if (rules[0].equals("0")) {
+                    containtsZero = true;
+                }
+                if (rules[0].equals("1")) {
+                    containsOne = true;
+                }
+            }
+            if (rules.length == 3) {
+                // + -
+                if (rules[0].equals("+") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    containsAdd = true;
+                }
+                if (rules[0].equals("-") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    containsMinus = true;
+                }
+            }
+            if (rules.length == 4) {
+                // ite
+                if (rules[0].equals("ite") && rules[1].equals(boolName) && rules[2].equals(intName) && rules[3].equals(intName)) {
+                    containsITE = true;
+                }
+            }
+        }
+
+        List<String[]> boolRuleLists = grammarRules.get(boolName);
+        for (String[] rules : boolRuleLists) {
+            if (rules.length == 2) {
+                // not
+                if (rules[0].equals("not") && rules[1].equals(boolName)) {
+                    containsNot = true;
+                }
+            }
+            if (rules.length == 3) {
+                if (rules[0].equals("and") && rules[1].equals(boolName) && rules[2].equals(boolName)) {
+                    // and
+                    containsAnd = true;
+                }
+                if (rules[0].equals("or") && rules[1].equals(boolName) && rules[2].equals(boolName)) {
+                    // or
+                    containsOr = true;
+                }
+                if (rules[0].equals("<=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // le
+                    containsLe = true;
+                }
+                if (rules[0].equals("=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // eq
+                    containsEq = true;
+                }
+                if (rules[0].equals(">=") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // ge
+                    containsGe = true;
+                }
+                if (rules[0].equals("<") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // lt
+                    containsLt = true;
+                }
+                if (rules[0].equals(">") && rules[1].equals(intName) && rules[2].equals(intName)) {
+                    // gt
+                    containsGt = true;
+                }
+            }
+        }
+
+        if (containsArgs && containtsZero && containsOne && !containsAdd && !containsMinus && containsITE
+            && !containsAnd && !containsOr && !containsNot  && !containsEq
+            && containsLe && containsGe && containsLt && containsGt) {
+            return true;
+        }
+
+        // if the grammar does not match the conditions above, return false
+        return false;
+    }
+
     boolean isConstantOnly() {
         boolean result = true;
         // to check if a General track problem is actually synthesizing constant Int functions, basically "General_plus10.sl"
@@ -1431,7 +1603,7 @@ public class SygusDispatcher {
             return expr;
         }
         if (expr.isIntNum()) {
-            if (this.converted == ConvertMethod.TENSONLY) {
+            if (this.converted == ConvertMethod.TENSONLY || this.converted == ConvertMethod.ITEWOADDSUB) {
                 cache.put(expr, expr.toString());
                 return expr;
             }
@@ -1816,7 +1988,7 @@ public class SygusDispatcher {
         if (args.length == 1) {
             String arg = args[0].toString();
             String sort = args[0].getSort().toString();
-            arglist = "(" + arg + " " + sort + ")";
+            arglist = "((" + arg + " " + sort + "))";
         }
         if (args.length > 1) {
             for (int i = 0; i < args.length; i++) {
