@@ -1,5 +1,7 @@
 import java.util.*;
 import com.microsoft.z3.*;
+import com.microsoft.z3.enumerations.Z3_ast_print_mode;
+
 
 public class DefinedFunc {
 
@@ -226,11 +228,16 @@ public class DefinedFunc {
         }
         String typeStr = definition.getSort().toString();
         String def;
+        Context ctxPrint = new Context();
+        ctxPrint.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
+        Expr defprint = definition.translate(ctxPrint);
         if (ASTDef == null) {
             if (simplify) {
-                def = definition.simplify().toString();
+                def = defprint.simplify().toString();
+                // def = defprint.simplify().toString();
             } else {
-                def = definition.toString();
+                def = defprint.toString();
+                // def = definition.toString();
             }
         } else {
             def = ASTDef.toString();

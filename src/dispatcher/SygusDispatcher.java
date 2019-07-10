@@ -365,7 +365,7 @@ public class SygusDispatcher {
             if (numCore > 1) {
                 threads = fallbackCEGIS;
                 Context atctx = new Context();
-                atctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
+                // atctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
                 preparedAT = new AT(atctx, logger, env);
                 preparedAT.init();
                 threads[0] = preparedAT;

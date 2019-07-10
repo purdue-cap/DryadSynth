@@ -87,7 +87,7 @@ public class Cegis extends Thread{
 				break;
 		}
 
-		this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
+		// this.ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 
 		this.finalConstraint = problem.finalConstraint;
 

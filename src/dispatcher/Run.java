@@ -77,7 +77,7 @@ public class Run {
 		HashMap<String, String> cfg = new HashMap<String, String>();
 		cfg.put("model", "true");
 		Context ctx = new Context(cfg);
-		ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
+		// ctx.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
 		//Context z3ctx = new Context();
 
 		ANTLRErrorStrategy es = new CustomErrorStrategy();
