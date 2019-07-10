@@ -45,7 +45,6 @@ public class Cegis extends Thread{
 	public boolean nosolution = false;
 	public int inputIterLimit = 0;
 	public SygusProblem original = null;	// the problem got from parser
-	public DefinedFunc[] tempresults = null;	// store the results got from cegis to perform further processing
 
 	public Map<Expr, Set<Expr[]>> cntrExpMap = new LinkedHashMap<Expr, Set<Expr[]>>();
     public Map<Expr, Map<Integer, DefinedFunc[]>> triedProblem = new LinkedHashMap<Expr, Map<Integer, DefinedFunc[]>>();
@@ -836,40 +835,6 @@ public class Cegis extends Thread{
 				fixedHeight = pdc1D.get();
 				logger.info("Started loop with fixedHeight = " + fixedHeight);
 				cegis();
-
-				if (tempresults != null) {
-					logger.info("Found the results. Exit searching process.");
-					boolean isINV = true;   // CLIA benchmarks do not synthesize boolean functions
-			        for(String name : original.names) {
-			            FuncDecl func = original.rdcdRequests.get(name);
-			            if (!func.getRange().toString().equals("Bool")) {
-			                isINV = false;
-			            }
-			        }
-					if (isINV) {
-						this.problem = env.original.translate(ctx);
-						results = combineInvPartial(this.problem, tempresults);
-						if (testVerifier == null) {
-							testVerifier = this.createVerifier();
-						}
-						logger.info("Doing a final check for returned INV results.");
-
-						Map<String, Expr> resultfunc = new LinkedHashMap<String, Expr>();
-						for (DefinedFunc f : tempresults) {
-							resultfunc.put(f.getName(), f.getDef());
-						}
-
-						Status v = testVerifier.verify(resultfunc);
-						if (v == Status.SATISFIABLE) {
-							// 	NO SOLUTION
-							logger.info("There is no invariant for this benchmark.");
-							this.nosolution = true;
-						}
-					} else {
-						results = tempresults;
-					}
-				}
-
 	            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
 					synchronized(env) {
 						env.notify();
@@ -901,7 +866,6 @@ public class Cegis extends Thread{
 			}
 		} else {
 			cegis();
-			results = tempresults;
 		}
 		env.runningThreads.decrementAndGet();
 	}
@@ -1229,16 +1193,16 @@ public class Cegis extends Thread{
 			Status v = testVerifier.verify(functions);
 
 			if (v == Status.UNSATISFIABLE) {
-				tempresults = new DefinedFunc[problem.rdcdRequests.size()];
+				results = new DefinedFunc[problem.rdcdRequests.size()];
 				int i = 0;
 				for (String name : problem.rdcdRequests.keySet()) {
 					Expr def = functions.get(name);
 					if (def.isBool()) {
 						def = SygusFormatter.elimITE(this.ctx, def);
 					}
-					tempresults[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
+					results[i] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), def);
 					resultHeight = heightBound;
-					logger.info("Done, Synthesized function(s):" + Arrays.toString(tempresults));
+					logger.info("Done, Synthesized function(s):" + Arrays.toString(results));
                     logger.info(String.format("Total iteration count: %d", iterCount));
 					i = i + 1;
 				}
