@@ -254,7 +254,7 @@ public class SygusDispatcher {
                 isINV = false;
             }
         }
-        if (isINV && !problem.isGeneral) {
+        if (isINV && !problem.isGeneral && enforceFHCEGIS) {
             env.problem.finalConstraint = getIndFinalConstraint(problem);
         }
         env.minFinite = minFinite;
