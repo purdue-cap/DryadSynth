@@ -204,11 +204,11 @@ public class Cegis extends Thread{
 
 			//BoolExpr spec = max2Prop(functions);
 			//BoolExpr spec = max3Prop(functions);
-
+			
 			s.push();
 			s.add(ctx.mkNot((BoolExpr)spec));
-			//System.out.println("Verifying... Formula: ");
-			//System.out.println(s);
+			// System.out.println("Verifying... Formula: ");
+			// System.out.println(s);
 
 			Status status = s.check();
 			s.pop();
@@ -775,7 +775,7 @@ public class Cegis extends Thread{
 				            }
 				        }
 						if (isINV) {
-							results = combineInvPartial(origProblem, partial);
+							partial = combineInvPartial(origProblem, partial);
 							this.problem = env.original.translate(ctx);
 							if (testVerifier == null) {
 								testVerifier = this.createVerifier();
@@ -783,16 +783,20 @@ public class Cegis extends Thread{
 							logger.info("Doing a final check for returned INV results.");
 
 							Map<String, Expr> resultfunc = new LinkedHashMap<String, Expr>();
-							for (DefinedFunc f : results) {
+							for (DefinedFunc f : partial) {
 								resultfunc.put(f.getName(), f.getDef());
 							}
 
 							Status v = testVerifier.verify(resultfunc);
+							logger.info("Final check status: " + v);
 							if (v == Status.SATISFIABLE) {
 								// 	NO SOLUTION
 								logger.info("There is no invariant for this benchmark.");
 								this.nosolution = true;
+							} else {
+								results = partial;
 							}
+							// results = partial;
 						} else {
 							results = partial;
 						}

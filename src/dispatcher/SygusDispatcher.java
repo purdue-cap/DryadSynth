@@ -246,7 +246,8 @@ public class SygusDispatcher {
         logger.info("Initializing CEGIS algorithm as prepared fallback.");
         env = new CEGISEnv();
         env.original = problem;
-        env.problem = problem;
+        // env.original = new SygusProblem(problem);
+        env.problem = new SygusProblem(problem);
         boolean isINV = true;   // CLIA benchmarks do not synthesize boolean functions
         for(String name : problem.names) {
             FuncDecl func = problem.rdcdRequests.get(name);
@@ -666,8 +667,8 @@ public class SygusDispatcher {
                 logger.info("pre: " + pre.getDef());
                 logger.info("trans: " + trans.getDef());
                 logger.info("post: " + post.getDef());
-                FuncDecl inv = origProblem.rdcdRequests.get(key);
-                Expr[] vars = origProblem.requestUsedArgs.get(key);
+                FuncDecl inv = origProblem.requests.get(key);
+                Expr[] vars = origProblem.requestArgs.get(key);
                 Expr invapp = inv.apply(vars);
                 Expr[] primedArgs = new Expr[vars.length];
                 for (int i = 0; i < vars.length; i++) {
@@ -683,6 +684,11 @@ public class SygusDispatcher {
                 DefinedFunc newinv = new DefinedFunc(z3ctx, key, vars, newDef);
                 inductive = (BoolExpr)newinv.rewrite(inductive, inv);
                 logger.info("inductive after rewriting: " + inductive);
+                FuncDecl rdcdInv = origProblem.rdcdRequests.get(key);
+                Expr[] rdcdVars = origProblem.requestUsedArgs.get(key);
+                DefinedFunc df = new DefinedFunc(z3ctx, key, vars, rdcdInv.apply(rdcdVars));
+                inductive = (BoolExpr)df.rewrite(inductive, inv);
+                logger.info("inductive with rdcd inv: " + inductive);
                 if (invConstr.size() > 1) {
                     newFinal = z3ctx.mkAnd(newFinal, inductive);
                 } else if (invConstr.size() == 1) {
