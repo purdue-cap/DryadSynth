@@ -640,9 +640,7 @@ public class Cegis extends Thread{
 		public void interpretFunctions(Map<String, int[]> generalFunc, Map<String, Expr> functions) {
 			int i = 0;
 			for (String name: problem.names) {
-				System.out.println(name);
 				int[] terms = generalFunc.get(name);
-				System.out.println(new Integer(terms.length).toString());
 				functions.put(name, expand.interpretGeneral(i, terms));
 				i++;
 			}

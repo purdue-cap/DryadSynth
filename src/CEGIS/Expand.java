@@ -534,7 +534,6 @@ public class Expand {
 
 	// Interpret generation for expanding vector vars to non-terminal ruleName
 	public Expr generateInterpret(int funcIndex, IntExpr[] vars, String ruleName) {
-		System.out.println(ruleName);
 		assert isInterpretable(funcIndex, vars.length, ruleName);
 		String cacheKey = Integer.toString(funcIndex) + "_" + ruleName + "_" + Integer.toString(vars.length);
 		IntExpr[] ivars = it.subList(0, vars.length).toArray(new IntExpr[vars.length]);

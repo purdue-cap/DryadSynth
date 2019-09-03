@@ -1369,7 +1369,6 @@ public class SygusDispatcher {
                 }
             }
         }
-        System.out.println("newnewnew");
         if (containsArgs && containtsZero && containsOne && !containsAdd && !containsMinus && containsITE
             && !containsAnd && !containsOr && !containsNot  && !containsEq
             && containsLe && containsGe && containsLt && containsGt) {
