@@ -17,7 +17,7 @@ public class SygusProblem {
     public Map<String, SygusDispatcher.CoeffRange> coeffRange;  // coefficient range for converted General track functions
 
     public enum ProbType {
-        CLIA, INV, GENERAL;
+        CLIA, INV, GENERAL, SLIA, BV;
     }
 
     public ProbType problemType;
@@ -51,7 +51,20 @@ public class SygusProblem {
         // For symbol resolving
         public Map<String, SybType> sybTypeTbl = new LinkedHashMap<String, SybType>();
         public Map<String, Expr> localArgs = new LinkedHashMap<String, Expr>();
-
+        public void printcfg(){
+            for(String key : this.grammarSybSort.keySet()){
+                System.out.println(key);
+                System.out.println(this.grammarSybSort.get(key).toString());
+            }
+            for(String key : this.sybTypeTbl.keySet()){
+                System.out.println(key);
+                System.out.println(this.sybTypeTbl.get(key));
+            }
+            for(String key : this.localArgs.keySet()){
+                System.out.println(key);
+                System.out.println(this.localArgs.get(key).toString());
+            }
+        }
         public CFG(Context ctx) {this.z3ctx = ctx;}
         public CFG(CFG src){
             this.z3ctx = src.z3ctx;

@@ -30,15 +30,15 @@ public class SygusFormatter extends SygusBaseVisitor<String> {
         return node.getText();
     }
 
-    @Override
-    public String visitTerm(SygusParser.TermContext ctx) {
-        if (ctx.symbol() != null && ctx.symbol().getText().equals("-") &&
-            ctx.termStar().termStar().getChildCount() == 0 &&
-            ctx.termStar().term().literal() != null) {
-            return "-" + ctx.termStar().term().literal().getText();
-        }
-        return this.visitChildren(ctx);
-    }
+    // @Override
+    // public String visitTerm(SygusParser.TermContext ctx) {
+    //     if (ctx.symbol() != null && ctx.symbol().getText().equals("-") &&
+    //         ctx.termStar().termStar().getChildCount() == 0 &&
+    //         ctx.termStar().term().literal() != null) {
+    //         return "-" + ctx.termStar().term().literal().getText();
+    //     }
+    //     return this.visitChildren(ctx);
+    // }
 
     public static Expr elimITE(Context ctx, Expr orig) {
         Stack<Expr> todo = new Stack<Expr>();

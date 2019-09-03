@@ -1,0 +1,128 @@
+Jul 09, 2019 10:21:13 AM DnCegis run
+INFO: Thread-8 Started
+Jul 09, 2019 10:21:13 AM DnCegis run
+INFO: Starting DnC general track CEGIS
+Jul 09, 2019 10:21:13 AM DnCegis run
+INFO: Started loop with fixedVectorLength = 1
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+WARNING: Condition bound not implemented for general
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+WARNING: Using minFinite + minInfinite as timeout
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Initial examples:[]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start synthesizing
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Synthesis Done
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start decoding synthesizer output
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Synthesizer output decode done
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: qm-foo = [0]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: qm-foo : x
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start verifying
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Verifier results:y -> 1
+x -> 0
+
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Verifier satisfiable, Counter example(s):[[0, 1], [0, 1]]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Iteration : 1
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start synthesizing
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Synthesis Done
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start decoding synthesizer output
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Synthesizer output decode done
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: qm-foo = [3]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: qm-foo : 1
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start verifying
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Verifier results:y -> 1
+x -> 2
+
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Verifier satisfiable, Counter example(s):[[0, 1], [0, 1], [0, 1], [2, 1]]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Iteration : 2
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start synthesizing
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Synthesis Done
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Synthesizer : Unsatisfiable
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Exited vectorLength 1 due to UNSAT
+Jul 09, 2019 10:21:13 AM DnCegis run
+INFO: Started loop with fixedVectorLength = 8
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+WARNING: Condition bound not implemented for general
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+WARNING: Using minFinite + minInfinite as timeout
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Initial examples:[[0, 1], [0, 1], [0, 1], [2, 1], [0, -1]]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: vectorLength 8 uninterpretable, exited
+Jul 09, 2019 10:21:13 AM DnCegis run
+INFO: Started loop with fixedVectorLength = 9
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+WARNING: Condition bound not implemented for general
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+WARNING: Using minFinite + minInfinite as timeout
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Initial examples:[[0, 1], [0, 1], [0, 1], [2, 1], [0, -1]]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start synthesizing
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Synthesis Done
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start decoding synthesizer output
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Synthesizer output decode done
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: qm-foo = [6, 4, 1, 6, 5, 2, 0, 3, 0]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: qm-foo : (ite (< (- y (ite (< (+ 0 x) 0) 1 (+ 0 x))) 0)
+     x
+     (- y (ite (< (+ 0 x) 0) 1 (+ 0 x))))
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start verifying
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Verifier results:y -> 1
+x -> (- 1)
+
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Verifier satisfiable, Counter example(s):[[0, 1], [0, 1], [0, 1], [2, 1], [0, -1], [1, 0], [1, 1], [-1, 1]]
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Iteration : 4
+Jul 09, 2019 10:21:13 AM Cegis cegisGeneral
+INFO: Start synthesizing
+Jul 09, 2019 10:21:14 AM Cegis cegisGeneral
+INFO: Synthesis Done
+Jul 09, 2019 10:21:14 AM Cegis cegisGeneral
+INFO: Start decoding synthesizer output
+Jul 09, 2019 10:21:14 AM Cegis cegisGeneral
+INFO: Synthesizer output decode done
+Jul 09, 2019 10:21:14 AM Cegis cegisGeneral
+INFO: qm-foo = [5, 2, 5, 0, 6, 4, 1, 0, 2]
+Jul 09, 2019 10:21:14 AM Cegis cegisGeneral
+INFO: qm-foo : (+ 0 x (ite (< (- y x) 0) 0 (- y x)))
+Jul 09, 2019 10:21:14 AM Cegis cegisGeneral
+INFO: Start verifying
+Jul 09, 2019 10:21:14 AM Cegis cegisGeneral
+INFO: Done, Synthesized function(s):[(define-fun qm-foo ((x Int) (y Int) ) Int (+ 0 (+ x (qm (- y x) 0))))]
+Jul 09, 2019 10:21:14 AM Cegis cegisGeneral
+INFO: Total iteration count: 5
+Jul 09, 2019 10:21:14 AM DnCegis run
+INFO: Expr with internal results: (define-fun qm-foo ((x Int) (y Int) ) Int (+ 0 (+ x (qm (- y x) 0))))
+Jul 09, 2019 10:21:14 AM DnCegis run
+INFO: Internal results:

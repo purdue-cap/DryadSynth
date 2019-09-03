@@ -4,17 +4,15 @@ import org.antlr.v4.runtime.tree.*;
 import com.microsoft.z3.*;
 
 public class SygusExtractor extends SygusBaseListener {
-    Context z3ctx;
+	Context z3ctx;
     public SygusExtractor(Context initctx) {
         z3ctx = initctx;
         combinedConstraint = z3ctx.mkTrue();
         invCombinedConstraint = z3ctx.mkTrue();
-        opDis = new OpDispatcher(z3ctx, requests, funcs);
     }
-
     enum CmdType {
-        SYNTHFUNC, SYNTHINV, FUNCDEF, CONSTRAINT, INVCONSTRAINT, DECLVAR, DECLPVAR, NTDEF, NONE
-    }
+        SYNTHFUNC, SYNTHINV, FUNCDEF, CONSTRAINT, INVCONSTRAINT, DECLVAR, NTDEF, NONE
+    }//NTDEF->grammardef
     CmdType currentCmd = CmdType.NONE;
     boolean currentOnArgList = false;
 
@@ -28,7 +26,7 @@ public class SygusExtractor extends SygusBaseListener {
     List<Expr> currentArgList;
     List<String> currentArgNameList;
     List<Sort> currentSortList;
-
+    Map<String, Expr> lettmp = new LinkedHashMap<String,Expr>();
     SygusProblem.ProbType problemType = null;
 
     Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
@@ -41,10 +39,10 @@ public class SygusExtractor extends SygusBaseListener {
     Stack<Object> termStack = new Stack<Object>();
 
     Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
-    OpDispatcher opDis;
     Map<String, Expr> defFuncVars;
 
     String currentSymbol;
+    String currentTerm;
     boolean inGrammarArgs = false;
     boolean inLetTerms = false;
     List<String> grammarArgs = new ArrayList<String>();
@@ -53,8 +51,6 @@ public class SygusExtractor extends SygusBaseListener {
     Map<String, SygusProblem.CFG> cfgs = new LinkedHashMap<String, SygusProblem.CFG>();
     SygusProblem.CFG currentCFG = null;
     boolean isGeneral;
-    // Unsupported Let expressions now
-    // TODO: Add support for let expressions
 
     // CLIA grammar extension to enforce CLIA algorithm on general track benchmarks
     boolean cliaGrammar = false;
@@ -89,99 +85,6 @@ public class SygusExtractor extends SygusBaseListener {
         return pblm;
     }
 
-    Sort strToSort(String name) {
-        Sort sort;
-        switch(name) {
-            case "Int":
-                sort = z3ctx.getIntSort();
-                break;
-            case "Bool":
-                sort = z3ctx.getBoolSort();
-                break;
-            case "Real":
-                sort = z3ctx.getRealSort();
-                break;
-            default:
-                sort = null;
-            }
-        return sort;
-    }
-
-    public SygusExtractor translate(Context ctx) {
-        if (this.z3ctx == ctx) {
-            return this;
-        }
-        SygusExtractor newExtractor = new SygusExtractor(ctx);
-        newExtractor.names.addAll(this.names);
-        for(String key : this.requests.keySet()) {
-            newExtractor.requests.put(key, this.requests.get(key).translate(ctx));
-        }
-        for(String key: this.requestArgs.keySet()){
-            Expr[] argList = this.requestArgs.get(key);
-            Expr[] newArgList = new Expr[argList.length];
-            for(int i = 0; i < argList.length; i++){
-                newArgList[i] = argList[i].translate(ctx);
-            }
-            newExtractor.requestArgs.put(key, newArgList);
-        }
-        for(String key: this.requestUsedArgs.keySet()){
-            Expr[] argList = this.requestUsedArgs.get(key);
-            Expr[] newArgList = new Expr[argList.length];
-            for(int i = 0; i < argList.length; i++){
-                newArgList[i] = argList[i].translate(ctx);
-            }
-            newExtractor.requestUsedArgs.put(key, newArgList);
-        }
-        for(String key: this.requestSyntaxUsedArgs.keySet()){
-            Expr[] argList = this.requestSyntaxUsedArgs.get(key);
-            Expr[] newArgList = new Expr[argList.length];
-            for(int i = 0; i < argList.length; i++){
-                newArgList[i] = argList[i].translate(ctx);
-            }
-            newExtractor.requestSyntaxUsedArgs.put(key, newArgList);
-        }
-        for(String key : this.rdcdRequests.keySet()) {
-            newExtractor.rdcdRequests.put(key, this.rdcdRequests.get(key).translate(ctx));
-        }
-        for(String key : this.candidate.keySet()) {
-            newExtractor.candidate.put(key, this.candidate.get(key).translate(ctx));
-        }
-        newExtractor.problemType = this.problemType;
-        for(String key : this.vars.keySet()) {
-            newExtractor.vars.put(key, this.vars.get(key).translate(ctx));
-        }
-        for(String key : this.regularVars.keySet()) {
-            newExtractor.regularVars.put(key, this.regularVars.get(key).translate(ctx));
-        }
-        for(BoolExpr expr : this.constraints) {
-            newExtractor.constraints.add((BoolExpr)expr.translate(ctx));
-        }
-        for(String key : this.invConstraints.keySet()) {
-            DefinedFunc[] funcs = new DefinedFunc[3];
-            DefinedFunc[] origFuncs = this.invConstraints.get(key);
-            for (int i = 0; i < 3; i++) {
-                funcs[i] = origFuncs[i].translate(ctx);
-            }
-            newExtractor.invConstraints.put(key, funcs);
-        }
-        newExtractor.combinedConstraint = (BoolExpr)this.combinedConstraint.translate(ctx);
-        newExtractor.invCombinedConstraint = (BoolExpr)this.invCombinedConstraint.translate(ctx);
-        if (this.finalConstraint != null) {
-            newExtractor.finalConstraint = (BoolExpr)this.finalConstraint.translate(ctx);
-        }
-        for(String key : this.funcs.keySet()) {
-            newExtractor.funcs.put(key, this.funcs.get(key).translate(ctx));
-        }
-        newExtractor.opDis = new OpDispatcher(newExtractor.z3ctx, newExtractor.requests, newExtractor.funcs);
-        newExtractor.glbSybTypeTbl.putAll(this.glbSybTypeTbl);
-        for(String key : this.cfgs.keySet()) {
-            newExtractor.cfgs.put(key, this.cfgs.get(key).translate(ctx));
-        }
-        newExtractor.isGeneral = this.isGeneral;
-
-        return newExtractor;
-    }
-
     Set<Expr> scanForVars(Expr orig) {
         Set<Expr> scanned = new HashSet<Expr>();
         Queue<Expr> todo = new LinkedList<Expr>();
@@ -200,8 +103,8 @@ public class SygusExtractor extends SygusBaseListener {
         }
         return scanned;
     }
-
-    public void exitStart(SygusParser.StartContext ctx) {
+    
+    public void exitStart(SygusParser.StartContext ctx){
         // This listener is for used variable scanning after the parsing of the
         // input benchmark, for the sake of simplifying function synthesis
 
@@ -264,10 +167,12 @@ public class SygusExtractor extends SygusBaseListener {
             unused.addAll(unusedFromTrans);
             // Any variable used in postf is used
             unused.removeAll(usedInPost);
+
             Set<Expr> syntaxUnused = new HashSet<Expr>(unusedFromPre);
             syntaxUnused.addAll(unusedFromTrans);
             syntaxUnused.removeAll(usedInTrans);
             syntaxUnused.removeAll(usedInPost);
+            
             List<Expr> usedList = new ArrayList<Expr>();
             List<Expr> syntaxUsedList = new ArrayList<Expr>();
             for (Expr expr : requestArgs.get(name)) {
@@ -404,19 +309,17 @@ public class SygusExtractor extends SygusBaseListener {
         finalConstraint = (BoolExpr)finalConstraint.simplify();
     }
 
-    public void enterSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
-        problemType = SygusProblem.ProbType.CLIA;
+    public void enterSynthfun(SygusParser.SynthfunContext ctx) {
         currentCmd = CmdType.SYNTHFUNC;
         currentArgList = new ArrayList<Expr>();
         currentArgNameList = new ArrayList<String>();
         currentSortList = new ArrayList<Sort>();
     }
-
-    public void exitSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
+    public void exitSynthfun(SygusParser.SynthfunContext ctx) {
         String name = ctx.symbol().getText();
         Expr[] argList = currentArgList.toArray(new Expr[currentArgList.size()]);
         Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
-        Sort returnType = strToSort(ctx.sortExpr().getText());
+        Sort returnType = identifierToSort(ctx.sort().identifier());
         FuncDecl func = z3ctx.mkFuncDecl(name, typeList, returnType);
         names.add(name);
         requests.put(name, func);
@@ -436,15 +339,169 @@ public class SygusExtractor extends SygusBaseListener {
         currentCmd = CmdType.NONE;
     }
 
-    public void enterSynthInvCmd(SygusParser.SynthInvCmdContext ctx) {
+
+    public void enterGrammardef(SygusParser.GrammardefContext ctx){
+        problemType = SygusProblem.ProbType.GENERAL;
+        isGeneral = true;
+        currentCmd = CmdType.NTDEF;
+    }
+    public void enterGroupedrulelist(SygusParser.GroupedrulelistContext ctx){
+        if (currentCFG == null) {
+            currentCFG = new SygusProblem.CFG(z3ctx);
+        }
+        currentSymbol = ctx.symbol().getText();
+        assert (ctx.sort().identifier() != null) :ctx.sort().sortextra().getText();   
+        Sort currentSort = identifierToSort(ctx.sort().identifier());
+        currentCFG.grammarSybSort.put(currentSymbol, currentSort);
+        currentCFG.sybTypeTbl.put(currentSymbol, SygusProblem.SybType.SYMBOL);
+        currentCFG.grammarRules.put(currentSymbol, new ArrayList<String[]>());
+
+        currentCmd = CmdType.NTDEF;
+    }
+    public void enterGterm(SygusParser.GtermContext ctx){
+        if (ctx.getChild(1) != null && ctx.getChild(1).getText().equals("Constant")) {
+            if (ctx.sort().getText().equals("Int")) {
+                currentTerm = "ConstantInt";
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.CSTINT);
+            } else if (ctx.sort().getText().equals("Bool")) {
+                currentTerm = "ConstantBool";
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.CSTBOL);
+            } else {
+                currentTerm = null;
+            }
+        }//todo:add support for (Variable sort) for btr*
+    }
+    public void enterBfterm(SygusParser.BftermContext ctx){
+        if(ctx.idenbftermplus()!=null){
+            inGrammarArgs = true;
+        }
+    }
+    public void exitBfterm(SygusParser.BftermContext ctx){//todo:convert symbol into bfterm
+        if(ctx.idenbftermplus()!=null){
+            if(ctx.idenbftermplus().bfiteexpr()!=null){
+                currentTerm = "ite";
+            }else if(ctx.idenbftermplus().bfboolexpr()!=null){
+                SygusParser.BfboolexprContext tmpctx = ctx.idenbftermplus().bfboolexpr();
+                if(tmpctx.bfandexpr()!=null){
+                    currentTerm = "and";
+                }else if (tmpctx.bforexpr()!=null) {
+                    currentTerm = "or";
+                }else if (tmpctx.bfnotexpr()!=null) {
+                    currentTerm = "not";
+                }else if (tmpctx.bfeqexpr()!=null) {
+                    currentTerm = "=";
+                }else if (tmpctx.bfgtexpr()!=null) {
+                    currentTerm = ">";
+                }else if (tmpctx.bfgeexpr()!=null) {
+                    currentTerm = ">=";
+                }else if (tmpctx.bfltexpr()!=null) {
+                    currentTerm = "<";
+                }else if (tmpctx.bfleexpr()!=null) {
+                    currentTerm = "<=";
+                }else if (tmpctx.bftoexpr()!=null) {
+                    currentTerm = "=>";
+
+                }
+            }else if(ctx.idenbftermplus().bfintexpr()!=null){
+                SygusParser.BfintexprContext tmpctx = ctx.idenbftermplus().bfintexpr();
+                if(tmpctx.bfaddexpr()!=null){
+                    currentTerm = "+";
+                }else if (tmpctx.bfminusexpr()!=null) {
+                    currentTerm = "-";
+
+                }else if (tmpctx.bfnegexpr()!=null) {
+                    currentTerm = "-";
+
+                }else if (tmpctx.bfmulexpr()!=null) {
+                    currentTerm = "=*";
+
+                }
+            }else if(ctx.idenbftermplus().bfbitexpr()!=null){
+                if(ctx.idenbftermplus().bfbitexpr().bfbitarith()!=null){
+                    SygusParser.BfbitarithContext tmpctx = ctx.idenbftermplus().bfbitexpr().bfbitarith();
+                    if(tmpctx.bfbvadd()!=null){
+                        currentTerm = "bvadd";
+                    }else if (tmpctx.bfbvsub()!=null) {
+                        currentTerm = "bvsub";
+                    }else if (tmpctx.bfbvneg()!=null) {
+                        currentTerm = "bvneg";
+                    }else if (tmpctx.bfbvmul()!=null) {
+                        currentTerm = "bvmul";
+                    }else if (tmpctx.bfbvurem()!=null) {
+                        currentTerm = "bvurem";
+                    }else if (tmpctx.bfbvsrem()!=null) {
+                        currentTerm = "bvsrem";
+                    }else if (tmpctx.bfbvsmod()!=null) {
+                        currentTerm = "bvsmod";
+                    }else if (tmpctx.bfbvshl()!=null) {
+                        currentTerm = "bvshl";
+                    }else if (tmpctx.bfbvlshr()!=null) {
+                        currentTerm = "bvlshr";
+                    }else if (tmpctx.bfbvashr()!=null) {
+                        currentTerm = "bvashr";
+                    }
+                }else{
+                    SygusParser.BfbitwiseContext tmpctx = ctx.idenbftermplus().bfbitexpr().bfbitwise();
+                    if(tmpctx.bfbvor()!=null){
+                        currentTerm = "bvor";
+                    }else if (tmpctx.bfbvand()!=null) {
+                        currentTerm = "bvand";
+                    }else if (tmpctx.bfbvnot()!=null) {
+                        currentTerm = "bvnot";
+                    }else if (tmpctx.bfbvnand()!=null) {
+                        currentTerm = "bvnand";
+                    }else if (tmpctx.bfbvnor()!=null) {
+                        currentTerm = "bvnor";
+                    }else if(tmpctx.bfbvxnor()!=null) {
+                        currentTerm = "bvxnor";
+                    }
+                }
+            }else{
+                currentTerm = ctx.idenbftermplus().idenbftermplusextra().identifier().getText();
+            }
+
+        }else if(ctx.identifier()!=null){
+            assert ctx.identifier().symbol()!=null : "unexpect bfterm";
+            currentTerm = ctx.identifier().symbol().getText();
+        }else if (ctx.literal()!=null) {
+            currentTerm = ctx.literal().getText();
+            glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LITERAL);
+        }else{
+            currentTerm = null;
+        }
+        if(inGrammarArgs){
+            if(ctx.idenbftermplus()==null){
+                grammarArgs.add(currentTerm);
+            }else{
+                if(OpDispatcher.internalOps.contains(currentTerm)){
+                    glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.FUNC);
+                }
+                String[] args = grammarArgs.toArray(new String[grammarArgs.size()]);
+                String[] repr = Arrays.copyOf(new String[]{currentTerm}, 1 + args.length);
+                System.arraycopy(args, 0, repr, 1, args.length);
+                currentCFG.grammarRules.get(currentSymbol).add(repr);
+                grammarArgs.clear();
+                inGrammarArgs = false;
+            }
+            
+            
+        } else{
+            currentCFG.grammarRules.get(currentSymbol).add(new String[]{currentTerm});
+        }
+    }
+    public void exitGroupedrulelist(SygusParser.GroupedrulelistContext ctx){
+        currentCmd = CmdType.NONE;
+    }
+
+    
+    public void enterSynthinv(SygusParser.SynthinvContext ctx) {
         problemType = SygusProblem.ProbType.INV;
         currentCmd = CmdType.SYNTHINV;
         currentArgList = new ArrayList<Expr>();
         currentArgNameList = new ArrayList<String>();
         currentSortList = new ArrayList<Sort>();
     }
-
-    public void exitSynthInvCmd(SygusParser.SynthInvCmdContext ctx) {
+    public void exitSynthinv(SygusParser.SynthinvContext ctx) {
         String name = ctx.symbol().getText();
         Expr[] argList = currentArgList.toArray(new Expr[currentArgList.size()]);
         Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
@@ -455,15 +512,30 @@ public class SygusExtractor extends SygusBaseListener {
         requestArgs.put(name, argList);
         currentCmd = CmdType.NONE;
     }
-
-    public void enterArgList(SygusParser.ArgListContext ctx) {
-        currentOnArgList = true;
+    Sort identifierToSort(SygusParser.IdentifierContext idctx) {
+        Sort sort;
+        if(idctx.identifierextra()==null){
+            String name = idctx.getText();
+            switch(name) {
+                case "Int":
+                    sort = z3ctx.getIntSort();
+                    break;
+                case "Bool":
+                    sort = z3ctx.getBoolSort();
+                    break;
+                case "Real":
+                    sort = z3ctx.getRealSort();
+                    break;
+                default:
+                    sort = null;
+                    assert false :name;
+            }
+        } else{
+            assert idctx.identifierextra().symbol().getText().equals("BitVec") : "New type detected in identifierextra";
+            sort = z3ctx.mkBitVecSort(Integer.parseInt(idctx.identifierextra().index(0).getText()));
+        }
+        return sort;
     }
-
-    public void exitArgList(SygusParser.ArgListContext ctx) {
-        currentOnArgList = false;
-    }
-
     Expr addOrGetVarPool(String name, Sort type, boolean prime) {
         Expr newVar;
         if (vars.get(name) != null) {
@@ -474,70 +546,294 @@ public class SygusExtractor extends SygusBaseListener {
             newVar = z3ctx.mkConst(name, type);
             vars.put(name, newVar);
             glbSybTypeTbl.put(name, SygusProblem.SybType.GLBVAR);
-            if (!prime) {
+            if(!prime) {
                 regularVars.put(name, newVar);
             }
         }
         return newVar;
     }
+    public void enterDeclarevar(SygusParser.DeclarevarContext ctx) { 
+        currentCmd = CmdType.DECLVAR;
+    }
+    public void exitDeclarevar(SygusParser.DeclarevarContext ctx) { 
+        String name = ctx.symbol().getText();
+        assert (ctx.sort().identifier() != null) :ctx.sort().sortextra().getText();   
+        Sort type = identifierToSort(ctx.sort().identifier());
+        addOrGetVarPool(name, type, false);
+        currentCmd = CmdType.NONE;
+    }
 
-    public void enterSymbolSortPair(SygusParser.SymbolSortPairContext ctx) {
-        if (currentOnArgList) {
-            Sort type = strToSort(ctx.sortExpr().getText());
-            String name = ctx.symbol().getText();
-            if (currentCmd == CmdType.SYNTHFUNC || currentCmd == CmdType.SYNTHINV) {
-                currentArgList.add(addOrGetVarPool(name, type, false));
-                currentArgNameList.add(name);
-                currentSortList.add(type);
+
+    public void enterTerm(SygusParser.TermContext ctx){
+        if(ctx.literal()!=null){
+            Expr tmp = literalToExpr(ctx.literal());
+            termStack.push(tmp);
+        } else if(ctx.identifier()!=null){
+            String name = ctx.identifier().getText();
+            symbolDispatcher(name, currentCmd == CmdType.FUNCDEF);
+        } else if(ctx.identermplus()==null&&ctx.let()==null){
+            assert false : ctx.getText();
+        } else{
+        	if(ctx.let()==null)
+            	termStack.push(ctx);
+        } 
+    }
+    void symbolDispatcher(String name, boolean checkLocal) {
+        Expr var;
+        if (checkLocal) {
+            var = defFuncVars.get(name);
+            if (var != null) {
+                termStack.push(var);
+                return;
+            }else{
+                var = lettmp.get(name);
+                if(var != null){
+                    termStack.push(var);
+                    return;
+                }
             }
-            if (currentCmd == CmdType.FUNCDEF) {
-                defFuncVars.put(name, z3ctx.mkConst(name, type));
+        }
+        var = vars.get(name);
+        if (var != null) {
+            termStack.push(var);
+            return;
+        }
+        else{
+            var = lettmp.get(name);
+            if(var != null){
+                termStack.push(var);
+                return;
             }
+        }
+        if (checkLocal) {
+            DefinedFunc df = funcs.get(name);
+            if (df != null && df.getNumArgs() == 0) {
+                termStack.push(df.apply(new Expr[0]));
+                return;
+            }
+        }
+        FuncDecl f = requests.get(name);
+        if (f != null && f.getDomainSize() == 0) {
+            termStack.push(f.apply());
+            return;
+        }
+        termStack.push(null);
+        return;
+    }
+    Expr literalToExpr(SygusParser.LiteralContext ctx) {
+        if (ctx.numeral()!= null) {
+            return z3ctx.mkInt(ctx.numeral().getText());
+        }
+        if (ctx.decimal()!= null) {
+            return z3ctx.mkReal(ctx.decimal().getText());
+        }
+        if (ctx.boolconst()!= null) {
+            return ctx.boolconst().getText().equals("true") ? z3ctx.mkTrue() : z3ctx.mkFalse();
+        }
+        if (ctx.hexconst()!=null) {
+            return hex(ctx.hexconst().getText());
+        }
+        if (ctx.binconst()!= null) {
+            return bin(ctx.binconst().getText());
+        }
+        if (ctx.stringconst()!= null) {
+            return z3ctx.mkString(ctx.stringconst().getText());
+        }
+        return null;
+    }
+    BitVecNum hex(String hexnum){
+        int len = hexnum.length();
+        int tmp = 0;
+        for(char c:hexnum.toCharArray()){
+            if(c>='0'&&c<='9'){
+                tmp*=2;
+                tmp+=c-'0';
+            }
+            if(c>='a'&&c<='f'){
+                tmp*=2;
+                tmp+=c-'a'+10;
+            }
+            if(c>='A'&&c<='F'){
+                tmp*=2;
+                tmp+=c-'a'+10;
+            }
+        }
+        return z3ctx.mkBV(tmp,(len-1)*4);
+    }
+    BitVecNum bin(String binnum){
+        int len = binnum.length();
+        int tmp = 0;
+        for(char c:binnum.toCharArray()){
+            if(c=='0')
+                tmp*=2;
+            if(c=='1'){
+                tmp*=2;
+                tmp+=1;
+            }
+        }
+        return z3ctx.mkBV(tmp,(len-1));
+    }
+    public void identermplustostack(SygusParser.IdentermplusContext ctx,SygusParser.TermContext topctx){
+        List<Expr> tmpargs = new ArrayList<Expr>();
+        Object top = termStack.pop();
+        while (top != topctx) {
+        	if (top instanceof SygusParser.TermContext){
+        		SygusParser.TermContext tmp2=(SygusParser.TermContext)top;
+        	}
+            Expr tmpexpr = (Expr)top;
+            tmpargs.add(0, tmpexpr);
+            top = termStack.pop();
+        }
+        Expr[] args = tmpargs.toArray(new Expr[tmpargs.size()]);
+        Expr expr=null;
+        if(ctx.iteexpr()!=null){
+            assert args.length==3 : "Wrong args number";
+            expr = z3ctx.mkITE((BoolExpr)args[0],args[1],args[2]);
+        }else if(ctx.boolexpr()!=null){
+            SygusParser.BoolexprContext tmpctx = ctx.boolexpr();
+            if(tmpctx.andexpr()!=null){
+                expr = z3ctx.mkAnd(Arrays.copyOf(args, args.length, BoolExpr[].class));
+            }else if (tmpctx.orexpr()!=null) {
+                expr = z3ctx.mkOr(Arrays.copyOf(args, args.length, BoolExpr[].class));
+            }else if (tmpctx.notexpr()!=null) {
+                assert args.length==1 : "Wrong args number";
+                expr = z3ctx.mkNot((BoolExpr)args[0]);
+            }else if (tmpctx.eqexpr()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkEq(args[0],args[1]);
+            }else if (tmpctx.gtexpr()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkGt((ArithExpr)args[0], (ArithExpr)args[1]);
+            }else if (tmpctx.geexpr()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkGe((ArithExpr)args[0], (ArithExpr)args[1]);
+            }else if (tmpctx.ltexpr()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkLt((ArithExpr)args[0], (ArithExpr)args[1]);
+            }else if (tmpctx.leexpr()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkLe((ArithExpr)args[0], (ArithExpr)args[1]);
+            }else if (tmpctx.toexpr()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkImplies((BoolExpr)args[0], (BoolExpr)args[1]);
+            }
+        }else if(ctx.intexpr()!=null){
+            SygusParser.IntexprContext tmpctx = ctx.intexpr();
+            if(tmpctx.addexpr()!=null){
+                expr = z3ctx.mkAdd(Arrays.copyOf(args, args.length, ArithExpr[].class));
+            }else if (tmpctx.minusexpr()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkSub(Arrays.copyOf(args, args.length, ArithExpr[].class));
+            }else if (tmpctx.negexpr()!=null) {
+                assert args.length==1 : "Wrong args number";
+                expr = z3ctx.mkSub(Arrays.copyOf(args, args.length, ArithExpr[].class));//todo: not sure
+            }else if (tmpctx.mulexpr()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkMul(Arrays.copyOf(args, args.length, ArithExpr[].class));
+            }
+        }else if(ctx.bitexpr()!=null){
+            if(ctx.bitexpr().bitarith()!=null){
+                SygusParser.BitarithContext tmpctx = ctx.bitexpr().bitarith();
+                if(tmpctx.bvadd()!=null){
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVAdd((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvsub()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVSub((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvneg()!=null) {
+                    assert args.length==1 : "Wrong args number";
+                    expr = z3ctx.mkBVNeg((BitVecExpr)args[0]);
+                }else if (tmpctx.bvmul()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVMul((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvurem()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVURem((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvsrem()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVSRem((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvsmod()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVSMod((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvshl()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVSHL((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvlshr()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVLSHR((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvashr()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVASHR((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }
+            }else{
+                SygusParser.BitwiseContext tmpctx = ctx.bitexpr().bitwise();
+                if(tmpctx.bvor()!=null){
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVOR((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvand()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVAND((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvnot()!=null) {
+                    assert args.length==1 : "Wrong args number";
+                    expr = z3ctx.mkBVNot((BitVecExpr)args[0]);
+                }else if (tmpctx.bvnand()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVNAND((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvnor()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVNOR((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if(tmpctx.bvxnor()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVXNOR((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }
+            }
+        }else{
+            assert ctx.identermplusextra().identifier().symbol()!=null : ctx.identermplusextra().identifier().getText();
+            String name = ctx.identermplusextra().identifier().symbol().getText();
+            DefinedFunc df = funcs.get(name);
+            if(df!=null){
+                expr = df.apply(args);
+            }else{
+                FuncDecl f =requests.get(name);
+                assert f!=null;
+                expr = z3ctx.mkApp(f,args);
+            }
+        }
+        termStack.push(expr);
+        return;
+    }
+    public void exitVarbinding(SygusParser.VarbindingContext ctx){
+        String name = ctx.symbol().getText();
+        Expr expr = (Expr)termStack.pop();
+        lettmp.put(name,expr);
+    }
+    public void exitLet(SygusParser.LetContext ctx){
+        List<SygusParser.VarbindingContext> vartodel = ctx.varbinding();
+        for(SygusParser.VarbindingContext tmpctx:vartodel){
+            String tmp = tmpctx.symbol().getText();
+            lettmp.remove(tmp);
+        }
+    }
+    public void exitTerm(SygusParser.TermContext ctx){
+        if(ctx.identermplus()!=null){
+            identermplustostack(ctx.identermplus(),ctx);
         }
     }
 
-    public void enterVarDeclCmd(SygusParser.VarDeclCmdContext ctx) {
-        currentCmd = CmdType.DECLVAR;
-    }
 
-    public void exitVarDeclCmd(SygusParser.VarDeclCmdContext ctx) {
-        String name = ctx.symbol().getText();
-        Sort type = strToSort(ctx.sortExpr().getText());
-        addOrGetVarPool(name, type, false);
-        currentCmd = CmdType.NONE;
-    }
-
-    public void enterDeclarePrimedVar(SygusParser.DeclarePrimedVarContext ctx) {
-        currentCmd = CmdType.DECLPVAR;
-    }
-
-    public void exitDeclarePrimedVar(SygusParser.DeclarePrimedVarContext ctx) {
-        String name = ctx.symbol().getText();
-        String namep = name + "!";
-        Sort type = strToSort(ctx.sortExpr().getText());
-        Expr var = z3ctx.mkConst(name, type);
-        Expr varp = z3ctx.mkConst(namep, type);
-        addOrGetVarPool(name, type, false);
-        addOrGetVarPool(namep, type, true);
-        currentCmd = CmdType.NONE;
-    }
-
-    public void enterConstraintCmd(SygusParser.ConstraintCmdContext ctx) {
+    public void enterConstraint(SygusParser.ConstraintContext ctx) {
         currentCmd = CmdType.CONSTRAINT;
     }
-
-    public void exitConstraintCmd(SygusParser.ConstraintCmdContext ctx) {
+    public void exitConstraint(SygusParser.ConstraintContext ctx) {
         BoolExpr cstrt = (BoolExpr)termStack.pop();
         constraints.add(cstrt);
         combinedConstraint = z3ctx.mkAnd(combinedConstraint, cstrt);
         currentCmd = CmdType.NONE;
     }
-
-    public void enterInvConstraintCmd(SygusParser.InvConstraintCmdContext ctx) {
+    public void enterInvconstraint(SygusParser.InvconstraintContext ctx) {
         currentCmd = CmdType.INVCONSTRAINT;
     }
-
-    public void exitInvConstraintCmd(SygusParser.InvConstraintCmdContext ctx) {
+    public void exitInvconstraint(SygusParser.InvconstraintContext ctx) {
         String name = ctx.symbol(0).getText();
         FuncDecl inv = requests.get(name);
         DefinedFunc pre = funcs.get(ctx.symbol(1).getText());
@@ -563,12 +859,30 @@ public class SygusExtractor extends SygusBaseListener {
         currentCmd = CmdType.NONE;
     }
 
-    public void enterFunDefCmd(SygusParser.FunDefCmdContext ctx){
+
+    public void enterDefinefun(SygusParser.DefinefunContext ctx) {
         currentCmd = CmdType.FUNCDEF;
         defFuncVars = new LinkedHashMap<String, Expr>();
     }
-
-    public void exitFunDefCmd(SygusParser.FunDefCmdContext ctx){
+    public void enterSortedvar(SygusParser.SortedvarContext ctx){
+        Sort type;
+        String name = ctx.symbol().getText();
+        assert ctx.sort().identifier() != null : ctx.sort().sortextra().getText();
+        type = identifierToSort(ctx.sort().identifier());
+        if (currentCmd == CmdType.SYNTHFUNC || currentCmd == CmdType.SYNTHINV) {
+            currentArgList.add(addOrGetVarPool(name, type, false));
+            currentArgNameList.add(name);
+            currentSortList.add(type);
+        }
+        if (currentCmd == CmdType.FUNCDEF) {
+            defFuncVars.put(name, z3ctx.mkConst(name, type));
+            if(name.toCharArray()[name.length()-1]=='!'){
+                addOrGetVarPool(name.substring(0,name.length()-1), type, false);
+                addOrGetVarPool(name, type, true);
+            }//for prime-var in v1
+        }
+    }
+    public void exitDefinefun(SygusParser.DefinefunContext ctx) {
         String name = ctx.symbol().getText();
         Expr[] argList = defFuncVars.values().toArray(new Expr[defFuncVars.size()]);
         Expr def = (Expr)termStack.pop();
@@ -578,163 +892,15 @@ public class SygusExtractor extends SygusBaseListener {
         currentCmd = CmdType.NONE;
     }
 
-    public void enterNTDef(SygusParser.NTDefContext ctx) {
-        problemType = SygusProblem.ProbType.GENERAL;
-        isGeneral = true;
-        currentCmd = CmdType.NTDEF;
-        if (currentCFG == null) {
-            currentCFG = new SygusProblem.CFG(z3ctx);
-        }
-        currentSymbol = ctx.symbol().getText();
-        Sort currentSort = strToSort(ctx.sortExpr().getText());
-        currentCFG.grammarSybSort.put(currentSymbol, currentSort);
-        currentCFG.sybTypeTbl.put(currentSymbol, SygusProblem.SybType.SYMBOL);
-        currentCFG.grammarRules.put(currentSymbol, new ArrayList<String[]>());
-    }
 
-    public void exitNTDef(SygusParser.NTDefContext ctx) {
-        currentCmd = CmdType.NONE;
-    }
-
-    public void enterGTerm(SygusParser.GTermContext ctx) {
-        // Currently skipping let terms
-        if (ctx.letGTerm() != null) {
-            inLetTerms = true;
-        }
-        if (ctx.gTermStar() != null) {
-            inGrammarArgs = true;
+    public void enterSetlogic(SygusParser.SetlogicContext ctx) {
+        String logic = ctx.logicsymbol().getText();
+        if(logic.equals("CLIA")){
+            problemType = SygusProblem.ProbType.CLIA;
+        } else if(logic.equals("SLIA")){
+            problemType = SygusProblem.ProbType.SLIA;
+        } else if(logic.equals("BV")){
+            problemType = SygusProblem.ProbType.BV;
         }
     }
-
-    public void exitGTerm(SygusParser.GTermContext ctx) {
-        if (ctx.letGTerm() != null) {
-            // Currently skipping let terms
-            inLetTerms = false;
-            return;
-        }
-        if (inLetTerms) {
-            return;
-        }
-        String currentTerm;
-        if (ctx.symbol() != null){
-            currentTerm = ctx.symbol().getText();
-        } else if (ctx.literal() != null) {
-            currentTerm = ctx.literal().getText();
-            glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LITERAL);
-        } else if (ctx.getChild(1) != null && ctx.getChild(1).getText().equals("Constant")) {
-            if (ctx.sortExpr().getText().equals("Int")) {
-                currentTerm = "ConstantInt";
-                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.CSTINT);
-            } else if (ctx.sortExpr().getText().equals("Bool")) {
-                currentTerm = "ConstantBool";
-                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.CSTBOL);
-            } else {
-                currentTerm = null;
-            }
-        } else {
-            currentTerm = null;
-        }
-        if (inGrammarArgs) {
-            if (ctx.gTermStar() == null) {
-                grammarArgs.add(currentTerm);
-            } else {
-                if (OpDispatcher.internalOps.contains(currentTerm)) {
-                    glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.FUNC);
-                }
-                String[] args = grammarArgs.toArray(new String[grammarArgs.size()]);
-                String[] repr = Arrays.copyOf(new String[]{currentTerm}, 1 + args.length);
-                System.arraycopy(args, 0, repr, 1, args.length);
-                currentCFG.grammarRules.get(currentSymbol).add(repr);
-                grammarArgs.clear();
-                inGrammarArgs = false;
-            }
-        } else {
-            currentCFG.grammarRules.get(currentSymbol).add(new String[]{currentTerm});
-        }
-    }
-
-    // Since vars in `defFuncVars` should now be always in `vars`, this
-    // dispatcher may not be neccessary and could be deprecated
-    void symbolDispatcher(String name, boolean checkLocal) {
-        Expr var;
-        if (checkLocal) {
-            var = defFuncVars.get(name);
-            if (var != null) {
-                termStack.push(var);
-                return;
-            }
-        }
-        var = vars.get(name);
-        if (var != null) {
-            termStack.push(var);
-            return;
-        }
-        if (checkLocal) {
-            DefinedFunc df = funcs.get(name);
-            if (df != null && df.getNumArgs() == 0) {
-                termStack.push(df.apply(new Expr[0]));
-                return;
-            }
-        }
-        FuncDecl f = requests.get(name);
-        if (f != null && f.getDomainSize() == 0) {
-            termStack.push(f.apply());
-            return;
-        }
-        termStack.push(null);
-        return;
-    }
-
-    public void enterTerm(SygusParser.TermContext ctx) {
-        if (currentCmd == CmdType.CONSTRAINT ||
-            currentCmd == CmdType.FUNCDEF) {
-            int numChildren = ctx.getChildCount();
-            if (numChildren == 1) {
-                if (ctx.symbol() != null) {
-                    String name = ctx.symbol().getText();
-                    symbolDispatcher(name, currentCmd == CmdType.FUNCDEF);
-                } else if (ctx.literal() != null) {
-                    termStack.push(literalToExpr(ctx.literal()));
-                }
-            } else {
-                termStack.push(ctx);
-            }
-        }
-    }
-
-    Expr literalToExpr(SygusParser.LiteralContext ctx) {
-        if (ctx.intConst()!= null) {
-            return z3ctx.mkInt(ctx.intConst().getText());
-        }
-        if (ctx.realConst()!= null) {
-            return z3ctx.mkReal(ctx.realConst().getText());
-        }
-        if (ctx.boolConst()!= null) {
-            return ctx.boolConst().getText().equals("true") ? z3ctx.mkTrue() : z3ctx.mkFalse();
-        }
-        return null;
-    }
-
-    public void exitTerm(SygusParser.TermContext ctx){
-        if (currentCmd == CmdType.CONSTRAINT ||
-            currentCmd == CmdType.FUNCDEF) {
-            if (ctx.getChildCount()!= 1) {
-                List<Expr> args = new ArrayList<Expr>();
-                Object top = termStack.pop();
-                while (top != ctx) {
-                    args.add(0, (Expr)top);
-                    top = termStack.pop();
-                }
-                String name = ctx.symbol().getText();
-                Expr res = opDis.dispatch(name, args.toArray(new Expr[args.size()]));
-                termStack.push(res);
-            }
-        }
-    }
-
-    public void exitCliaGrammarCmd(SygusParser.CliaGrammarCmdContext ctx) {
-        this.cliaGrammar = true;
-        this.problemType = SygusProblem.ProbType.CLIA;
-    }
-
 }

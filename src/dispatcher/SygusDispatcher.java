@@ -1253,6 +1253,8 @@ public class SygusDispatcher {
         Map<String, SygusProblem.CFG> cfgs = problem.cfgs;
         for (String name : problem.names) {
             SygusProblem.CFG cfg = cfgs.get(name);
+            // System.out.println(name);
+            // cfg.printcfg();
             result = result && isITENoAddSub(name, cfg);
         }
         return result;
@@ -1301,7 +1303,6 @@ public class SygusDispatcher {
                 boolName = nonTermName;
             }
         }
-
         List<String[]> intRuleLists = grammarRules.get(intName);
         for (String[] rules : intRuleLists) {
             if (rules.length == 1) {
@@ -1329,7 +1330,6 @@ public class SygusDispatcher {
                 }
             }
         }
-
         List<String[]> boolRuleLists = grammarRules.get(boolName);
         for (String[] rules : boolRuleLists) {
             if (rules.length == 2) {
@@ -1369,7 +1369,7 @@ public class SygusDispatcher {
                 }
             }
         }
-
+        System.out.println("newnewnew");
         if (containsArgs && containtsZero && containsOne && !containsAdd && !containsMinus && containsITE
             && !containsAnd && !containsOr && !containsNot  && !containsEq
             && containsLe && containsGe && containsLt && containsGt) {
@@ -1539,6 +1539,8 @@ public class SygusDispatcher {
                 List<String[]> ruleLists = grammarRules.get(currentSymbol);
                 for (String[] rules : ruleLists) {
                     String rule = rules[0];
+                    // System.out.println("_____");
+                    // System.out.println(rule);
                     // System.out.println("current rule: " + rule);
                     if (rule.equals(arg.toString())) {
                         // System.out.println("print arg: " + arg.toString());

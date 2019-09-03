@@ -347,6 +347,8 @@ public class Expand {
 					result.node = "true";
 				}
 				lastInterpreted = start + 1;
+			} else if (termType == SygusProblem.SybType.SYMBOL) {
+				result.node = termSyb;
 			} else {
 				assert termType == SygusProblem.SybType.FUNC;
 				result.node = termSyb;
@@ -363,6 +365,7 @@ public class Expand {
 		boolean doNotInterpFuncs = false;
 		public Expr interpretConcrete(int funcIndex, int[] terms, int start) {
 			int ruleIndex = terms[start];
+
 			String[] fullRule = grammar.ruleTbl.get(funcIndex).get(ruleIndex);
 			String termSyb = fullRule[0];
 			int argCount = fullRule.length - 1;
@@ -385,6 +388,8 @@ public class Expand {
 					result = ctx.mkTrue();
 				}
 				lastInterpreted = start + 1;
+			} else if (termType == SygusProblem.SybType.SYMBOL) {
+				result = interpretConcrete(funcIndex, terms, lastInterpreted + 1);
 			} else {
 				assert termType == SygusProblem.SybType.FUNC;
 				Expr[] args = new Expr[argCount];
@@ -464,6 +469,8 @@ public class Expand {
 			ctx.mkFalse(),
 			ctx.mkTrue()
 			);
+		} else if (termType == SygusProblem.SybType.SYMBOL) {//todo:add support for SYMBOL
+			result = generateInterpret(funcIndex, ivars, termSyb);
 		} else {
 			assert termType == SygusProblem.SybType.FUNC;
 			int termLength = ivars.length - 1;
@@ -527,6 +534,7 @@ public class Expand {
 
 	// Interpret generation for expanding vector vars to non-terminal ruleName
 	public Expr generateInterpret(int funcIndex, IntExpr[] vars, String ruleName) {
+		System.out.println(ruleName);
 		assert isInterpretable(funcIndex, vars.length, ruleName);
 		String cacheKey = Integer.toString(funcIndex) + "_" + ruleName + "_" + Integer.toString(vars.length);
 		IntExpr[] ivars = it.subList(0, vars.length).toArray(new IntExpr[vars.length]);
@@ -612,8 +620,12 @@ public class Expand {
 			IntExpr[] subterms = Arrays.copyOfRange(ivars, 1, ivars.length);
 			String subtermSyb = fullRule[1];
 			SygusProblem.SybType subtermType = grammar.cfgs[funcIndex].sybTypeTbl.get(subtermSyb);
-			assert subtermType == SygusProblem.SybType.SYMBOL;
-			result = ctx.mkAnd(typeCond, generateValid(funcIndex, subterms, subtermSyb));
+			if(subtermType == SygusProblem.SybType.SYMBOL){
+				result = ctx.mkAnd(typeCond, generateValid(funcIndex, subterms, subtermSyb));
+			}else{
+				return ctx.mkTrue();
+			}
+			
 		} else {
 			int[][] combinations = combination(termLength, argCount - 1);
 			BoolExpr[] candidates = new BoolExpr[combinations.length];
