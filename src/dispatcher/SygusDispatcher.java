@@ -215,6 +215,10 @@ public class SygusDispatcher {
             this.method = SolveMethod.PRESCREENED;
             return;
         }
+        checkResult = this.checkINVDnC();
+        if (checkResult) {
+            logger.info("Invariant Divide and Conquer Algorithm applicable, applying");
+        }
         checkResult = this.checkSSIComm();
         if (checkResult) {
             logger.info("SSIComm detected, using SSI-Commutativity algorithm");
@@ -848,6 +852,122 @@ public class SygusDispatcher {
             return true;
         }
         return false;
+    }
+
+    boolean checkINVDnC() {
+        if (problem.problemType != SygusProblem.ProbType.INV) {
+            return false;
+        }
+        for (String name : extractor.invConstraints.keySet()) {
+            Set<Set<Expr>> relation = extractor.varsRelation.get(name);
+            logger.info("Num of classes: " + relation.size());
+            if (relation.size() <= 1) {
+                logger.info("Only 1 class, no need to do divide and conquer.");
+                return false;
+            }
+            Expr pre = extractor.invConstraints.get(name)[0].getDef();
+            Expr trans = extractor.invConstraints.get(name)[1].getDef();
+            Expr post = extractor.invConstraints.get(name)[2].getDef();
+
+            for(Set<Expr> exprset : relation) {
+                Set<Expr> otherset = new HashSet<Expr>();
+                for (Expr e : extractor.requestArgs.get(name)) {
+                    otherset.add(e);
+                }
+                otherset.removeAll(exprset);
+                Expr[] args = exprset.toArray(new Expr[exprset.size()]);
+                logger.info("Class: " + Arrays.toString(args));
+                Expr[] otherargs = otherset.toArray(new Expr[otherset.size()]);
+                Tactic qe = z3ctx.mkTactic("qe");
+                Goal g = z3ctx.mkGoal(false, false, false);
+                Solver solver = z3ctx.mkSolver();
+                Status status;
+
+                // check pre first
+                Quantifier withArg = z3ctx.mkExists(
+                    args, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+                Quantifier withoutArg = z3ctx.mkExists(
+                    otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+                g.add(withArg);
+                Expr wargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Pre withargQF: " + wargQF.toString());
+                g.reset();
+                g.add(withoutArg);
+                Expr woargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Pre withoutargQF: " + woargQF.toString());
+                BoolExpr preqf = z3ctx.mkAnd((BoolExpr)wargQF, (BoolExpr)woargQF);
+                // pre => exist x. pre /\ exist y. pre
+                solver.add(z3ctx.mkNot(z3ctx.mkImplies((BoolExpr)pre, preqf)));
+                status = solver.check();
+                // logger.info("Pre Status: " + status);
+                if (status != Status.UNSATISFIABLE) {
+                    return false;
+                }
+
+                // check trans then
+                Expr[] primedArgs = new Expr[args.length];
+                for (int i = 0; i < args.length; i++) {
+                    String varname = args[i].toString() + "!";
+                    primedArgs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
+                }
+                Expr[] primedOtherargs = new Expr[otherargs.length];
+                for (int i = 0; i < otherargs.length; i++) {
+                    String varname = otherargs[i].toString() + "!";
+                    primedOtherargs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
+                }
+                Expr[] argswprime = new Expr[args.length * 2];
+                System.arraycopy(args, 0, argswprime, 0, args.length);
+                System.arraycopy(primedArgs, 0, argswprime, args.length, primedArgs.length);
+                Expr[] otherargswprime = new Expr[otherargs.length * 2];
+                System.arraycopy(otherargs, 0, otherargswprime, 0, otherargs.length);
+                System.arraycopy(primedOtherargs, 0, otherargswprime, otherargs.length, primedOtherargs.length);
+                withArg = z3ctx.mkExists(
+                    argswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+                withoutArg = z3ctx.mkExists(
+                    otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+                g.reset();
+                g.add(withArg);
+                wargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Trans withargQF: " + wargQF.toString());
+                g.reset();
+                g.add(withoutArg);
+                woargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Trans withoutargQF: " + woargQF.toString());
+                BoolExpr transqf = z3ctx.mkAnd((BoolExpr)wargQF, (BoolExpr)woargQF);
+                // trans => exist x, x'. trans /\ exist y, y'. trans
+                solver.reset();
+                solver.add(z3ctx.mkNot(z3ctx.mkImplies((BoolExpr)trans, transqf)));
+                status = solver.check();
+                // logger.info("Post Status: " + status);
+                if (status != Status.UNSATISFIABLE) {
+                    return false;
+                }
+
+                // finally check post
+                withArg = z3ctx.mkForall(
+                    args, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+                withoutArg = z3ctx.mkForall(
+                    otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+                g.reset();
+                g.add(withArg);
+                wargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Post withargQF: " + wargQF.toString());
+                g.reset();
+                g.add(withoutArg);
+                woargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Post withoutargQF: " + woargQF.toString());
+                BoolExpr postqf = z3ctx.mkAnd((BoolExpr)wargQF, (BoolExpr)woargQF);
+                // forall x. post \/ forall y. post => post     (test with /\ before, but /\ might be too strong
+                solver.reset();
+                solver.add(z3ctx.mkNot(z3ctx.mkImplies(postqf, (BoolExpr)post)));
+                status = solver.check();
+                // logger.info("Post Status: " + status);
+                if (status != Status.UNSATISFIABLE) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     boolean checkDnC() {
