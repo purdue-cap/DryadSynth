@@ -25,6 +25,7 @@ public class SygusExtractor extends SygusBaseListener {
     Map<String, Expr[]> requestSyntaxUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments in Syntax, used in AT fragment
     Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
     Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
+    Map<String, Set<Set<Expr>>> varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>();	// vars relationship map, used for INV DnC
     List<Expr> currentArgList;
     List<String> currentArgNameList;
     List<Sort> currentSortList;
@@ -182,6 +183,82 @@ public class SygusExtractor extends SygusBaseListener {
         return newExtractor;
     }
 
+    public Set<Set<Expr>> invVarRelation(String funcname) {
+    	Set<Set<Expr>> relation = new HashSet<Set<Expr>>();
+    	Expr pre = invConstraints.get(funcname)[0].getDef();
+        Expr trans = invConstraints.get(funcname)[1].getDef();
+        Expr post = invConstraints.get(funcname)[2].getDef();
+        relation = getVarsRelation(pre, relation);
+        relation = getVarsRelation(trans, relation);
+        relation = getVarsRelation(post, relation);
+        return relation;
+    }
+
+    public Set<Set<Expr>> getVarsRelation(Expr orig, Set<Set<Expr>> r) {
+    	Set<Set<Expr>> relation = new HashSet<Set<Expr>>();
+    	relation.addAll(r);
+    	Queue<Expr> todo = new LinkedList<Expr>();
+        todo.add(orig);
+        while (!todo.isEmpty()) {
+            Expr expr = todo.remove();
+            if (expr.isConst()) {
+            	// do nothing
+            } else if (expr.isApp()) {
+            	if (expr.isEq()) {
+            		Expr[] args = expr.getArgs();
+	    			if (args[0].isBool() && args[1].isBool()) {
+	    				for (Expr arg : args) {
+		    				todo.add(arg);
+		    			}
+		    			continue;
+	    			}
+            	}
+            	if (expr.isEq() || expr.isLE() || expr.isGE() || expr.isGT() || expr.isLT()) {
+            		Set<Expr> usedInExpr = scanForVars(expr);
+            		// primed variable should be considered the same as non-primed variable
+            		Set<Expr> used = new HashSet<Expr>();
+            		for(Expr e : usedInExpr) {
+            			if (e.toString().endsWith("!")) {
+            				used.add(vars.get(e.toString().substring(0, e.toString().length() - 1)));
+            			} else {
+            				used.add(e);
+            			}
+            		}
+	    			Set<Set<Expr>> newrelation = new HashSet<Set<Expr>>();
+	    			for (Set<Expr> set : relation) {
+	    				Set<Expr> overlapped = new HashSet<Expr>(used);
+	    				overlapped.retainAll(set);
+	    				if (overlapped.isEmpty()) {
+	    					newrelation.add(set);
+	    				}
+	    			}
+	    			Set<Set<Expr>> overlapped = new HashSet<Set<Expr>>();
+	    			overlapped.addAll(relation);
+	    			overlapped.removeAll(newrelation);
+	    			if (!overlapped.isEmpty()) {
+	    				Set<Expr> merged = new HashSet<Expr>(used);
+	    				for (Set<Expr> overlappedset : overlapped) {
+	    					merged.addAll(overlappedset);
+	    				}
+	    				newrelation.add(merged);
+	    			} else {
+	    				// used do not have any overlap with relation, add used to relation
+	    				newrelation.add(used);
+	    			}
+	    			relation = new HashSet<Set<Expr>>();
+	    			relation.addAll(newrelation);
+            	} else {
+            		for(Expr arg: expr.getArgs()) {
+	                    todo.add(arg);
+	                }
+            	}
+            } else if(expr.isQuantifier()) {
+                todo.add(((Quantifier)expr).getBody());
+            }
+        }
+        return relation;
+    }
+
     Set<Expr> scanForVars(Expr orig) {
         Set<Expr> scanned = new HashSet<Expr>();
         Queue<Expr> todo = new LinkedList<Expr>();
@@ -239,6 +316,8 @@ public class SygusExtractor extends SygusBaseListener {
         pVarSet.removeAll(rVarSet);
         // INV problem variable scan
         for (String name : invFuncs) {
+        	varsRelation.put(name, invVarRelation(name));
+
             Set<Expr> usedInPre = scanForVars(invConstraints.get(name)[0].getDef());
             Set<Expr> usedInTrans = scanForVars(invConstraints.get(name)[1].getDef());
             Set<Expr> usedInPost = scanForVars(invConstraints.get(name)[2].getDef());
