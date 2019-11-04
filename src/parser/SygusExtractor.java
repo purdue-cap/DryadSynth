@@ -90,6 +90,72 @@ public class SygusExtractor extends SygusBaseListener {
         return pblm;
     }
 
+    public SygusProblem createINVSubProblem(Expr[] usedArgs, Expr[] usedArgswprime, Expr pre, Expr trans, Expr post) {
+        String name = this.names.get(0);        // names.size() should be 1
+        Sort[] domain = new Sort[usedArgs.length];
+        for (int i = 0; i < domain.length; i++) {
+            domain[i] = usedArgs[i].getSort();
+        }
+        FuncDecl func = this.requests.get(name);
+        Sort range = func.getRange();
+        FuncDecl rdcdFunc = z3ctx.mkFuncDecl(name, domain, range);
+
+        SygusProblem pblm = new SygusProblem(z3ctx);
+        pblm.names.add(name);
+        pblm.requests.put(name, this.requests.get(name));
+        pblm.requestArgs.put(name, this.requestArgs.get(name));
+        pblm.requestUsedArgs.put(name, usedArgs);
+        pblm.requestSyntaxUsedArgs.put(name, usedArgs);
+        pblm.rdcdRequests.put(name, rdcdFunc);
+
+        // pblm.candidate = new LinkedHashMap<String, DefinedFunc>(this.candidate);
+
+        pblm.problemType = this.problemType;
+
+        pblm.vars = new LinkedHashMap<String, Expr>(this.vars);
+        pblm.regularVars = new LinkedHashMap<String, Expr>(this.regularVars);
+
+        DefinedFunc[] origfuncs = this.invConstraints.get(name);
+        DefinedFunc[] newfuncs = new DefinedFunc[3];
+        newfuncs[0] = new DefinedFunc(z3ctx, origfuncs[0].getName(), usedArgs, pre);
+        newfuncs[1] = new DefinedFunc(z3ctx, origfuncs[1].getName(), usedArgswprime, trans);
+        newfuncs[2] = new DefinedFunc(z3ctx, origfuncs[2].getName(), usedArgs, post);
+
+        pblm.combinedConstraint = this.combinedConstraint;
+        pblm.invConstraints.put(name, newfuncs);
+
+        Expr[] transArgs = newfuncs[1].getArgs();
+        Expr[] transArgsOrig = Arrays.copyOfRange(transArgs, 0, transArgs.length/2);
+        Expr[] transArgsPrime = Arrays.copyOfRange(transArgs, transArgs.length/2, transArgs.length);
+        BoolExpr startCstrt = z3ctx.mkImplies((BoolExpr)newfuncs[0].getDef(),
+                                (BoolExpr)rdcdFunc.apply(newfuncs[0].getArgs()));
+        BoolExpr loopCstrt = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)newfuncs[1].getDef(),
+                                                (BoolExpr)rdcdFunc.apply(transArgsOrig)),
+                                (BoolExpr)rdcdFunc.apply(transArgsPrime));
+        BoolExpr endCstrt = z3ctx.mkImplies((BoolExpr)rdcdFunc.apply(newfuncs[2].getArgs()),
+                                (BoolExpr)newfuncs[2].getDef());
+
+        pblm.constraints.add(startCstrt);
+        pblm.constraints.add(loopCstrt);
+        pblm.constraints.add(endCstrt);
+
+        pblm.invCombinedConstraint = z3ctx.mkAnd(startCstrt, loopCstrt, endCstrt);
+        pblm.finalConstraint = (BoolExpr)z3ctx.mkAnd(pblm.combinedConstraint, pblm.invCombinedConstraint).simplify();
+
+        pblm.funcs = new LinkedHashMap<String, DefinedFunc>(this.funcs);
+        pblm.funcs.put(origfuncs[0].getName(), newfuncs[0]);
+        pblm.funcs.put(origfuncs[1].getName(), newfuncs[1]);
+        pblm.funcs.put(origfuncs[2].getName(), newfuncs[2]);
+        pblm.opDis = new OpDispatcher(this.z3ctx, this.requests, this.funcs);
+
+        pblm.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(this.glbSybTypeTbl);
+        for (String key : this.cfgs.keySet()) {
+            pblm.cfgs.put(key, new SygusProblem.CFG(this.cfgs.get(key)));
+        }
+        pblm.isGeneral = this.isGeneral;
+        return pblm;
+    }
+
     Sort strToSort(String name) {
         Sort sort;
         switch(name) {
