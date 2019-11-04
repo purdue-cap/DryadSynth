@@ -216,6 +216,11 @@ public class DefinedFunc {
         return new DefinedFunc(this.ctx, newName, this.args, this.definition);
     }
 
+    // Return a new DefinedFunc with replaced def
+    public DefinedFunc replaceDef(Expr newdef) {
+        return new DefinedFunc(this.ctx, this.name, this.args, newdef);
+    }
+
     public String toString() {
         return toString(false);
     }

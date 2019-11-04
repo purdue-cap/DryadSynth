@@ -36,6 +36,8 @@ public class SygusDispatcher {
     DnCEnv dncEnv = null;
     Expr dncBaseExpr = null;
     Expr[] dncBaseArgs = null;
+    SygusProblem[] invdncProblem = null;
+    boolean invDnC = false;
 
     AT preparedAT;
     Thread [] fallbackCEGIS = null;
@@ -218,6 +220,10 @@ public class SygusDispatcher {
         checkResult = this.checkINVDnC();
         if (checkResult) {
             logger.info("Invariant Divide and Conquer Algorithm applicable, applying");
+            this.invDnC = true;
+            // this.problem = invdncProblem[1];
+            // System.exit(0);
+            return;
         }
         checkResult = this.checkSSIComm();
         if (checkResult) {
@@ -239,6 +245,13 @@ public class SygusDispatcher {
         }
 
         return;
+    }
+
+    public void init() throws Exception {
+        // postpone prescreen and initialization of INV DnC problems
+        if (!this.invDnC) {
+            initAlgorithm();
+        }
     }
 
     public void initAlgorithm() throws Exception{
@@ -383,6 +396,50 @@ public class SygusDispatcher {
             return;
         }
 
+    }
+
+    public DefinedFunc[] run() throws Exception {
+        if (!this.invDnC) {
+            return runAlgorithm();
+        } else {
+            DefinedFunc[] combined = new DefinedFunc[problem.requests.size()];
+            DefinedFunc[] subResults = null;
+
+            for (int i = 0; i < invdncProblem.length; i++) {
+                logger.info("Start solving subproblem " + i);
+                this.problem = invdncProblem[i];
+                // prescreen to check if the subproblem is AT applicable or not
+                if (this.checkAT()) {
+                    logger.info("AT detected for subproblem " + i + ", using AT algorithm");
+                    this.method = SolveMethod.AT;
+                } else {
+                    this.method = SolveMethod.CEGIS;
+                }
+                // initial and run the algorithm on the subproblem
+                initAlgorithm();
+                subResults = runAlgorithm();
+                // combine the solutions
+                if (!this.nosolution && subResults != null) {
+                    for (int j = 0; j < combined.length; j++) {
+                        if (combined[j] != null) {
+                            Expr combinedSolution = z3ctx.mkAnd((BoolExpr)combined[j].getDef(), 
+                                    (BoolExpr)subResults[j].getDef());
+                            combined[j] = combined[j].replaceDef(combinedSolution);
+                        } else {
+                            combined[j] = new DefinedFunc(subResults[j].ctx, subResults[j].getName(), subResults[j].getArgs(), subResults[j].getDef());
+                        } 
+                    }
+                    logger.info("Combine solution for subproblem " + i);
+                } else {
+                    logger.info("No solution for subproblem " + i);
+                }
+                // reset nosolution
+                this.nosolution = false;
+            }
+            // TODO: set final no solution
+
+            return combined;
+        }
     }
 
     public DefinedFunc[] runAlgorithm() throws Exception{
@@ -668,9 +725,9 @@ public class SygusDispatcher {
                 DefinedFunc pre = invConstr.get(key)[0];
                 DefinedFunc trans = invConstr.get(key)[1];
                 DefinedFunc post = invConstr.get(key)[2];
-                logger.info("pre: " + pre.getDef());
-                logger.info("trans: " + trans.getDef());
-                logger.info("post: " + post.getDef());
+                // logger.info("pre: " + pre.getDef());
+                // logger.info("trans: " + trans.getDef());
+                // logger.info("post: " + post.getDef());
                 FuncDecl inv = origProblem.requests.get(key);
                 Expr[] vars = origProblem.requestArgs.get(key);
                 Expr invapp = inv.apply(vars);
@@ -682,17 +739,17 @@ public class SygusDispatcher {
                 BoolExpr inductive = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)trans.getDef(),
                                             (BoolExpr)invapp),
                                     (BoolExpr)inv.apply(primedArgs));
-                logger.info("inductive before rewriting: " + inductive);
+                // logger.info("inductive before rewriting: " + inductive);
                 Expr newDef = z3ctx.mkAnd((BoolExpr)post.getDef(), z3ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)invapp));
-                logger.info("new inv with template: " + newDef);
+                // logger.info("new inv with template: " + newDef);
                 DefinedFunc newinv = new DefinedFunc(z3ctx, key, vars, newDef);
                 inductive = (BoolExpr)newinv.rewrite(inductive, inv);
-                logger.info("inductive after rewriting: " + inductive);
+                // logger.info("inductive after rewriting: " + inductive);
                 FuncDecl rdcdInv = origProblem.rdcdRequests.get(key);
                 Expr[] rdcdVars = origProblem.requestUsedArgs.get(key);
                 DefinedFunc df = new DefinedFunc(z3ctx, key, vars, rdcdInv.apply(rdcdVars));
                 inductive = (BoolExpr)df.rewrite(inductive, inv);
-                logger.info("inductive with rdcd inv: " + inductive);
+                // logger.info("inductive with rdcd inv: " + inductive);
                 if (invConstr.size() > 1) {
                     newFinal = z3ctx.mkAnd(newFinal, inductive);
                 } else if (invConstr.size() == 1) {
@@ -858,6 +915,9 @@ public class SygusDispatcher {
         if (problem.problemType != SygusProblem.ProbType.INV) {
             return false;
         }
+        if (extractor.invConstraints.size() > 1) {
+            return false;
+        }
         for (String name : extractor.invConstraints.keySet()) {
             Set<Set<Expr>> relation = extractor.varsRelation.get(name);
             logger.info("Num of classes: " + relation.size());
@@ -865,10 +925,12 @@ public class SygusDispatcher {
                 logger.info("Only 1 class, no need to do divide and conquer.");
                 return false;
             }
+            invdncProblem = new SygusProblem[relation.size()];
             Expr pre = extractor.invConstraints.get(name)[0].getDef();
             Expr trans = extractor.invConstraints.get(name)[1].getDef();
             Expr post = extractor.invConstraints.get(name)[2].getDef();
 
+            int k = 0;
             for(Set<Expr> exprset : relation) {
                 Set<Expr> otherset = new HashSet<Expr>();
                 for (Expr e : extractor.requestArgs.get(name)) {
@@ -889,13 +951,13 @@ public class SygusDispatcher {
                 Quantifier withoutArg = z3ctx.mkExists(
                     otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
                 g.add(withArg);
-                Expr wargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                Expr prewargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
                 // logger.info("Pre withargQF: " + wargQF.toString());
                 g.reset();
                 g.add(withoutArg);
-                Expr woargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                Expr prewoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
                 // logger.info("Pre withoutargQF: " + woargQF.toString());
-                BoolExpr preqf = z3ctx.mkAnd((BoolExpr)wargQF, (BoolExpr)woargQF);
+                BoolExpr preqf = z3ctx.mkAnd((BoolExpr)prewargQF, (BoolExpr)prewoargQF);
                 // pre => exist x. pre /\ exist y. pre
                 solver.add(z3ctx.mkNot(z3ctx.mkImplies((BoolExpr)pre, preqf)));
                 status = solver.check();
@@ -927,13 +989,13 @@ public class SygusDispatcher {
                     otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
                 g.reset();
                 g.add(withArg);
-                wargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-                // logger.info("Trans withargQF: " + wargQF.toString());
+                Expr transwargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Trans withargQF: " + transwargQF.toString());
                 g.reset();
                 g.add(withoutArg);
-                woargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-                // logger.info("Trans withoutargQF: " + woargQF.toString());
-                BoolExpr transqf = z3ctx.mkAnd((BoolExpr)wargQF, (BoolExpr)woargQF);
+                Expr transwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Trans withoutargQF: " + transwoargQF.toString());
+                BoolExpr transqf = z3ctx.mkAnd((BoolExpr)transwargQF, (BoolExpr)transwoargQF);
                 // trans => exist x, x'. trans /\ exist y, y'. trans
                 solver.reset();
                 solver.add(z3ctx.mkNot(z3ctx.mkImplies((BoolExpr)trans, transqf)));
@@ -950,13 +1012,13 @@ public class SygusDispatcher {
                     otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
                 g.reset();
                 g.add(withArg);
-                wargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-                // logger.info("Post withargQF: " + wargQF.toString());
+                Expr postwargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Post withargQF: " + postwargQF.toString());
                 g.reset();
                 g.add(withoutArg);
-                woargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-                // logger.info("Post withoutargQF: " + woargQF.toString());
-                BoolExpr postqf = z3ctx.mkAnd((BoolExpr)wargQF, (BoolExpr)woargQF);
+                Expr postwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+                // logger.info("Post withoutargQF: " + postwoargQF.toString());
+                BoolExpr postqf = z3ctx.mkAnd((BoolExpr)postwargQF, (BoolExpr)postwoargQF);
                 // forall x. post \/ forall y. post => post     (test with /\ before, but /\ might be too strong
                 solver.reset();
                 solver.add(z3ctx.mkNot(z3ctx.mkImplies(postqf, (BoolExpr)post)));
@@ -965,6 +1027,10 @@ public class SygusDispatcher {
                 if (status != Status.UNSATISFIABLE) {
                     return false;
                 }
+
+                invdncProblem[k] = extractor.createINVSubProblem(args, argswprime, prewoargQF, transwoargQF, postwoargQF);
+                logger.info(k + "-th problem finalConstraint: " + invdncProblem[k].finalConstraint.toString());
+                k = k + 1;
             }
         }
         return true;
