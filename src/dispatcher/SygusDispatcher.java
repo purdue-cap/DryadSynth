@@ -38,7 +38,7 @@ public class SygusDispatcher {
     Expr[] dncBaseArgs = null;
     SygusProblem[] invdncProblem = null;
     boolean invDnC = false;
-
+    
     AT preparedAT;
     Thread [] fallbackCEGIS = null;
 
@@ -422,11 +422,16 @@ public class SygusDispatcher {
                 if (!this.nosolution && subResults != null) {
                     for (int j = 0; j < combined.length; j++) {
                         if (combined[j] != null) {
-                            Expr combinedSolution = z3ctx.mkAnd((BoolExpr)combined[j].getDef(), 
-                                    (BoolExpr)subResults[j].getDef());
+                            Expr combinedSolution = z3ctx.mkAnd((BoolExpr)combined[j].getDef().translate(z3ctx), 
+                                    (BoolExpr)subResults[j].getDef().translate(z3ctx));
                             combined[j] = combined[j].replaceDef(combinedSolution);
                         } else {
-                            combined[j] = new DefinedFunc(subResults[j].ctx, subResults[j].getName(), subResults[j].getArgs(), subResults[j].getDef());
+                            Expr[] args = subResults[j].getArgs();
+                            Expr[] newargs = new Expr[args.length];
+                            for (int m = 0; m < args.length; m++) {
+                                newargs[m] = args[m].translate(z3ctx);
+                            }
+                            combined[j] = new DefinedFunc(z3ctx, subResults[j].getName(), newargs, subResults[j].getDef().translate(z3ctx));
                         } 
                     }
                     logger.info("Combine solution for subproblem " + i);
