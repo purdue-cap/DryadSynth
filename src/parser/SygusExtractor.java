@@ -92,9 +92,54 @@ public class SygusExtractor extends SygusBaseListener {
 
     public SygusProblem createINVSubProblem(Expr[] usedArgs, Expr[] usedArgswprime, Expr pre, Expr trans, Expr post) {
         String name = this.names.get(0);        // names.size() should be 1
-        Sort[] domain = new Sort[usedArgs.length];
+        
+        // prescreen to eliminate unused variables
+        Set<Expr> usedInPre = scanForVars(pre);
+        Set<Expr> usedInTrans = scanForVars(trans);
+        Set<Expr> usedInPost = scanForVars(post);
+        // Check for possible candidates
+        Set<Expr> unusedRegularFromTrans = new HashSet<Expr>(Arrays.asList(usedArgs));
+        unusedRegularFromTrans.retainAll(usedInTrans);
+        // if (unusedRegularFromTrans.isEmpty()) {
+        //     pblm.candidate.put(name, invConstraints.get(name)[2]);
+        // }
+        // Unused variable in pref definition is unused
+        Set<Expr> unusedFromPre = new HashSet<Expr>(Arrays.asList(usedArgs));
+        unusedFromPre.removeAll(usedInPre);
+        // Unused prime variable in transf definition is unused
+        Set<Expr> unusedPrimeFromTrans = new HashSet<Expr>(Arrays.asList(usedArgswprime));
+        unusedPrimeFromTrans.removeAll(Arrays.asList(usedArgs));
+        unusedPrimeFromTrans.removeAll(usedInTrans);
+        Set<Expr> unusedFromTrans = new HashSet<Expr>();
+        for (Expr expr : unusedPrimeFromTrans) {
+            String str = expr.toString();
+            str = str.substring(0, str.length() - 1);
+            unusedFromTrans.add(vars.get(str));
+        }
+        Set<Expr> unused = new HashSet<Expr>(unusedFromPre);
+        unused.addAll(unusedFromTrans);
+        // Any variable used in postf is used
+        unused.removeAll(usedInPost);
+        List<Expr> usedList = new ArrayList<Expr>();
+        for (Expr expr : requestArgs.get(name)) {
+            if (!unused.contains(expr)) {
+                usedList.add(expr);
+            }
+        }
+        // requestUsedArgs.put(name, usedList.toArray(new Expr[usedList.size()]));
+        Expr[] used = usedList.toArray(new Expr[usedList.size()]);
+        Expr[] usedprime = new Expr[used.length];
+        for (int i = 0; i < used.length; i++) {
+            String argname = used[i].toString() + "!";
+            usedprime[i] = z3ctx.mkConst(argname, used[i].getSort());
+        }
+        Expr[] argswithprime = new Expr[used.length * 2];
+        System.arraycopy(used, 0, argswithprime, 0, used.length);
+        System.arraycopy(usedprime, 0, argswithprime, used.length, used.length);
+
+        Sort[] domain = new Sort[used.length];
         for (int i = 0; i < domain.length; i++) {
-            domain[i] = usedArgs[i].getSort();
+            domain[i] = used[i].getSort();
         }
         FuncDecl func = this.requests.get(name);
         Sort range = func.getRange();
@@ -104,11 +149,9 @@ public class SygusExtractor extends SygusBaseListener {
         pblm.names.add(name);
         pblm.requests.put(name, this.requests.get(name));
         pblm.requestArgs.put(name, this.requestArgs.get(name));
-        pblm.requestUsedArgs.put(name, usedArgs);
-        pblm.requestSyntaxUsedArgs.put(name, usedArgs);
+        pblm.requestUsedArgs.put(name, used);
+        pblm.requestSyntaxUsedArgs.put(name, used);
         pblm.rdcdRequests.put(name, rdcdFunc);
-
-        // pblm.candidate = new LinkedHashMap<String, DefinedFunc>(this.candidate);
 
         pblm.problemType = this.problemType;
 
@@ -117,21 +160,21 @@ public class SygusExtractor extends SygusBaseListener {
 
         DefinedFunc[] origfuncs = this.invConstraints.get(name);
         DefinedFunc[] newfuncs = new DefinedFunc[3];
-        newfuncs[0] = new DefinedFunc(z3ctx, origfuncs[0].getName(), usedArgs, pre);
-        newfuncs[1] = new DefinedFunc(z3ctx, origfuncs[1].getName(), usedArgswprime, trans);
-        newfuncs[2] = new DefinedFunc(z3ctx, origfuncs[2].getName(), usedArgs, post);
+        newfuncs[0] = new DefinedFunc(z3ctx, origfuncs[0].getName(), used, pre);
+        newfuncs[1] = new DefinedFunc(z3ctx, origfuncs[1].getName(), argswithprime, trans);
+        newfuncs[2] = new DefinedFunc(z3ctx, origfuncs[2].getName(), used, post);
 
         pblm.combinedConstraint = this.combinedConstraint;
         pblm.invConstraints.put(name, newfuncs);
 
-        Expr[] transArgs = newfuncs[1].getArgs();
-        Expr[] transArgsOrig = Arrays.copyOfRange(transArgs, 0, transArgs.length/2);
-        Expr[] transArgsPrime = Arrays.copyOfRange(transArgs, transArgs.length/2, transArgs.length);
+        // Expr[] transArgs = newfuncs[1].getArgs();
+        // Expr[] transArgsOrig = Arrays.copyOfRange(transArgs, 0, transArgs.length/2);
+        // Expr[] transArgsPrime = Arrays.copyOfRange(transArgs, transArgs.length/2, transArgs.length);
         BoolExpr startCstrt = z3ctx.mkImplies((BoolExpr)newfuncs[0].getDef(),
                                 (BoolExpr)rdcdFunc.apply(newfuncs[0].getArgs()));
         BoolExpr loopCstrt = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)newfuncs[1].getDef(),
-                                                (BoolExpr)rdcdFunc.apply(transArgsOrig)),
-                                (BoolExpr)rdcdFunc.apply(transArgsPrime));
+                                                (BoolExpr)rdcdFunc.apply(used)),
+                                (BoolExpr)rdcdFunc.apply(usedprime));
         BoolExpr endCstrt = z3ctx.mkImplies((BoolExpr)rdcdFunc.apply(newfuncs[2].getArgs()),
                                 (BoolExpr)newfuncs[2].getDef());
 
@@ -153,6 +196,12 @@ public class SygusExtractor extends SygusBaseListener {
             pblm.cfgs.put(key, new SygusProblem.CFG(this.cfgs.get(key)));
         }
         pblm.isGeneral = this.isGeneral;
+
+        pblm.candidate = new LinkedHashMap<String, DefinedFunc>();
+        if (unusedRegularFromTrans.isEmpty()) {
+            pblm.candidate.put(name, pblm.invConstraints.get(name)[2]);
+        }
+
         return pblm;
     }
 
