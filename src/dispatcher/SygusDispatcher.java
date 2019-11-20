@@ -9,7 +9,7 @@ import com.microsoft.z3.*;
 
 public class SygusDispatcher {
     public enum SolveMethod {
-        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC
+        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC, INVDNC
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
@@ -36,13 +36,14 @@ public class SygusDispatcher {
     DnCEnv dncEnv = null;
     Expr dncBaseExpr = null;
     Expr[] dncBaseArgs = null;
-    SygusProblem[] invdncProblem = null;
-    boolean invDnC = false;
+    // SygusProblem[] invdncProblem = null;
+    // boolean invDnC = false;
     public enum DnCType {
-        RECPOST, CROSSPRE, RCCRSSREC, RCCRSSCRSS
+        RECPOST, CROSSPRE, RCCRSS
     }
-    DnCType dncConj = DnCType.RECPOST;
+    DnCType dnctype = DnCType.RECPOST;
 
+    InvDnC preparedDnC;
     AT preparedAT;
     Thread [] fallbackCEGIS = null;
 
@@ -221,17 +222,6 @@ public class SygusDispatcher {
             this.method = SolveMethod.PRESCREENED;
             return;
         }
-        checkResult = this.checkINVDnC();
-        if (checkResult) {
-            logger.info("Invariant Divide and Conquer Algorithm applicable, applying");
-            logger.info("DnCType: " + this.dncConj);
-            this.invDnC = true;
-            // this.problem = invdncProblem[1];
-            // System.exit(0);
-            return;
-        }
-        // System.out.println("Can not DnC.");
-        // System.exit(0);
         checkResult = this.checkSSIComm();
         if (checkResult) {
             logger.info("SSIComm detected, using SSI-Commutativity algorithm");
@@ -250,16 +240,28 @@ public class SygusDispatcher {
             this.method = SolveMethod.AT;
             return;
         }
+        checkResult = this.checkINVDnC();
+        if (checkResult) {
+            logger.info("Invariant Divide and Conquer Algorithm applicable, applying");
+            logger.info("DnCType: " + this.dnctype);
+            // this.invDnC = true;
+            this.method = SolveMethod.INVDNC;
+            // this.problem = invdncProblem[1];
+            // System.exit(0);
+            return;
+        }
+        // System.out.println("Can not DnC.");
+        // System.exit(0);
 
         return;
     }
 
-    public void init() throws Exception {
-        // postpone prescreen and initialization of INV DnC problems
-        if (!this.invDnC) {
-            initAlgorithm();
-        }
-    }
+    // public void init() throws Exception {
+    //     // postpone prescreen and initialization of INV DnC problems
+    //     if (!this.invDnC) {
+    //         initAlgorithm();
+    //     }
+    // }
 
     public void initAlgorithm() throws Exception{
         if (this.method == SolveMethod.PRESCREENED) {
@@ -280,7 +282,7 @@ public class SygusDispatcher {
             }
         }
         if (isINV && !problem.isGeneral && enforceFHCEGIS) {
-            env.problem.finalConstraint = getIndFinalConstraint(problem);
+            env.problem.finalConstraint = getIndFinalConstraint(problem, z3ctx);
         }
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
@@ -403,69 +405,93 @@ public class SygusDispatcher {
             return;
         }
 
-    }
+        if (this.method == SolveMethod.INVDNC) {
+            logger.info("Initializing INV DnC algorithms.");
 
-    public DefinedFunc[] run() throws Exception {
-        if (!this.invDnC) {
-            return runAlgorithm();
-        } else {
-            DefinedFunc[] combined = new DefinedFunc[problem.requests.size()];
-            DefinedFunc[] subResults = null;
-
-            for (int i = 0; i < invdncProblem.length; i++) {
-                logger.info("Start solving subproblem " + i);
-                if (invdncProblem[i] == null) {
-                    continue;
-                }
-                this.problem = invdncProblem[i];
-                // prescreen to check if the subproblem is AT applicable or not
-                if (this.checkAT()) {
-                    logger.info("AT detected for subproblem " + i + ", using AT algorithm");
-                    this.method = SolveMethod.AT;
-                } else {
-                    this.method = SolveMethod.CEGIS;
-                }
-                // initial and run the algorithm on the subproblem
-                initAlgorithm();
-                subResults = runAlgorithm();
-                // combine the solutions
-                if (!this.nosolution && subResults != null) {
-                    for (int j = 0; j < combined.length; j++) {
-                        if (combined[j] != null) {
-                        	Expr combinedSolution;
-                        	if (this.dncConj == DnCType.RECPOST) {
-                        		combinedSolution = z3ctx.mkAnd((BoolExpr)combined[j].getDef().translate(z3ctx), 
-                                    (BoolExpr)subResults[j].getDef().translate(z3ctx));
-                        	} else {       // if (this.dncConj == DnCType.CROSSPRE)
-                        		combinedSolution = z3ctx.mkOr((BoolExpr)combined[j].getDef().translate(z3ctx), 
-                                    (BoolExpr)subResults[j].getDef().translate(z3ctx));
-                        	}
-                            combined[j] = combined[j].replaceDef(combinedSolution);
-                        } else {
-                            Expr[] args = subResults[j].getArgs();
-                            Expr[] newargs = new Expr[args.length];
-                            for (int m = 0; m < args.length; m++) {
-                                newargs[m] = args[m].translate(z3ctx);
-                            }
-                            combined[j] = new DefinedFunc(z3ctx, subResults[j].getName(), newargs, subResults[j].getDef().translate(z3ctx));
-                            if (this.dncConj == DnCType.RCCRSSREC || this.dncConj == DnCType.RCCRSSCRSS) {
-                                logger.info("DnCType.RCCRSSREC found a solution for subproblem, return.");
-                                return combined;
-                            }
-                        } 
-                    }
-                    logger.info("Combine solution for subproblem " + i);
-                } else {
-                    logger.info("No solution for subproblem " + i);
-                }
-                // reset nosolution
-                this.nosolution = false;
+            if (numCore > 1) {
+                threads = fallbackCEGIS;
+                Context dncctx = new Context();
+                Logger threadLogger = Logger.getLogger("main.thread" + "dnc");
+                threadLogger.setUseParentHandlers(false);
+                FileHandler threadHandler = new FileHandler("log.thread." + "dnc" + ".txt", false);
+                threadHandler.setFormatter(new SimpleFormatter());
+                threadLogger.addHandler(threadHandler);
+                preparedDnC = new InvDnC(dncctx, threadLogger, env, this.dnctype, this.iterLimit, problem);
+                preparedDnC.init();
+                threads[0] = preparedDnC;
+            } else {
+                threads = new Thread[1];
+                preparedDnC = new InvDnC(z3ctx, logger, env, this.dnctype, this.iterLimit, problem);
+                preparedDnC.init();
+                threads[0] = preparedDnC;
             }
-            // TODO: set final no solution
 
-            return combined;
+            return;
         }
+
     }
+
+    // public DefinedFunc[] run() throws Exception {
+    //     if (!this.invDnC) {
+    //         return runAlgorithm();
+    //     } else {
+    //         DefinedFunc[] combined = new DefinedFunc[problem.requests.size()];
+    //         DefinedFunc[] subResults = null;
+
+    //         for (int i = 0; i < invdncProblem.length; i++) {
+    //             logger.info("Start solving subproblem " + i);
+    //             if (invdncProblem[i] == null) {
+    //                 continue;
+    //             }
+    //             this.problem = invdncProblem[i];
+    //             // prescreen to check if the subproblem is AT applicable or not
+    //             if (this.checkAT()) {
+    //                 logger.info("AT detected for subproblem " + i + ", using AT algorithm");
+    //                 this.method = SolveMethod.AT;
+    //             } else {
+    //                 this.method = SolveMethod.CEGIS;
+    //             }
+    //             // initial and run the algorithm on the subproblem
+    //             initAlgorithm();
+    //             subResults = runAlgorithm();
+    //             // combine the solutions
+    //             if (!this.nosolution && subResults != null) {
+    //                 for (int j = 0; j < combined.length; j++) {
+    //                     if (combined[j] != null) {
+    //                     	Expr combinedSolution;
+    //                     	if (this.dnctype == DnCType.RECPOST) {
+    //                     		combinedSolution = z3ctx.mkAnd((BoolExpr)combined[j].getDef().translate(z3ctx), 
+    //                                 (BoolExpr)subResults[j].getDef().translate(z3ctx));
+    //                     	} else {       // if (this.dnctype == DnCType.CROSSPRE)
+    //                     		combinedSolution = z3ctx.mkOr((BoolExpr)combined[j].getDef().translate(z3ctx), 
+    //                                 (BoolExpr)subResults[j].getDef().translate(z3ctx));
+    //                     	}
+    //                         combined[j] = combined[j].replaceDef(combinedSolution);
+    //                     } else {
+    //                         Expr[] args = subResults[j].getArgs();
+    //                         Expr[] newargs = new Expr[args.length];
+    //                         for (int m = 0; m < args.length; m++) {
+    //                             newargs[m] = args[m].translate(z3ctx);
+    //                         }
+    //                         combined[j] = new DefinedFunc(z3ctx, subResults[j].getName(), newargs, subResults[j].getDef().translate(z3ctx));
+    //                         if (this.dnctype == DnCType.RCCRSS) {
+    //                             logger.info("DnCType.RCCRSS found a solution for subproblem, return.");
+    //                             return combined;
+    //                         }
+    //                     } 
+    //                 }
+    //                 logger.info("Combine solution for subproblem " + i);
+    //             } else {
+    //                 logger.info("No solution for subproblem " + i);
+    //             }
+    //             // reset nosolution
+    //             this.nosolution = false;
+    //         }
+    //         // TODO: set final no solution
+
+    //         return combined;
+    //     }
+    // }
 
     public DefinedFunc[] runAlgorithm() throws Exception{
         if (this.method == SolveMethod.PRESCREENED) {
@@ -578,6 +604,65 @@ public class SygusDispatcher {
                 results = ((AT)threads[0]).results;
             }
 
+        }
+
+        if (this.method == SolveMethod.INVDNC){
+            if (numCore > 1) {
+                for (int i = 0; i < numCore; i++) {
+                    threads[i].start();
+                }
+                while (results == null) {
+                    synchronized(env) {
+                        env.wait();
+                    }
+                    int resultHeight = 0;
+                    InvDnC invdnc = (InvDnC)threads[0];
+                    if (invdnc.results != null) {
+                        results = invdnc.results;
+                        logger.info("INV DnC got results.");
+                        if (methodOnly) {
+                            System.out.println("INVDNC");
+                        }
+                    } 
+                    for (int i = 1; i < numCore; i++) {
+                        Cegis cegis = (Cegis)threads[i];
+                        if (cegis.results != null) {
+                            results = cegis.results;
+                            resultHeight = cegis.resultHeight;
+                            if (cegis.nosolution) {
+                                nosolution = true;
+                            }
+                            if (methodOnly) {
+                                System.out.println("CEGIS");
+                            }
+                        }
+                    }
+                    if (env.runningThreads.get() == 0) {
+                        return results;
+                    }
+                    if (env.checkITOnly){
+                        for (int i = 1; i < numCore; i++) {
+                            Cegis cegis = (Cegis)threads[i];
+                            cegis.running = false;
+                        }
+                        return results;
+                    }
+                    if (methodOnly) {
+                        return null;
+                    }
+                    if (heightsOnly) {
+                        System.out.println("resultHeight:" + new Integer(resultHeight).toString());
+                        return null;
+                    }
+                }
+            } else {
+                logger.info("Starting INV DnC algorithms.");
+                if (methodOnly) {
+                    System.out.println("INVDNC");
+                }
+                threads[0].run();
+                results = ((InvDnC)threads[0]).results;
+            }
         }
 
         if (this.method == SolveMethod.CEGIS || (results == null) && (iterLimit == 0)) {
@@ -741,11 +826,11 @@ public class SygusDispatcher {
         return;
     }
 
-    public BoolExpr getIndFinalConstraint(SygusProblem origProblem) {
+    public static BoolExpr getIndFinalConstraint(SygusProblem origProblem, Context ctx) {
         BoolExpr newFinal = origProblem.finalConstraint;
         if (origProblem.invConstraints != null) {
             Map<String, DefinedFunc[]> invConstr = origProblem.invConstraints;
-            newFinal = z3ctx.mkTrue();
+            newFinal = ctx.mkTrue();
             for (String key : invConstr.keySet()) {
                 DefinedFunc pre = invConstr.get(key)[0];
                 DefinedFunc trans = invConstr.get(key)[1];
@@ -759,24 +844,24 @@ public class SygusDispatcher {
                 Expr[] primedArgs = new Expr[vars.length];
                 for (int i = 0; i < vars.length; i++) {
                     String name = vars[i].toString();
-                    primedArgs[i] = z3ctx.mkConst(name + "!", vars[i].getSort());
+                    primedArgs[i] = ctx.mkConst(name + "!", vars[i].getSort());
                 }
-                BoolExpr inductive = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)trans.getDef(),
+                BoolExpr inductive = ctx.mkImplies(ctx.mkAnd((BoolExpr)trans.getDef(),
                                             (BoolExpr)invapp),
                                     (BoolExpr)inv.apply(primedArgs));
                 // logger.info("inductive before rewriting: " + inductive);
-                Expr newDef = z3ctx.mkAnd((BoolExpr)post.getDef(), z3ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)invapp));
+                Expr newDef = ctx.mkAnd((BoolExpr)post.getDef(), ctx.mkOr((BoolExpr)pre.getDef(), (BoolExpr)invapp));
                 // logger.info("new inv with template: " + newDef);
-                DefinedFunc newinv = new DefinedFunc(z3ctx, key, vars, newDef);
+                DefinedFunc newinv = new DefinedFunc(ctx, key, vars, newDef);
                 inductive = (BoolExpr)newinv.rewrite(inductive, inv);
                 // logger.info("inductive after rewriting: " + inductive);
                 FuncDecl rdcdInv = origProblem.rdcdRequests.get(key);
                 Expr[] rdcdVars = origProblem.requestUsedArgs.get(key);
-                DefinedFunc df = new DefinedFunc(z3ctx, key, vars, rdcdInv.apply(rdcdVars));
+                DefinedFunc df = new DefinedFunc(ctx, key, vars, rdcdInv.apply(rdcdVars));
                 inductive = (BoolExpr)df.rewrite(inductive, inv);
                 // logger.info("inductive with rdcd inv: " + inductive);
                 if (invConstr.size() > 1) {
-                    newFinal = z3ctx.mkAnd(newFinal, inductive);
+                    newFinal = ctx.mkAnd(newFinal, inductive);
                 } else if (invConstr.size() == 1) {
                     newFinal = inductive;
                 }
@@ -1178,105 +1263,105 @@ public class SygusDispatcher {
         return true;
     }
 
-    void genSubproblem() {
-    	// construct subproblems for INV DnC
-    	// There should be only one invariant to synthesize
-    	String name = extractor.names.get(0);
-    	Set<Set<Expr>> relation = extractor.varsRelation.get(name);
-        invdncProblem = new SygusProblem[relation.size()];
-        Expr pre = extractor.invConstraints.get(name)[0].getDef();
-        Expr trans = extractor.invConstraints.get(name)[1].getDef();
-        Expr post = extractor.invConstraints.get(name)[2].getDef();
+    // void genSubproblem() {
+    // 	// construct subproblems for INV DnC
+    // 	// There should be only one invariant to synthesize
+    // 	String name = extractor.names.get(0);
+    // 	Set<Set<Expr>> relation = extractor.varsRelation.get(name);
+    //     invdncProblem = new SygusProblem[relation.size()];
+    //     Expr pre = extractor.invConstraints.get(name)[0].getDef();
+    //     Expr trans = extractor.invConstraints.get(name)[1].getDef();
+    //     Expr post = extractor.invConstraints.get(name)[2].getDef();
 
-        int k = 0;
-        for(Set<Expr> exprset : relation) {
-            Set<Expr> otherset = new HashSet<Expr>();
-            for (Expr e : extractor.requestArgs.get(name)) {
-                otherset.add(e);
-            }
-            otherset.removeAll(exprset);
-            Expr[] args = exprset.toArray(new Expr[exprset.size()]);
-            logger.info("Class: " + Arrays.toString(args));
-            Expr[] otherargs = otherset.toArray(new Expr[otherset.size()]);
-            Tactic qe = z3ctx.mkTactic("qe");
-            Goal g = z3ctx.mkGoal(false, false, false);
-            Quantifier withArg;
-            Quantifier withoutArg;
+    //     int k = 0;
+    //     for(Set<Expr> exprset : relation) {
+    //         Set<Expr> otherset = new HashSet<Expr>();
+    //         for (Expr e : extractor.requestArgs.get(name)) {
+    //             otherset.add(e);
+    //         }
+    //         otherset.removeAll(exprset);
+    //         Expr[] args = exprset.toArray(new Expr[exprset.size()]);
+    //         logger.info("Class: " + Arrays.toString(args));
+    //         Expr[] otherargs = otherset.toArray(new Expr[otherset.size()]);
+    //         Tactic qe = z3ctx.mkTactic("qe");
+    //         Goal g = z3ctx.mkGoal(false, false, false);
+    //         Quantifier withArg;
+    //         Quantifier withoutArg;
 
-            // pre first
-            if (this.dncConj == DnCType.RECPOST || this.dncConj == DnCType.RCCRSSREC) {
-	            withoutArg = z3ctx.mkExists(
-	                otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-            } else {    // if (this.dncConj == DnCType.CROSSPRE)
-	            withoutArg = z3ctx.mkForall(
-	                otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-            }
-            g.add(withoutArg);
-            Expr prewoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-            logger.info("Pre withoutargQF: " + prewoargQF.toString());
+    //         // pre first
+    //         if (this.dnctype == DnCType.RECPOST || this.dnctype == DnCType.RCCRSS) {
+	   //          withoutArg = z3ctx.mkExists(
+	   //              otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+    //         } else {    // if (this.dnctype == DnCType.CROSSPRE)
+	   //          withoutArg = z3ctx.mkForall(
+	   //              otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+    //         }
+    //         g.add(withoutArg);
+    //         Expr prewoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+    //         logger.info("Pre withoutargQF: " + prewoargQF.toString());
 
-            // then post
-            if (this.dncConj == DnCType.RECPOST) {
-	            withoutArg = z3ctx.mkExists(
-	                otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-            } else if (this.dncConj == DnCType.CROSSPRE || this.dncConj == DnCType.RCCRSSREC) {
-	            withoutArg = z3ctx.mkForall(
-	                otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-            }
-            g.reset();
-            g.add(withoutArg);
-            Expr postwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-            logger.info("Post withoutargQF: " + postwoargQF.toString());
+    //         // then post
+    //         if (this.dnctype == DnCType.RECPOST) {
+	   //          withoutArg = z3ctx.mkExists(
+	   //              otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+    //         } else if (this.dnctype == DnCType.CROSSPRE || this.dnctype == DnCType.RCCRSS) {
+	   //          withoutArg = z3ctx.mkForall(
+	   //              otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+    //         }
+    //         g.reset();
+    //         g.add(withoutArg);
+    //         Expr postwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+    //         logger.info("Post withoutargQF: " + postwoargQF.toString());
 
-            // check if pre => post
-            Solver solver = z3ctx.mkSolver();
-            BoolExpr preipost = z3ctx.mkImplies((BoolExpr)prewoargQF, (BoolExpr)postwoargQF);
-            solver.add(z3ctx.mkNot(preipost));
-            Status status = solver.check();
-            if (status != Status.UNSATISFIABLE) {
-                logger.info("Pre can not imply post. Discard this subproblem.");
-                continue;
-            }
+    //         // check if pre => post
+    //         Solver solver = z3ctx.mkSolver();
+    //         BoolExpr preipost = z3ctx.mkImplies((BoolExpr)prewoargQF, (BoolExpr)postwoargQF);
+    //         solver.add(z3ctx.mkNot(preipost));
+    //         Status status = solver.check();
+    //         if (status != Status.UNSATISFIABLE) {
+    //             logger.info("Pre can not imply post. Discard this subproblem.");
+    //             continue;
+    //         }
 
-            // finallly trans
-            Expr[] primedArgs = new Expr[args.length];
-            for (int i = 0; i < args.length; i++) {
-                String varname = args[i].toString() + "!";
-                primedArgs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
-            }
-            Expr[] primedOtherargs = new Expr[otherargs.length];
-            for (int i = 0; i < otherargs.length; i++) {
-                String varname = otherargs[i].toString() + "!";
-                primedOtherargs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
-            }
-            Expr[] argswprime = new Expr[args.length * 2];
-            System.arraycopy(args, 0, argswprime, 0, args.length);
-            System.arraycopy(primedArgs, 0, argswprime, args.length, primedArgs.length);
-            Expr[] otherargswprime = new Expr[otherargs.length * 2];
-            System.arraycopy(otherargs, 0, otherargswprime, 0, otherargs.length);
-            System.arraycopy(primedOtherargs, 0, otherargswprime, otherargs.length, primedOtherargs.length);
-            if (this.dncConj == DnCType.RECPOST || this.dncConj == DnCType.RCCRSSREC) {
-                withoutArg = z3ctx.mkExists(
-                    otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-            } else if (this.dncConj == DnCType.CROSSPRE) {
-                withoutArg = z3ctx.mkForall(
-                    otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-                // Quantifier forally = z3ctx.mkForall(
-                //     otherargs, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-                // withoutArg = z3ctx.mkForall(
-                //     primedOtherargs, forally, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-            }
-            g.reset();
-            g.add(withoutArg);
-            Expr transwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-            logger.info("Trans withoutargQF: " + transwoargQF.toString());
+    //         // finallly trans
+    //         Expr[] primedArgs = new Expr[args.length];
+    //         for (int i = 0; i < args.length; i++) {
+    //             String varname = args[i].toString() + "!";
+    //             primedArgs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
+    //         }
+    //         Expr[] primedOtherargs = new Expr[otherargs.length];
+    //         for (int i = 0; i < otherargs.length; i++) {
+    //             String varname = otherargs[i].toString() + "!";
+    //             primedOtherargs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
+    //         }
+    //         Expr[] argswprime = new Expr[args.length * 2];
+    //         System.arraycopy(args, 0, argswprime, 0, args.length);
+    //         System.arraycopy(primedArgs, 0, argswprime, args.length, primedArgs.length);
+    //         Expr[] otherargswprime = new Expr[otherargs.length * 2];
+    //         System.arraycopy(otherargs, 0, otherargswprime, 0, otherargs.length);
+    //         System.arraycopy(primedOtherargs, 0, otherargswprime, otherargs.length, primedOtherargs.length);
+    //         if (this.dnctype == DnCType.RECPOST || this.dnctype == DnCType.RCCRSS) {
+    //             withoutArg = z3ctx.mkExists(
+    //                 otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+    //         } else if (this.dnctype == DnCType.CROSSPRE) {
+    //             withoutArg = z3ctx.mkForall(
+    //                 otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+    //             // Quantifier forally = z3ctx.mkForall(
+    //             //     otherargs, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+    //             // withoutArg = z3ctx.mkForall(
+    //             //     primedOtherargs, forally, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
+    //         }
+    //         g.reset();
+    //         g.add(withoutArg);
+    //         Expr transwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
+    //         logger.info("Trans withoutargQF: " + transwoargQF.toString());
 
-            invdncProblem[k] = extractor.createINVSubProblem(args, argswprime, prewoargQF, transwoargQF, postwoargQF);
+    //         invdncProblem[k] = extractor.createINVSubProblem(args, argswprime, prewoargQF, transwoargQF, postwoargQF);
 
-            logger.info(k + "-th problem finalConstraint: " + invdncProblem[k].finalConstraint.toString());
-            k = k + 1;
-        }
-    }
+    //         logger.info(k + "-th problem finalConstraint: " + invdncProblem[k].finalConstraint.toString());
+    //         k = k + 1;
+    //     }
+    // }
 
     boolean checkINVDnC() {
         if (problem.problemType != SygusProblem.ProbType.INV) {
@@ -1287,22 +1372,22 @@ public class SygusDispatcher {
         }
         if (this.checkINVSquarePost()) {
         	logger.info("Rectangle post");
-        	this.dncConj = DnCType.RECPOST;
-        	genSubproblem();
+        	this.dnctype = DnCType.RECPOST;
+        	// genSubproblem();
         	// System.out.println("Square post");
         	return true;
         }
         if (this.checkINVCrossPre()) {
         	logger.info("Cross pre");
-        	this.dncConj = DnCType.CROSSPRE;
-        	genSubproblem();
+        	this.dnctype = DnCType.CROSSPRE;
+        	// genSubproblem();
         	// System.out.println("Cross pre");
         	return true;
         }
         if (this.checkINVRecCross()) {
             logger.info("Rectangle pre & Cross post");
-            this.dncConj = DnCType.RCCRSSREC;
-            genSubproblem();
+            this.dnctype = DnCType.RCCRSS;
+            // genSubproblem();
             // System.out.println("Just try.");
             return true;
         }

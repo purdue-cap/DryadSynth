@@ -81,6 +81,7 @@ public class SygusExtractor extends SygusBaseListener {
         pblm.finalConstraint = this.finalConstraint;
         pblm.funcs = new LinkedHashMap<String, DefinedFunc>(this.funcs);
         pblm.opDis = new OpDispatcher(this.z3ctx, this.requests, this.funcs);
+        pblm.varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(this.varsRelation);
 
         pblm.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(this.glbSybTypeTbl);
         for (String key : this.cfgs.keySet()) {
@@ -374,7 +375,7 @@ public class SygusExtractor extends SygusBaseListener {
         return relation;
     }
 
-    Set<Expr> scanForVars(Expr orig) {
+    public static Set<Expr> scanForVars(Expr orig) {
         Set<Expr> scanned = new HashSet<Expr>();
         Queue<Expr> todo = new LinkedList<Expr>();
         todo.add(orig);

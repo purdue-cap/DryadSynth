@@ -131,8 +131,9 @@ public class Run {
 	            return;
         	}
         }
-		dispatcher.init();
-		DefinedFunc[] results = dispatcher.run();
+		dispatcher.initAlgorithm();
+		// System.exit(0);
+		DefinedFunc[] results = dispatcher.runAlgorithm();
 		dispatcher.postFormatting(results);
         if (results == null) {
             System.exit(1);

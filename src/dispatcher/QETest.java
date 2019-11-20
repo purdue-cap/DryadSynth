@@ -111,7 +111,7 @@ public class QETest {
         }
 
         Map<String, Expr[]> requestArgs = extractor.requestArgs;
-        Expr[] argList = new Expr[17];;
+        Expr[] argList = new Expr[17];
 
         for(String key: requestArgs.keySet()){
             argList = requestArgs.get(key);
@@ -201,10 +201,10 @@ public class QETest {
         Expr postWithoutXQFree = qe.apply(g).getSubgoals()[0].AsBoolExpr();
         logger.info("postWithoutXQFree: " + postWithoutXQFree.simplify().toString());
 
-        and = ctx.mkAnd((BoolExpr)postWithXQFree, (BoolExpr)postWithoutXQFree);
+        BoolExpr or = ctx.mkOr((BoolExpr)postWithXQFree, (BoolExpr)postWithoutXQFree);
 
         solver.reset();
-        solver.add(ctx.mkNot(ctx.mkImplies(and, (BoolExpr)funcs[2].getDef())));
+        solver.add(ctx.mkNot(ctx.mkImplies((BoolExpr)funcs[2].getDef(), or)));
         status = solver.check();
 
         logger.info("Post Status: " + status);

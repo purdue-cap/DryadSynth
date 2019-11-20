@@ -38,6 +38,7 @@ public class SygusProblem {
     public BoolExpr finalConstraint = null; // Final constraint expressed using reduced request declearations
     public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
     public OpDispatcher opDis;
+    public Map<String, Set<Set<Expr>>> varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(); // vars relationship map, used for INV DnC
 
     // For grammar parsing
     public enum SybType {
@@ -45,16 +46,16 @@ public class SygusProblem {
     }
     // Inner grammar class
     public static class CFG {
-        private Context z3ctx;
+        private Context ctx;
         public Map<String, Sort> grammarSybSort = new LinkedHashMap<String, Sort>();
         public Map<String, List<String[]>>  grammarRules = new LinkedHashMap<String, List<String[]>>();
         // For symbol resolving
         public Map<String, SybType> sybTypeTbl = new LinkedHashMap<String, SybType>();
         public Map<String, Expr> localArgs = new LinkedHashMap<String, Expr>();
 
-        public CFG(Context ctx) {this.z3ctx = ctx;}
+        public CFG(Context ctx) {this.ctx = ctx;}
         public CFG(CFG src){
-            this.z3ctx = src.z3ctx;
+            this.ctx = src.ctx;
             this.grammarSybSort.putAll(src.grammarSybSort);
             for (String key : src.grammarRules.keySet()) {
                 List<String[]> newList = new ArrayList<String[]>(src.grammarRules.get(key));
@@ -65,7 +66,7 @@ public class SygusProblem {
         }
 
         public CFG translate(Context newctx) {
-            if (this.z3ctx == newctx) {
+            if (this.ctx == newctx) {
                 return this;
             }
             CFG newcfg = new CFG(newctx);
@@ -109,6 +110,7 @@ public class SygusProblem {
         this.finalConstraint = src.finalConstraint;
         this.funcs = new LinkedHashMap<String, DefinedFunc>(src.funcs);
         this.opDis = new OpDispatcher(this.ctx, this.requests, this.funcs);
+        this.varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(src.varsRelation);
 
         this.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(src.glbSybTypeTbl);
         for (String key : src.cfgs.keySet()) {
@@ -194,6 +196,135 @@ public class SygusProblem {
         }
         newProblem.isGeneral = this.isGeneral;
 
+        // this.varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(src.varsRelation);
+        newProblem.varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>();
+        for (String key : this.varsRelation.keySet()) {
+            Set<Set<Expr>> relation = new HashSet<Set<Expr>>();
+            for (Set<Expr> varset : this.varsRelation.get(key)) {
+                Set<Expr> newset = new HashSet<Expr>();
+                for (Expr variable : varset) {
+                    newset.add(variable.translate(ctx));
+                }
+                relation.add(newset);
+            }
+            newProblem.varsRelation.put(key, relation);
+        }
+
         return newProblem;
+    }
+
+    public SygusProblem createINVSubProblem(Expr[] usedArgs, Expr[] usedArgswprime, Expr pre, Expr trans, Expr post) {
+        String name = this.names.get(0);        // names.size() should be 1
+        
+        // // prescreen to eliminate unused variables
+        // Set<Expr> usedInPre = SygusExtractor.scanForVars(pre);
+        // Set<Expr> usedInTrans = SygusExtractor.scanForVars(trans);
+        // Set<Expr> usedInPost = SygusExtractor.scanForVars(post);
+        // // Check for possible candidates
+        // Set<Expr> unusedRegularFromTrans = new HashSet<Expr>(Arrays.asList(usedArgs));
+        // unusedRegularFromTrans.retainAll(usedInTrans);
+        // // if (unusedRegularFromTrans.isEmpty()) {
+        // //     pblm.candidate.put(name, invConstraints.get(name)[2]);
+        // // }
+        // // Unused variable in pref definition is unused
+        // Set<Expr> unusedFromPre = new HashSet<Expr>(Arrays.asList(usedArgs));
+        // unusedFromPre.removeAll(usedInPre);
+        // // Unused prime variable in transf definition is unused
+        // Set<Expr> unusedPrimeFromTrans = new HashSet<Expr>(Arrays.asList(usedArgswprime));
+        // unusedPrimeFromTrans.removeAll(Arrays.asList(usedArgs));
+        // unusedPrimeFromTrans.removeAll(usedInTrans);
+        // Set<Expr> unusedFromTrans = new HashSet<Expr>();
+        // for (Expr expr : unusedPrimeFromTrans) {
+        //     String str = expr.toString();
+        //     str = str.substring(0, str.length() - 1);
+        //     unusedFromTrans.add(vars.get(str));
+        // }
+        // Set<Expr> unused = new HashSet<Expr>(unusedFromPre);
+        // unused.addAll(unusedFromTrans);
+        // // Any variable used in postf is used
+        // unused.removeAll(usedInPost);
+        // List<Expr> usedList = new ArrayList<Expr>();
+        // for (Expr expr : requestArgs.get(name)) {
+        //     if (!unused.contains(expr)) {
+        //         usedList.add(expr);
+        //     }
+        // }
+        // // requestUsedArgs.put(name, usedList.toArray(new Expr[usedList.size()]));
+        // Expr[] used = usedList.toArray(new Expr[usedList.size()]);
+        // Expr[] usedprime = new Expr[used.length];
+        // for (int i = 0; i < used.length; i++) {
+        //     String argname = used[i].toString() + "!";
+        //     usedprime[i] = ctx.mkConst(argname, used[i].getSort());
+        // }
+        // Expr[] argswithprime = new Expr[used.length * 2];
+        // System.arraycopy(used, 0, argswithprime, 0, used.length);
+        // System.arraycopy(usedprime, 0, argswithprime, used.length, used.length);
+
+        Sort[] domain = new Sort[usedArgs.length];
+        for (int i = 0; i < domain.length; i++) {
+            domain[i] = usedArgs[i].getSort();
+        }
+        FuncDecl func = this.requests.get(name);
+        Sort range = func.getRange();
+        FuncDecl rdcdFunc = ctx.mkFuncDecl(name, domain, range);
+
+        SygusProblem pblm = new SygusProblem(ctx);
+        pblm.names.add(name);
+        pblm.requests.put(name, this.requests.get(name));
+        pblm.requestArgs.put(name, this.requestArgs.get(name));
+        pblm.requestUsedArgs.put(name, usedArgs);
+        pblm.requestSyntaxUsedArgs.put(name, usedArgs);
+        pblm.rdcdRequests.put(name, rdcdFunc);
+
+        pblm.problemType = this.problemType;
+
+        pblm.vars = new LinkedHashMap<String, Expr>(this.vars);
+        pblm.regularVars = new LinkedHashMap<String, Expr>(this.regularVars);
+
+        DefinedFunc[] origfuncs = this.invConstraints.get(name);
+        DefinedFunc[] newfuncs = new DefinedFunc[3];
+        newfuncs[0] = new DefinedFunc(ctx, origfuncs[0].getName(), usedArgs, pre);
+        newfuncs[1] = new DefinedFunc(ctx, origfuncs[1].getName(), usedArgswprime, trans);
+        newfuncs[2] = new DefinedFunc(ctx, origfuncs[2].getName(), usedArgs, post);
+
+        pblm.combinedConstraint = this.combinedConstraint;
+        pblm.invConstraints.put(name, newfuncs);
+
+        Expr[] transArgs = newfuncs[1].getArgs();
+        Expr[] transArgsOrig = Arrays.copyOfRange(transArgs, 0, transArgs.length/2);
+        Expr[] transArgsPrime = Arrays.copyOfRange(transArgs, transArgs.length/2, transArgs.length);
+        BoolExpr startCstrt = ctx.mkImplies((BoolExpr)newfuncs[0].getDef(),
+                                (BoolExpr)rdcdFunc.apply(newfuncs[0].getArgs()));
+        BoolExpr loopCstrt = ctx.mkImplies(ctx.mkAnd((BoolExpr)newfuncs[1].getDef(),
+                                                (BoolExpr)rdcdFunc.apply(transArgsOrig)),
+                                (BoolExpr)rdcdFunc.apply(transArgsPrime));
+        BoolExpr endCstrt = ctx.mkImplies((BoolExpr)rdcdFunc.apply(newfuncs[2].getArgs()),
+                                (BoolExpr)newfuncs[2].getDef());
+
+        pblm.constraints.add(startCstrt);
+        pblm.constraints.add(loopCstrt);
+        pblm.constraints.add(endCstrt);
+
+        pblm.invCombinedConstraint = ctx.mkAnd(startCstrt, loopCstrt, endCstrt);
+        pblm.finalConstraint = (BoolExpr)ctx.mkAnd(pblm.combinedConstraint, pblm.invCombinedConstraint).simplify();
+
+        pblm.funcs = new LinkedHashMap<String, DefinedFunc>(this.funcs);
+        pblm.funcs.put(origfuncs[0].getName(), newfuncs[0]);
+        pblm.funcs.put(origfuncs[1].getName(), newfuncs[1]);
+        pblm.funcs.put(origfuncs[2].getName(), newfuncs[2]);
+        pblm.opDis = new OpDispatcher(this.ctx, this.requests, this.funcs);
+
+        pblm.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(this.glbSybTypeTbl);
+        for (String key : this.cfgs.keySet()) {
+            pblm.cfgs.put(key, new SygusProblem.CFG(this.cfgs.get(key)));
+        }
+        pblm.isGeneral = this.isGeneral;
+
+        // pblm.candidate = new LinkedHashMap<String, DefinedFunc>();
+        // if (unusedRegularFromTrans.isEmpty()) {
+        //     pblm.candidate.put(name, pblm.invConstraints.get(name)[2]);
+        // }
+
+        return pblm;
     }
 }
