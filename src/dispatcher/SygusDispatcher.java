@@ -431,68 +431,6 @@ public class SygusDispatcher {
 
     }
 
-    // public DefinedFunc[] run() throws Exception {
-    //     if (!this.invDnC) {
-    //         return runAlgorithm();
-    //     } else {
-    //         DefinedFunc[] combined = new DefinedFunc[problem.requests.size()];
-    //         DefinedFunc[] subResults = null;
-
-    //         for (int i = 0; i < invdncProblem.length; i++) {
-    //             logger.info("Start solving subproblem " + i);
-    //             if (invdncProblem[i] == null) {
-    //                 continue;
-    //             }
-    //             this.problem = invdncProblem[i];
-    //             // prescreen to check if the subproblem is AT applicable or not
-    //             if (this.checkAT()) {
-    //                 logger.info("AT detected for subproblem " + i + ", using AT algorithm");
-    //                 this.method = SolveMethod.AT;
-    //             } else {
-    //                 this.method = SolveMethod.CEGIS;
-    //             }
-    //             // initial and run the algorithm on the subproblem
-    //             initAlgorithm();
-    //             subResults = runAlgorithm();
-    //             // combine the solutions
-    //             if (!this.nosolution && subResults != null) {
-    //                 for (int j = 0; j < combined.length; j++) {
-    //                     if (combined[j] != null) {
-    //                     	Expr combinedSolution;
-    //                     	if (this.dnctype == DnCType.RECPOST) {
-    //                     		combinedSolution = z3ctx.mkAnd((BoolExpr)combined[j].getDef().translate(z3ctx), 
-    //                                 (BoolExpr)subResults[j].getDef().translate(z3ctx));
-    //                     	} else {       // if (this.dnctype == DnCType.CROSSPRE)
-    //                     		combinedSolution = z3ctx.mkOr((BoolExpr)combined[j].getDef().translate(z3ctx), 
-    //                                 (BoolExpr)subResults[j].getDef().translate(z3ctx));
-    //                     	}
-    //                         combined[j] = combined[j].replaceDef(combinedSolution);
-    //                     } else {
-    //                         Expr[] args = subResults[j].getArgs();
-    //                         Expr[] newargs = new Expr[args.length];
-    //                         for (int m = 0; m < args.length; m++) {
-    //                             newargs[m] = args[m].translate(z3ctx);
-    //                         }
-    //                         combined[j] = new DefinedFunc(z3ctx, subResults[j].getName(), newargs, subResults[j].getDef().translate(z3ctx));
-    //                         if (this.dnctype == DnCType.RCCRSS) {
-    //                             logger.info("DnCType.RCCRSS found a solution for subproblem, return.");
-    //                             return combined;
-    //                         }
-    //                     } 
-    //                 }
-    //                 logger.info("Combine solution for subproblem " + i);
-    //             } else {
-    //                 logger.info("No solution for subproblem " + i);
-    //             }
-    //             // reset nosolution
-    //             this.nosolution = false;
-    //         }
-    //         // TODO: set final no solution
-
-    //         return combined;
-    //     }
-    // }
-
     public DefinedFunc[] runAlgorithm() throws Exception{
         if (this.method == SolveMethod.PRESCREENED) {
             logger.info("Outputing parsed candidates as results.");
@@ -1213,155 +1151,10 @@ public class SygusDispatcher {
                     logger.info("Post sat.");
                     return false;
                 }
-
-                // check trans
-                // Expr[] primedargs2 = new Expr[args.length];
-                // Expr[] primedArgs = new Expr[args.length];
-                // for (int i = 0; i < args.length; i++) {
-                //     String varname = args[i].toString() + "!";
-                //     primedArgs[i] = extractor.vars.get(varname);
-                //     String arg2name = args[i].toString() + "!_2";
-                //     primedargs2[i] = z3ctx.mkConst(arg2name, args[i].getSort());
-                // }
-                // Expr[] primedotherargs2 = new Expr[otherargs.length];
-                // Expr[] primedOtherargs = new Expr[otherargs.length];
-                // for (int i = 0; i < otherargs.length; i++) {
-                //     String varname = otherargs[i].toString() + "!";
-                //     primedOtherargs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
-                //     String arg2name = otherargs[i].toString() + "!_2";
-                //     primedotherargs2[i] = z3ctx.mkConst(arg2name, otherargs[i].getSort());
-                // }
-                // Expr trans_x1y2 = trans.substitute(primedOtherargs, primedotherargs2);
-                // Expr trans_x2y2 = trans_x1y2.substitute(primedArgs, primedargs2);
-
-                // // Expr[] qargs = new Expr[(args.length + otherargs.length) * 3];
-                // // System.arraycopy(args, 0, qargs, 0, args.length);
-                // // System.arraycopy(otherargs, 0, qargs, args.length, otherargs.length);
-                // // System.arraycopy(primedArgs, 0, qargs, args.length + otherargs.length, args.length);
-                // // System.arraycopy(primedOtherargs, 0, qargs, args.length * 2 + otherargs.length, otherargs.length);
-                // // System.arraycopy(primedargs2, 0, qargs, (args.length + otherargs.length) * 2, args.length);
-                // // System.arraycopy(primedotherargs2, 0, qargs, args.length * 3 + otherargs.length * 2, otherargs.length);
-                // // BoolExpr body = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)trans, (BoolExpr)trans_x2y2), (BoolExpr)trans_x1y2);
-                // // Quantifier transConstr = z3ctx.mkForall(
-                // //     qargs, body, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-                // constraint = z3ctx.mkImplies(z3ctx.mkAnd((BoolExpr)trans, (BoolExpr)trans_x2y2), (BoolExpr)trans_x1y2);
-                // solver.reset();
-                // solver.add(z3ctx.mkNot(constraint));
-                // status = solver.check();
-                // if (status != Status.UNSATISFIABLE) {
-                //     // if (status != Status.UNSATISFIABLE) {
-                //     //     System.out.println("Check formula: ");
-                //     //     System.out.println(constraint.toString());
-                //     //     System.out.println("Model: ");
-                //     //     System.out.println(solver.getModel().toString());
-                //     //     logger.info("Trans sat.");
-                //     // }
-                //     return false;
-                // }
             }
         }
         return true;
     }
-
-    // void genSubproblem() {
-    // 	// construct subproblems for INV DnC
-    // 	// There should be only one invariant to synthesize
-    // 	String name = extractor.names.get(0);
-    // 	Set<Set<Expr>> relation = extractor.varsRelation.get(name);
-    //     invdncProblem = new SygusProblem[relation.size()];
-    //     Expr pre = extractor.invConstraints.get(name)[0].getDef();
-    //     Expr trans = extractor.invConstraints.get(name)[1].getDef();
-    //     Expr post = extractor.invConstraints.get(name)[2].getDef();
-
-    //     int k = 0;
-    //     for(Set<Expr> exprset : relation) {
-    //         Set<Expr> otherset = new HashSet<Expr>();
-    //         for (Expr e : extractor.requestArgs.get(name)) {
-    //             otherset.add(e);
-    //         }
-    //         otherset.removeAll(exprset);
-    //         Expr[] args = exprset.toArray(new Expr[exprset.size()]);
-    //         logger.info("Class: " + Arrays.toString(args));
-    //         Expr[] otherargs = otherset.toArray(new Expr[otherset.size()]);
-    //         Tactic qe = z3ctx.mkTactic("qe");
-    //         Goal g = z3ctx.mkGoal(false, false, false);
-    //         Quantifier withArg;
-    //         Quantifier withoutArg;
-
-    //         // pre first
-    //         if (this.dnctype == DnCType.RECPOST || this.dnctype == DnCType.RCCRSS) {
-	   //          withoutArg = z3ctx.mkExists(
-	   //              otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-    //         } else {    // if (this.dnctype == DnCType.CROSSPRE)
-	   //          withoutArg = z3ctx.mkForall(
-	   //              otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-    //         }
-    //         g.add(withoutArg);
-    //         Expr prewoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-    //         logger.info("Pre withoutargQF: " + prewoargQF.toString());
-
-    //         // then post
-    //         if (this.dnctype == DnCType.RECPOST) {
-	   //          withoutArg = z3ctx.mkExists(
-	   //              otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-    //         } else if (this.dnctype == DnCType.CROSSPRE || this.dnctype == DnCType.RCCRSS) {
-	   //          withoutArg = z3ctx.mkForall(
-	   //              otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-    //         }
-    //         g.reset();
-    //         g.add(withoutArg);
-    //         Expr postwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-    //         logger.info("Post withoutargQF: " + postwoargQF.toString());
-
-    //         // check if pre => post
-    //         Solver solver = z3ctx.mkSolver();
-    //         BoolExpr preipost = z3ctx.mkImplies((BoolExpr)prewoargQF, (BoolExpr)postwoargQF);
-    //         solver.add(z3ctx.mkNot(preipost));
-    //         Status status = solver.check();
-    //         if (status != Status.UNSATISFIABLE) {
-    //             logger.info("Pre can not imply post. Discard this subproblem.");
-    //             continue;
-    //         }
-
-    //         // finallly trans
-    //         Expr[] primedArgs = new Expr[args.length];
-    //         for (int i = 0; i < args.length; i++) {
-    //             String varname = args[i].toString() + "!";
-    //             primedArgs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
-    //         }
-    //         Expr[] primedOtherargs = new Expr[otherargs.length];
-    //         for (int i = 0; i < otherargs.length; i++) {
-    //             String varname = otherargs[i].toString() + "!";
-    //             primedOtherargs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
-    //         }
-    //         Expr[] argswprime = new Expr[args.length * 2];
-    //         System.arraycopy(args, 0, argswprime, 0, args.length);
-    //         System.arraycopy(primedArgs, 0, argswprime, args.length, primedArgs.length);
-    //         Expr[] otherargswprime = new Expr[otherargs.length * 2];
-    //         System.arraycopy(otherargs, 0, otherargswprime, 0, otherargs.length);
-    //         System.arraycopy(primedOtherargs, 0, otherargswprime, otherargs.length, primedOtherargs.length);
-    //         if (this.dnctype == DnCType.RECPOST || this.dnctype == DnCType.RCCRSS) {
-    //             withoutArg = z3ctx.mkExists(
-    //                 otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-    //         } else if (this.dnctype == DnCType.CROSSPRE) {
-    //             withoutArg = z3ctx.mkForall(
-    //                 otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-    //             // Quantifier forally = z3ctx.mkForall(
-    //             //     otherargs, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-    //             // withoutArg = z3ctx.mkForall(
-    //             //     primedOtherargs, forally, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-    //         }
-    //         g.reset();
-    //         g.add(withoutArg);
-    //         Expr transwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-    //         logger.info("Trans withoutargQF: " + transwoargQF.toString());
-
-    //         invdncProblem[k] = extractor.createINVSubProblem(args, argswprime, prewoargQF, transwoargQF, postwoargQF);
-
-    //         logger.info(k + "-th problem finalConstraint: " + invdncProblem[k].finalConstraint.toString());
-    //         k = k + 1;
-    //     }
-    // }
 
     boolean checkINVDnC() {
         if (problem.problemType != SygusProblem.ProbType.INV) {
@@ -1373,141 +1166,18 @@ public class SygusDispatcher {
         if (this.checkINVSquarePost()) {
         	logger.info("Rectangle post");
         	this.dnctype = DnCType.RECPOST;
-        	// genSubproblem();
-        	// System.out.println("Square post");
         	return true;
         }
         if (this.checkINVCrossPre()) {
         	logger.info("Cross pre");
         	this.dnctype = DnCType.CROSSPRE;
-        	// genSubproblem();
-        	// System.out.println("Cross pre");
         	return true;
         }
         if (this.checkINVRecCross()) {
             logger.info("Rectangle pre & Cross post");
             this.dnctype = DnCType.RCCRSS;
-            // genSubproblem();
-            // System.out.println("Just try.");
             return true;
         }
-        // for (String name : extractor.invConstraints.keySet()) {
-        // 	// actually there is only one invariant to synthesize
-        //     Set<Set<Expr>> relation = extractor.varsRelation.get(name);
-        //     logger.info("Num of classes: " + relation.size());
-        //     if (relation.size() <= 1) {
-        //         logger.info("Only 1 class, no need to do divide and conquer.");
-        //         return false;
-        //     }
-        //     invdncProblem = new SygusProblem[relation.size()];
-        //     Expr pre = extractor.invConstraints.get(name)[0].getDef();
-        //     Expr trans = extractor.invConstraints.get(name)[1].getDef();
-        //     Expr post = extractor.invConstraints.get(name)[2].getDef();
-
-        //     int k = 0;
-        //     for(Set<Expr> exprset : relation) {
-        //         Set<Expr> otherset = new HashSet<Expr>();
-        //         for (Expr e : extractor.requestArgs.get(name)) {
-        //             otherset.add(e);
-        //         }
-        //         otherset.removeAll(exprset);
-        //         Expr[] args = exprset.toArray(new Expr[exprset.size()]);
-        //         logger.info("Class: " + Arrays.toString(args));
-        //         Expr[] otherargs = otherset.toArray(new Expr[otherset.size()]);
-        //         Tactic qe = z3ctx.mkTactic("qe");
-        //         Goal g = z3ctx.mkGoal(false, false, false);
-        //         Solver solver = z3ctx.mkSolver();
-        //         Status status;
-
-        //         // check pre first
-        //         Quantifier withArg = z3ctx.mkExists(
-        //             args, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-        //         Quantifier withoutArg = z3ctx.mkExists(
-        //             otherargs, pre, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-        //         g.add(withArg);
-        //         Expr prewargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-        //         // logger.info("Pre withargQF: " + wargQF.toString());
-        //         g.reset();
-        //         g.add(withoutArg);
-        //         Expr prewoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-        //         // logger.info("Pre withoutargQF: " + woargQF.toString());
-        //         BoolExpr preqf = z3ctx.mkAnd((BoolExpr)prewargQF, (BoolExpr)prewoargQF);
-        //         // pre => exist x. pre /\ exist y. pre
-        //         solver.add(z3ctx.mkNot(z3ctx.mkImplies((BoolExpr)pre, preqf)));
-        //         status = solver.check();
-        //         // logger.info("Pre Status: " + status);
-        //         if (status != Status.UNSATISFIABLE) {
-        //             return false;
-        //         }
-
-        //         // check trans then
-        //         Expr[] primedArgs = new Expr[args.length];
-        //         for (int i = 0; i < args.length; i++) {
-        //             String varname = args[i].toString() + "!";
-        //             primedArgs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
-        //         }
-        //         Expr[] primedOtherargs = new Expr[otherargs.length];
-        //         for (int i = 0; i < otherargs.length; i++) {
-        //             String varname = otherargs[i].toString() + "!";
-        //             primedOtherargs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
-        //         }
-        //         Expr[] argswprime = new Expr[args.length * 2];
-        //         System.arraycopy(args, 0, argswprime, 0, args.length);
-        //         System.arraycopy(primedArgs, 0, argswprime, args.length, primedArgs.length);
-        //         Expr[] otherargswprime = new Expr[otherargs.length * 2];
-        //         System.arraycopy(otherargs, 0, otherargswprime, 0, otherargs.length);
-        //         System.arraycopy(primedOtherargs, 0, otherargswprime, otherargs.length, primedOtherargs.length);
-        //         withArg = z3ctx.mkExists(
-        //             argswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-        //         withoutArg = z3ctx.mkExists(
-        //             otherargswprime, trans, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-        //         g.reset();
-        //         g.add(withArg);
-        //         Expr transwargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-        //         // logger.info("Trans withargQF: " + transwargQF.toString());
-        //         g.reset();
-        //         g.add(withoutArg);
-        //         Expr transwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-        //         // logger.info("Trans withoutargQF: " + transwoargQF.toString());
-        //         BoolExpr transqf = z3ctx.mkAnd((BoolExpr)transwargQF, (BoolExpr)transwoargQF);
-        //         // trans => exist x, x'. trans /\ exist y, y'. trans
-        //         solver.reset();
-        //         solver.add(z3ctx.mkNot(z3ctx.mkImplies((BoolExpr)trans, transqf)));
-        //         status = solver.check();
-        //         // logger.info("Post Status: " + status);
-        //         if (status != Status.UNSATISFIABLE) {
-        //             return false;
-        //         }
-
-        //         // finally check post
-        //         withArg = z3ctx.mkForall(
-        //             args, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-        //         withoutArg = z3ctx.mkForall(
-        //             otherargs, post, 0, new Pattern[] {}, new Expr[] {}, z3ctx.mkSymbol(""), z3ctx.mkSymbol(""));
-        //         g.reset();
-        //         g.add(withArg);
-        //         Expr postwargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-        //         // logger.info("Post withargQF: " + postwargQF.toString());
-        //         g.reset();
-        //         g.add(withoutArg);
-        //         Expr postwoargQF = qe.apply(g).getSubgoals()[0].AsBoolExpr();
-        //         // logger.info("Post withoutargQF: " + postwoargQF.toString());
-        //         BoolExpr postqf = z3ctx.mkAnd((BoolExpr)postwargQF, (BoolExpr)postwoargQF);
-        //         // forall x. post \/ forall y. post => post     (test with /\ before, but /\ might be too strong
-        //         solver.reset();
-        //         solver.add(z3ctx.mkNot(z3ctx.mkImplies(postqf, (BoolExpr)post)));
-        //         status = solver.check();
-        //         // logger.info("Post Status: " + status);
-        //         if (status != Status.UNSATISFIABLE) {
-        //             return false;
-        //         }
-
-        //         invdncProblem[k] = extractor.createINVSubProblem(args, argswprime, prewoargQF, transwoargQF, postwoargQF);
-        //         logger.info(k + "-th problem finalConstraint: " + invdncProblem[k].finalConstraint.toString());
-        //         k = k + 1;
-        //     }
-        // }
-        // return true;
         logger.info("INV DnC is not applicable.");
         return false;
     }
