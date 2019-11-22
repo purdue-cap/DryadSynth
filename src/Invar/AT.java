@@ -75,6 +75,31 @@ public class AT extends Thread {
         }
     }
 
+    public boolean checkAT() {
+        if (problem.problemType != SygusProblem.ProbType.INV) {
+            return false;
+        }
+        if (this.transfunc != null) {
+            Set<Region> regions = this.transfunc.getRegions();
+            for (Region r1: regions) {
+                for (Region r2: regions) {
+                    if (r1 == r2) {
+                        continue;
+                    }
+                    BoolExpr intersec = ctx.mkAnd((BoolExpr)r1.toExpr(), (BoolExpr)r2.toExpr());
+                    Solver s = ctx.mkSolver();
+                    s.add(intersec);
+                    Status r = s.check();
+                    if (r != Status.UNSATISFIABLE) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
     public void run () {
         env.runningThreads.incrementAndGet();
         this.evaluate(transfunc, pre, post, vars, argParas);
