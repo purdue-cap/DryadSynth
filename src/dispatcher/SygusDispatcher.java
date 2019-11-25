@@ -244,24 +244,11 @@ public class SygusDispatcher {
         if (checkResult) {
             logger.info("Invariant Divide and Conquer Algorithm applicable, applying");
             logger.info("DnCType: " + this.dnctype);
-            // this.invDnC = true;
             this.method = SolveMethod.INVDNC;
-            // this.problem = invdncProblem[1];
-            // System.exit(0);
             return;
         }
-        // System.out.println("Can not DnC.");
-        // System.exit(0);
-
         return;
     }
-
-    // public void init() throws Exception {
-    //     // postpone prescreen and initialization of INV DnC problems
-    //     if (!this.invDnC) {
-    //         initAlgorithm();
-    //     }
-    // }
 
     public void initAlgorithm() throws Exception{
         if (this.method == SolveMethod.PRESCREENED) {
