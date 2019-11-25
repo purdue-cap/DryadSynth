@@ -102,11 +102,15 @@ public class AT extends Thread {
 
     public void run () {
         env.runningThreads.incrementAndGet();
-        this.evaluate(transfunc, pre, post, vars, argParas);
+        this.solve();
         synchronized(env) {
             env.notify();
         }
         env.runningThreads.decrementAndGet();
+    }
+
+    public void solve() {
+        this.evaluate(transfunc, pre, post, vars, argParas);
     }
 
     public Expr post_processing(Expr orig) {

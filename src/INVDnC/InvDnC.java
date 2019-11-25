@@ -110,32 +110,42 @@ public class InvDnC extends Thread {
             logger.info("Null subproblem.");
             return null;
         }
-        // initialize CEGIS
-        logger.info("Initializing CEGIS algorithm as prepared fallback.");
-        // maybe no need to create an env every time
-        CEGISEnv env = new CEGISEnv();
-        env.original = kProb;
-        env.problem = new SygusProblem(kProb);
-        if (syncenv.enforceFHCEGIS) {
-            env.problem.finalConstraint = SygusDispatcher.getIndFinalConstraint(kProb, ctx);
-        }
-        env.minFinite = syncenv.minFinite;
-        env.minInfinite = syncenv.minInfinite;
-        env.eqBound = syncenv.eqBound;
-        env.maxsmtFlag = syncenv.maxsmtFlag;
-        env.enforceFHCEGIS = syncenv.enforceFHCEGIS;
-        env.pdc1D = new Producer1D();
-        // env.pdc1D.heightsOnly = syncenv.heightsOnly;
-        env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
-        Cegis cegis = new Cegis(env, logger);
-        cegis.iterLimit = this.iterLimit;
-        // running cegis
-        cegis.run();
-        if (cegis.nosolution || cegis.results == null) {
-            logger.info("No solution for this sub-problem.");
-            return null;
+        // try AT first
+        AT at = new AT(ctx, kProb, logger);
+        at.init();
+        boolean checkAT = at.checkAT();
+        if (checkAT) {
+            logger.info("AT found for subproblem.");
+            at.solve();
+            return at.results;
         } else {
-            return cegis.results;
+            // then initialize CEGIS
+            logger.info("Initializing CEGIS algorithm as prepared fallback.");
+            // maybe no need to create an env every time
+            CEGISEnv env = new CEGISEnv();
+            env.original = kProb;
+            env.problem = new SygusProblem(kProb);
+            if (syncenv.enforceFHCEGIS) {
+                env.problem.finalConstraint = SygusDispatcher.getIndFinalConstraint(kProb, ctx);
+            }
+            env.minFinite = syncenv.minFinite;
+            env.minInfinite = syncenv.minInfinite;
+            env.eqBound = syncenv.eqBound;
+            env.maxsmtFlag = syncenv.maxsmtFlag;
+            env.enforceFHCEGIS = syncenv.enforceFHCEGIS;
+            env.pdc1D = new Producer1D();
+            // env.pdc1D.heightsOnly = syncenv.heightsOnly;
+            env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
+            Cegis cegis = new Cegis(env, logger);
+            cegis.iterLimit = this.iterLimit;
+            // running cegis
+            cegis.run();
+            if (cegis.nosolution || cegis.results == null) {
+                logger.info("No solution for this sub-problem.");
+                return null;
+            } else {
+                return cegis.results;
+            }
         }
     }
 
