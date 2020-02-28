@@ -19,7 +19,7 @@ It is theoretically possible to run the program on Windows platform given a work
 
 ## Steps to compile
 
-1. Install JDK on your system, you should refer to your system/distribution manuals to figure out how to complete this. Make sure that JDK version is no lower than 7.
+1. Install JDK on your system, you should refer to your system/distribution manuals to figure out how to complete this. Make sure that JDK version is no lower than 9.
 2. Configure and install Z3 with java bindings enabled
     1. First download Z3, git version is recommended, as some of the bug fixes that are required for this program to run may not have been released to a released version yet.
         - Here is the [link](https://github.com/Z3Prover/z3/) to the project site of Z3.
@@ -49,6 +49,7 @@ The compiled class files would be put in `classes` directory, and related librar
     - `classes/`
     - `lib/antlr.jar`
     - `lib/com.microsoft.z3.jar`
+    - `lib/jopt-simple.jar`
     - See java man pages on how.
 - java.library.path needs to include the path that `libz3java.so` lies (eg. `/usr/local/lib` in the metioned configuration)
     - On Linux platforms, you can simply set environment variable `LD_LIBRARY_PATH` to include the path, it would be automatically added.
