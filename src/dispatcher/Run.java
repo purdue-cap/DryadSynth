@@ -29,7 +29,9 @@ public class Run {
         oParser.acceptsAll(Arrays.asList("b", "formattingBound"), "Bound of output size to used string formatting instead of parser formatting")
             .withRequiredArg().ofType(Integer.class).defaultsTo(65535);
         oParser.acceptsAll(Arrays.asList("eq", "EqBound"), "Bound of height for equations in branch condition")
-            .withRequiredArg().ofType(Integer.class).defaultsTo(0);
+			.withRequiredArg().ofType(Integer.class).defaultsTo(0);
+		oParser.acceptsAll(Arrays.asList("E", "EUSolver"), "EUSolver entry point command, set to use EUSolver as CEGIS algorithm, set to empty string to disable.")
+			.withRequiredArg().ofType(String.class).defaultsTo("");
         oParser.acceptsAll(Arrays.asList("C", "CEGISOnly"), "Run synthesiszer in CEGIS mode only, disable all decidable fragments");
         oParser.acceptsAll(Arrays.asList("F", "FHCEGIS"), "Enable Fixed Height CEGIS algorithm for INV benchamrks.");
         oParser.acceptsAll(Arrays.asList("I", "ITCEGIS"), "Enable Inductive Template in CEGIS algorithms");
@@ -49,6 +51,7 @@ public class Run {
 		int formattingBound = (Integer)options.valuesOf("b").get(0);
 		int eqBound = (Integer)options.valuesOf("eq").get(0);
 		boolean maxsmtFlag = options.has("m");
+		String EUSolverPath = (String)options.valuesOf("E").get(0);
 
         if (options.nonOptionArguments().size() < 1) {
             System.out.println("Missing input file!");
@@ -104,6 +107,7 @@ public class Run {
 		dispatcher.setMinFinite(minFinite);
 		dispatcher.setMinInfinite(minInfinite);
 		dispatcher.setMaxSMTFlag(maxsmtFlag);
+		dispatcher.setEUSolverPath(EUSolverPath);
 		dispatcher.setEqBound(eqBound);
         dispatcher.setEnforceCEGIS(options.has("C"));
         dispatcher.setEnforceFHCEGIS(options.has("F"));

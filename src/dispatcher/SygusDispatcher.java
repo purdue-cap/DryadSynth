@@ -23,6 +23,7 @@ public class SygusDispatcher {
     int minInfinite = 5;
     int eqBound = 0;
     boolean maxsmtFlag = false;
+    String EUSolverPath = "";
     boolean enforceCEGIS = false;
     boolean enforceFHCEGIS = false;
     boolean enableITCEGIS = false;
@@ -89,6 +90,10 @@ public class SygusDispatcher {
 
     public void setMaxSMTFlag(boolean maxsmt) {
         this.maxsmtFlag = maxsmt;
+    }
+
+    public void setEUSolverPath(String EUSolverPath) {
+        this.EUSolverPath = EUSolverPath;
     }
 
     public SolveMethod getMethod(){
@@ -275,6 +280,7 @@ public class SygusDispatcher {
         env.minInfinite = minInfinite;
         env.eqBound = eqBound;
         env.maxsmtFlag = maxsmtFlag;
+        env.EUSolverPath = EUSolverPath;
         env.enforceFHCEGIS = enforceFHCEGIS;
         fallbackCEGIS = new Thread[numCore];
         env.pdc1D = new Producer1D();
@@ -318,6 +324,7 @@ public class SygusDispatcher {
             dncEnv.minFinite = minFinite;
             dncEnv.minInfinite = minInfinite;
             dncEnv.maxsmtFlag = maxsmtFlag;
+            dncEnv.EUSolverPath = EUSolverPath;
             threads = new Thread[numCore];
             dncEnv.pdc1D = new Producer1D();
             dncEnv.feedType = CEGISEnv.FeedType.HEIGHTONLY;

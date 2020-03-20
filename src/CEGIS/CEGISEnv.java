@@ -13,6 +13,7 @@ public class CEGISEnv {
     public int minInfinite = -1;
     public int eqBound = -1;
     public boolean maxsmtFlag = false;
+    public String EUSolverPath = "";
     public boolean checkITOnly = false;
     public boolean tmpltApplied = false;
     public boolean enforceFHCEGIS = false;
