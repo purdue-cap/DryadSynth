@@ -17,6 +17,9 @@ log.*.txt.lck
 # ctags files
 .tags*
 
+# VSCode files
+.classpath
+
 # python script caches
 __pycache__/
 
