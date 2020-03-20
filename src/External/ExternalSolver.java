@@ -10,7 +10,14 @@ public abstract class ExternalSolver {
     public volatile DefinedFunc[] results = null;
     public volatile boolean running = false;
     public boolean solve(SygusProblem problem, long timeout) {
-        return false;
+        try {
+            String encodedProblem = encode(problem);
+            String resultStr = solveEncoded(encodedProblem, timeout);
+            results = decode(problem, resultStr);
+        } catch (Exception ex) {
+            return false;
+        }
+        return true;
     }
 
     public static String encode(SygusProblem problem) {
