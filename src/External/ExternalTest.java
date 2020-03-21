@@ -110,16 +110,18 @@ public class ExternalTest {
         System.out.println("==========Encode Test==========");
         System.out.println("-----------Original------------");
         System.out.println(CLIA_max2);
-        System.out.println("-----------Decoded-------------");
+        System.out.println("-----------Encoded-------------");
         System.out.println(ExternalSolver.encode(CLIA_max2_problem));
         System.out.println("-----------Original------------");
         System.out.println(General_qm_max2);
-        System.out.println("-----------Decoded-------------");
+        System.out.println("-----------Encoded-------------");
         System.out.println(ExternalSolver.encode(General_qm_max2_problem));
         System.out.println("-----------Original------------");
         System.out.println(INV_dec);
-        System.out.println("-----------Decoded-------------");
+        System.out.println("-----------Encoded-------------");
         System.out.println(ExternalSolver.encode(INV_dec_problem));
+        System.out.println("-----------Expanded------------");
+        System.out.println(ExternalSolver.encode(INV_dec_problem, true));
         System.out.println("==========Encode Test==========");
     }
 }

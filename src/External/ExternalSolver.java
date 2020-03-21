@@ -13,6 +13,9 @@ public abstract class ExternalSolver {
         return this.solve(problem, 0);
     }
     public boolean solve(SygusProblem problem, long timeout) {
+        return this.solve(problem, timeout, true);
+    }
+    public boolean solve(SygusProblem problem, long timeout, boolean expandInv) {
         try {
             String encodedProblem = encode(problem);
             String resultStr = solveEncoded(encodedProblem, timeout);
@@ -24,6 +27,10 @@ public abstract class ExternalSolver {
     }
 
     public static String encode(SygusProblem problem) {
+        return encode(problem, false);
+    }
+
+    public static String encode(SygusProblem problem, boolean expandInv) {
         String encoded = "";
         encoded += "(set-logic LIA)\n"; // Header
         switch (problem.problemType) {
@@ -31,7 +38,7 @@ public abstract class ExternalSolver {
             encoded += encodeCLIA(problem);
             break;
             case INV:
-            encoded += encodeINV(problem);
+            encoded += encodeINV(problem, expandInv);
             break;
             case GENERAL:
             encoded += encodeGeneral(problem);
@@ -96,19 +103,23 @@ public abstract class ExternalSolver {
         return output;
     }
 
-    public static String encodeSynthInv(SygusProblem problem) {
+    public static String encodeSynthInv(SygusProblem problem, boolean expandInv) {
         String output = "";
-        for (String funcName: problem.names) {
-            if (!problem.requests.get(funcName).getRange().equals(problem.ctx.getBoolSort())) {
-                return null;
+        if (expandInv) {
+            output = encodeSynthFun(problem);
+        } else {
+            for (String funcName: problem.names) {
+                if (!problem.requests.get(funcName).getRange().equals(problem.ctx.getBoolSort())) {
+                    return null;
+                }
+                String fmt = "(synth-inv %s %s)\n";
+                String argList = "(";
+                for (Expr arg: problem.requestArgs.get(funcName)) {
+                    argList += String.format("(%s %s) ", arg.toString(), arg.getSort().toString());
+                }
+                argList += ")";
+                output += String.format(fmt, funcName, argList);
             }
-            String fmt = "(synth-inv %s %s)\n";
-            String argList = "(";
-            for (Expr arg: problem.requestArgs.get(funcName)) {
-                argList += String.format("(%s %s) ", arg.toString(), arg.getSort().toString());
-            }
-            argList += ")";
-            output += String.format(fmt, funcName, argList);
         }
         return output;
 
@@ -148,12 +159,19 @@ public abstract class ExternalSolver {
         return output;
     }
 
-    public static String encodeInvConstraints(SygusProblem problem) {
+    public static String encodeInvConstraints(SygusProblem problem, boolean expandInv) {
         String output = "";
-        for (String invName: problem.invConstraints.keySet()) {
-            String fmt = "(inv-constraint %s %s %s %s)\n";
-            DefinedFunc[] invFunc = problem.invConstraints.get(invName);
-            output += String.format(fmt, invName, invFunc[0].getName(), invFunc[1].getName(), invFunc[2].getName());
+        if (expandInv) {
+            Context ctxPrint = new Context();
+            ctxPrint.setPrintMode(Z3_ast_print_mode.Z3_PRINT_SMTLIB_FULL);
+            Expr printExpr = problem.finalConstraint.translate(ctxPrint);
+            output = String.format("(constraint %s)\n", printExpr.toString());
+        } else {
+            for (String invName: problem.invConstraints.keySet()) {
+                String fmt = "(inv-constraint %s %s %s %s)\n";
+                DefinedFunc[] invFunc = problem.invConstraints.get(invName);
+                output += String.format(fmt, invName, invFunc[0].getName(), invFunc[1].getName(), invFunc[2].getName());
+            }
         }
         return output;
     }
@@ -165,11 +183,11 @@ public abstract class ExternalSolver {
             encodeConstraints(problem);
     }
 
-    static String encodeINV(SygusProblem problem) {
-        return encodeSynthInv(problem) +
+    static String encodeINV(SygusProblem problem, boolean expandInv) {
+        return encodeSynthInv(problem, expandInv) +
             encodeVarDecl(problem) +
             encodeFunDef(problem) +
-            encodeInvConstraints(problem);
+            encodeInvConstraints(problem, expandInv);
     }
 
     static String encodeGeneral(SygusProblem problem) {
