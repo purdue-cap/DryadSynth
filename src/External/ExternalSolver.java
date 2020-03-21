@@ -17,7 +17,7 @@ public abstract class ExternalSolver {
     }
     public boolean solve(SygusProblem problem, long timeout, boolean expandInv) {
         try {
-            String encodedProblem = encode(problem);
+            String encodedProblem = encode(problem, expandInv);
             String resultStr = solveEncoded(encodedProblem, timeout);
             results = decode(problem, resultStr);
         } catch (Exception ex) {
