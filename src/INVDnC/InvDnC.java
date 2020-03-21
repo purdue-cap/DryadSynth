@@ -135,7 +135,13 @@ public class InvDnC extends Thread {
             env.enforceFHCEGIS = syncenv.enforceFHCEGIS;
             env.pdc1D = new Producer1D();
             // env.pdc1D.heightsOnly = syncenv.heightsOnly;
-            env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
+            // Use EuSolver in place of CEGIS algorithm
+            if (!env.EUSolverPath.isEmpty()) {
+                // CEGIS algorithm should be considered as All-in-one
+                env.feedType = CEGISEnv.FeedType.ALLINONE;
+            } else {
+                env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
+            }
             Cegis cegis = new Cegis(env, logger);
             cegis.iterLimit = this.iterLimit;
             // running cegis

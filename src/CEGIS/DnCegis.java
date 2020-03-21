@@ -25,28 +25,12 @@ public class DnCegis extends Cegis {
 	@Override
 	public void run() {
 		env.runningThreads.incrementAndGet();
-		if (!problem.isGeneral || env.feedType != CEGISEnv.FeedType.HEIGHTONLY) {
+		if (!problem.isGeneral) {
 			return;
-		}
+		} 
 		logger.info(Thread.currentThread().getName() + " Started");
 		logger.info("Starting DnC general track CEGIS");
-		while (running) {
-			fixedVectorLength = pdc1D.get();
-			logger.info("Started loop with fixedVectorLength = " + fixedVectorLength);
-			expand = new Expand(ctx, problem);
-			results = null;
-			cegisGeneral();
-            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
-				synchronized(env) {
-					env.notify();
-				}
-				env.runningThreads.decrementAndGet();
-                return;
-            }
-			if(this.results != null) {
-				break;
-			}
-			boolean newInter = false;
+		if (!env.EUSolverPath.isEmpty() && env.feedType == CEGISEnv.FeedType.ALLINONE) {
 			for (Expr expr : ((DnCEnv)env).dncPblms.keySet()) {
 				this.currentSubExpr = expr;
 				synchronized(env) {
@@ -59,21 +43,17 @@ public class DnCegis extends Cegis {
 				}
 				expand = new Expand(ctx, problem);
 				results = null;
-				cegisGeneral();
-	            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
-					synchronized(env) {
-						env.notify();
-					}
-					env.runningThreads.decrementAndGet();
-	                return;
-	            }
+
+				EUSolver euSolver = new EUSolver(env.EUSolverPath);
+				if (euSolver.solve(problem)) {
+					this.results = euSolver.results;
+				}
 				synchronized(env) {
 					if (this.results != null) {
 						SygusProblem pblm = ((DnCEnv)env).dncPblms.get(expr);
 						String name = problem.names.get(0);
 						DefinedFunc subSol = this.results[0].translate(pblm.ctx);
 						if (!((DnCEnv)env).interResults.containsKey(name)) {
-							newInter = true;
 							((DnCEnv)env).addSubSolutionToAll(subSol);
 							((DnCEnv)env).interResults.put(name, subSol);
 						}
@@ -84,22 +64,88 @@ public class DnCegis extends Cegis {
 			synchronized(env) {
 				this.problem = env.problem.translate(this.ctx);
 			}
-			if (!newInter) {
-				continue;
-			}
 			expand = new Expand(ctx, problem);
 			results = null;
-			cegisGeneral();
-            if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
-				synchronized(env) {
-					env.notify();
-				}
-				env.runningThreads.decrementAndGet();
-                return;
-            }
-			if(this.results != null) {
-				break;
+			EUSolver euSolver = new EUSolver(env.EUSolverPath);
+			if (euSolver.solve(problem)) {
+				this.results = euSolver.results;
+			} else {
+				return;
 			}
+		} else if (env.feedType == CEGISEnv.FeedType.HEIGHTONLY) {
+			while (running) {
+				fixedVectorLength = pdc1D.get();
+				logger.info("Started loop with fixedVectorLength = " + fixedVectorLength);
+				expand = new Expand(ctx, problem);
+				results = null;
+				cegisGeneral();
+				if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+					synchronized(env) {
+						env.notify();
+					}
+					env.runningThreads.decrementAndGet();
+					return;
+				}
+				if(this.results != null) {
+					break;
+				}
+				boolean newInter = false;
+				for (Expr expr : ((DnCEnv)env).dncPblms.keySet()) {
+					this.currentSubExpr = expr;
+					synchronized(env) {
+						SygusProblem pblm = ((DnCEnv)env).dncPblms.get(expr);
+						this.problem = pblm.translate(this.ctx);
+						String name = problem.names.get(0);
+						if (((DnCEnv)env).interResults.containsKey(name)) {
+							continue;
+						}
+					}
+					expand = new Expand(ctx, problem);
+					results = null;
+					cegisGeneral();
+					if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+						synchronized(env) {
+							env.notify();
+						}
+						env.runningThreads.decrementAndGet();
+						return;
+					}
+					synchronized(env) {
+						if (this.results != null) {
+							SygusProblem pblm = ((DnCEnv)env).dncPblms.get(expr);
+							String name = problem.names.get(0);
+							DefinedFunc subSol = this.results[0].translate(pblm.ctx);
+							if (!((DnCEnv)env).interResults.containsKey(name)) {
+								newInter = true;
+								((DnCEnv)env).addSubSolutionToAll(subSol);
+								((DnCEnv)env).interResults.put(name, subSol);
+							}
+						}
+					}
+				}
+				this.currentSubExpr = null;
+				synchronized(env) {
+					this.problem = env.problem.translate(this.ctx);
+				}
+				if (!newInter) {
+					continue;
+				}
+				expand = new Expand(ctx, problem);
+				results = null;
+				cegisGeneral();
+				if (this.iterLimit > 0 && iterCount > this.iterLimit && this.results == null) {
+					synchronized(env) {
+						env.notify();
+					}
+					env.runningThreads.decrementAndGet();
+					return;
+				}
+				if(this.results != null) {
+					break;
+				}
+			}
+		} else {
+			return;
 		}
 		// We should have results at this point, we need to fill in all intermediate results
 		String funcName;

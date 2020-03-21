@@ -717,6 +717,18 @@ public class Cegis extends Thread{
 		if (problem.isGeneral) {
 			logger.info(Thread.currentThread().getName() + " Started");
 			logger.info("Starting general track CEGIS");
+			// Use EUSolver
+			if (!env.EUSolverPath.isEmpty()) {
+				EUSolver euSolver = new EUSolver(env.EUSolverPath);
+				if (euSolver.solve(problem, 60000 * env.minInfinite)) {
+					this.results = euSolver.results;
+				}
+				synchronized(env) {
+					env.notify();
+				}
+				env.runningThreads.decrementAndGet();
+				return;
+			}
 			// Initialize expand here for max data sharing
 			expand = new Expand(ctx, problem);
 			if (pdc1D != null) {
@@ -834,6 +846,18 @@ public class Cegis extends Thread{
 		}
 		logger.info(Thread.currentThread().getName() + " Started");
 
+		// Use EUSolver
+		if (!env.EUSolverPath.isEmpty()) {
+			EUSolver euSolver = new EUSolver(env.EUSolverPath);
+			if (euSolver.solve(problem, 60000 * env.minInfinite)) {
+				this.results = euSolver.results;
+			}
+			synchronized(env) {
+				env.notify();
+			}
+			env.runningThreads.decrementAndGet();
+			return;
+		}
 		if (pdc1D != null) {
 			while (results == null && running) {
 				fixedHeight = pdc1D.get();
@@ -1860,7 +1884,16 @@ public class Cegis extends Thread{
 
 		if (unsolved) {
 			logger.info("At height " + height + ". Problem is not solved before: " + problem.finalConstraint.toString());
-			DefinedFunc[] func = cegisFixedHeight(height, type);		// cegisFixedHeight should return DefinedFunc[]
+			DefinedFunc[] func = null;
+			// Use EUSolver
+			if (!env.EUSolverPath.isEmpty()) {
+				EUSolver euSolver = new EUSolver(env.EUSolverPath);
+				if (euSolver.solve(problem)) {
+					func = euSolver.results;
+				}
+			} else {
+				func = cegisFixedHeight(height, type);		// cegisFixedHeight should return DefinedFunc[]
+			}
 			logger.info("Found synthesized function(s):" + Arrays.toString(func));
 
 			if (triedProblem.containsKey(prblm.finalConstraint)) {

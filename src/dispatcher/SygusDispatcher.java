@@ -276,6 +276,17 @@ public class SygusDispatcher {
         if (isINV && !problem.isGeneral && enforceFHCEGIS) {
             env.problem.finalConstraint = getIndFinalConstraint(problem, z3ctx);
         }
+
+        // Use EuSolver in place of CEGIS algorithm
+        if (!env.EUSolverPath.isEmpty()) {
+            // CEGIS algorithm should be considered as All-in-one
+            env.feedType = CEGISEnv.FeedType.ALLINONE;
+
+            //Always use only one thread when EuSolver is enabled
+            numCore = 1;
+        } else {
+            env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
+        }
         env.minFinite = minFinite;
         env.minInfinite = minInfinite;
         env.eqBound = eqBound;
@@ -285,7 +296,6 @@ public class SygusDispatcher {
         fallbackCEGIS = new Thread[numCore];
         env.pdc1D = new Producer1D();
         env.pdc1D.heightsOnly = heightsOnly;
-        env.feedType = CEGISEnv.FeedType.HEIGHTONLY;
 
         if (this.converted == ConvertMethod.ADDSUB) {
             // should fix height to 1, so set env feedtype to FIXED
@@ -327,7 +337,13 @@ public class SygusDispatcher {
             dncEnv.EUSolverPath = EUSolverPath;
             threads = new Thread[numCore];
             dncEnv.pdc1D = new Producer1D();
-            dncEnv.feedType = CEGISEnv.FeedType.HEIGHTONLY;
+            // Use EuSolver in place of CEGIS algorithm
+            if (!env.EUSolverPath.isEmpty()) {
+                // CEGIS algorithm should be considered as All-in-one
+                dncEnv.feedType = CEGISEnv.FeedType.ALLINONE;
+            } else {
+                dncEnv.feedType = CEGISEnv.FeedType.HEIGHTONLY;
+            }
             dncEnv.dncBaseExpr = this.dncBaseExpr;
             dncEnv.dncBaseArgs = this.dncBaseArgs;
             dncEnv.scanSubExprs();
