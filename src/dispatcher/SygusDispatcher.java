@@ -278,7 +278,7 @@ public class SygusDispatcher {
         }
 
         // Use EuSolver in place of CEGIS algorithm
-        if (!env.EUSolverPath.isEmpty()) {
+        if (!EUSolverPath.isEmpty()) {
             // CEGIS algorithm should be considered as All-in-one
             env.feedType = CEGISEnv.FeedType.ALLINONE;
 
@@ -338,7 +338,7 @@ public class SygusDispatcher {
             threads = new Thread[numCore];
             dncEnv.pdc1D = new Producer1D();
             // Use EuSolver in place of CEGIS algorithm
-            if (!env.EUSolverPath.isEmpty()) {
+            if (!EUSolverPath.isEmpty()) {
                 // CEGIS algorithm should be considered as All-in-one
                 dncEnv.feedType = CEGISEnv.FeedType.ALLINONE;
             } else {
