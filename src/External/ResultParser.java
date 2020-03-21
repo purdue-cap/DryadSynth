@@ -11,6 +11,7 @@ public class ResultParser extends SygusBaseListener {
     Map<String, Expr> defFuncVars = null;
     Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
     Stack<Object> termStack = new Stack<Object>();
+    Stack<Object> astStack = new Stack<Object>();
 
     Context z3ctx;
     OpDispatcher opDis;
@@ -49,7 +50,12 @@ public class ResultParser extends SygusBaseListener {
         String name = ctx.symbol().getText();
         Expr[] argList = defFuncVars.values().toArray(new Expr[defFuncVars.size()]);
         Expr def = (Expr)termStack.pop();
-        DefinedFunc func = new DefinedFunc(z3ctx, name, argList, def);
+        ASTGeneral ast = (ASTGeneral)astStack.pop();
+        String[] strArgs = new String[argList.length];
+        for (int i = 0; i < strArgs.length; i++) {
+            strArgs[i] = argList[i].toString();
+        }
+        DefinedFunc func = new DefinedFunc(z3ctx, name, argList, def, strArgs, ast);
         funcs.put(name, func);
         inFuncDef = false;
     }
@@ -80,13 +86,31 @@ public class ResultParser extends SygusBaseListener {
                     String name = ctx.symbol().getText();
                     Expr var = defFuncVars.get(name);
                     termStack.push(var);
+                    ASTGeneral terminal = new ASTGeneral(name);
+                    astStack.push(terminal);
                 } else if (ctx.literal() != null) {
                     termStack.push(literalToExpr(ctx.literal()));
+                    ASTGeneral terminal = new ASTGeneral(literalToStr(ctx.literal()));
+                    astStack.push(terminal);
                 }
             } else {
                 termStack.push(ctx);
+                astStack.push(ctx);
             }
         }
+    }
+
+    String literalToStr(SygusParser.LiteralContext ctx) {
+        if (ctx.intConst()!= null) {
+            return ctx.intConst().getText();
+        }
+        if (ctx.realConst()!= null) {
+            return ctx.realConst().getText();
+        }
+        if (ctx.boolConst()!= null) {
+            return ctx.boolConst().getText();
+        }
+        return null;
     }
 
     Expr literalToExpr(SygusParser.LiteralContext ctx) {
@@ -114,6 +138,14 @@ public class ResultParser extends SygusBaseListener {
                 String name = ctx.symbol().getText();
                 Expr res = opDis.dispatch(name, args.toArray(new Expr[args.size()]), true, true);
                 termStack.push(res);
+                List<ASTGeneral> ast_list = new ArrayList<ASTGeneral>();
+                Object ast_top = astStack.pop();
+                while(ast_top != ctx) {
+                    ast_list.add(0, (ASTGeneral)ast_top);
+                    ast_top = astStack.pop();
+                }
+                ASTGeneral tree = new ASTGeneral(name, ast_list.toArray(new ASTGeneral[ast_list.size()]));
+                astStack.push(tree);
             }
         }
     }
