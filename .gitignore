@@ -8,7 +8,8 @@ classes/
 build/
 
 # External Solvers
-external/
+external
+StarExec/external/
 
 # Built packages
 StarExec.zip
