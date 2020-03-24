@@ -44,9 +44,13 @@ public class DnCegis extends Cegis {
 				expand = new Expand(ctx, problem);
 				results = null;
 
+				logger.info("Invoking EUSolver in place of CEGIS Solver");
 				EUSolver euSolver = new EUSolver(env.EUSolverPath);
 				if (euSolver.solve(problem)) {
 					this.results = euSolver.results;
+					logger.info("EUSolver returned successfully");
+				} else {
+					logger.info("EUSolver failed to execute");
 				}
 				synchronized(env) {
 					if (this.results != null) {
@@ -66,10 +70,13 @@ public class DnCegis extends Cegis {
 			}
 			expand = new Expand(ctx, problem);
 			results = null;
+			logger.info("Invoking EUSolver in place of CEGIS Solver");
 			EUSolver euSolver = new EUSolver(env.EUSolverPath);
 			if (euSolver.solve(problem)) {
 				this.results = euSolver.results;
+				logger.info("EUSolver returned successfully");
 			} else {
+				logger.info("EUSolver failed to execute");
 				return;
 			}
 		} else if (env.feedType == CEGISEnv.FeedType.HEIGHTONLY) {

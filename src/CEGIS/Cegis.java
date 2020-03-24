@@ -719,9 +719,13 @@ public class Cegis extends Thread{
 			logger.info("Starting general track CEGIS");
 			// Use EUSolver
 			if (!env.EUSolverPath.isEmpty()) {
+				logger.info("Invoking EUSolver in place of CEGIS Solver");
 				EUSolver euSolver = new EUSolver(env.EUSolverPath);
 				if (euSolver.solve(problem, 60000 * env.minInfinite)) {
 					this.results = euSolver.results;
+					logger.info("EUSolver returned successfully");
+				} else {
+					logger.info("EUSolver failed to execute");
 				}
 				synchronized(env) {
 					env.notify();
@@ -848,9 +852,13 @@ public class Cegis extends Thread{
 
 		// Use EUSolver
 		if (!env.EUSolverPath.isEmpty()) {
+			logger.info("Invoking EUSolver in place of CEGIS Solver");
 			EUSolver euSolver = new EUSolver(env.EUSolverPath);
 			if (euSolver.solve(problem, 60000 * env.minInfinite)) {
 				this.results = euSolver.results;
+				logger.info("EUSolver returned successfully");
+			} else {
+				logger.info("EUSolver failed to execute");
 			}
 			synchronized(env) {
 				env.notify();
@@ -1887,9 +1895,13 @@ public class Cegis extends Thread{
 			DefinedFunc[] func = null;
 			// Use EUSolver
 			if (!env.EUSolverPath.isEmpty()) {
+				logger.info("Invoking EUSolver in place of CEGIS Solver");
 				EUSolver euSolver = new EUSolver(env.EUSolverPath);
 				if (euSolver.solve(problem)) {
 					func = euSolver.results;
+					logger.info("EUSolver returned successfully");
+				} else {
+					logger.info("EUSolver failed to execute");
 				}
 			} else {
 				func = cegisFixedHeight(height, type);		// cegisFixedHeight should return DefinedFunc[]
