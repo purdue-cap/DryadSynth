@@ -37,7 +37,7 @@ public class Quantifier extends BoolExpr
      **/
     public boolean isExistential()
     {
-        return !isUniversal();
+        return Native.isQuantifierExists(getContext().nCtx(), getNativeObject());
     }
 
     /**
@@ -141,7 +141,7 @@ public class Quantifier extends BoolExpr
      **/
     public BoolExpr getBody()
     {
-        return new BoolExpr(getContext(), Native.getQuantifierBody(getContext()
+        return (BoolExpr) Expr.create(getContext(), Native.getQuantifierBody(getContext()
                 .nCtx(), getNativeObject()));
     }
 

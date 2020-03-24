@@ -81,6 +81,8 @@ namespace smt {
         void setup_QF_FPBV();
         void setup_QF_S();
         void setup_LRA();
+        void setup_CSP();
+        void setup_special_relations();
         void setup_AUFLIA(bool simple_array = true);
         void setup_AUFLIA(static_features const & st);
         void setup_AUFLIRA(bool simple_array = true);
@@ -93,6 +95,7 @@ namespace smt {
         void setup_unknown(static_features & st);
         void setup_arrays();
         void setup_datatypes();
+        void setup_recfuns();
         void setup_bv();
         void setup_arith();
         void setup_dl();
@@ -101,7 +104,7 @@ namespace smt {
         void setup_card();
         void setup_i_arith();
         void setup_mi_arith();
-        void setup_r_arith();
+        void setup_lra_arith();
         void setup_fpa();
         void setup_str();
 

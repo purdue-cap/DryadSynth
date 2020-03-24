@@ -21,6 +21,7 @@ Revision History:
 #include "util/region.h"
 #include "util/string_buffer.h"
 #include "util/z3_omp.h"
+#include <cstring>
 
 symbol symbol::m_dummy(TAG(void*, nullptr, 2));
 const symbol symbol::null;
@@ -34,20 +35,19 @@ class internal_symbol_table {
 public:
 
     char const * get_str(char const * d) {
-        char * result;
+        const char * result;
         #pragma omp critical (cr_symbol) 
         {
-        char * r_d = const_cast<char *>(d);
         str_hashtable::entry * e;
-        if (m_table.insert_if_not_there_core(r_d, e)) {
+        if (m_table.insert_if_not_there_core(d, e)) {
             // new entry
             size_t l   = strlen(d);
             // store the hash-code before the string
             size_t * mem = static_cast<size_t*>(m_region.allocate(l + 1 + sizeof(size_t)));
             *mem = e->get_hash();
             mem++;
-            result = reinterpret_cast<char*>(mem);
-            memcpy(result, d, l+1);
+            result = reinterpret_cast<const char*>(mem);
+            memcpy(mem, d, l+1);
             // update the entry with the new ptr.
             e->set_data(result);
         }
@@ -60,7 +60,7 @@ public:
     }
 };
 
-internal_symbol_table* g_symbol_table = nullptr;
+static internal_symbol_table* g_symbol_table = nullptr;
 
 void initialize_symbols() {
     if (!g_symbol_table) {
@@ -140,27 +140,7 @@ bool lt(symbol const & s1, symbol const & s2) {
         return false;
     }
     SASSERT(!s1.is_numerical() && !s2.is_numerical());
-    char const * str1 = s1.bare_str();
-    char const * str2 = s2.bare_str();
-    while (true) {
-        if (*str1 < *str2) {
-            return true;
-        }
-        else if (*str1 == *str2) {
-            str1++;
-            str2++;
-            if (!*str1) {
-                SASSERT(*str2); // the strings can't be equal.
-                return true;
-            }
-            if (!*str2) {
-                SASSERT(*str1); // the strings can't be equal.
-                return false;
-            }
-        }
-        else {
-            SASSERT(*str1 > *str2);
-            return false;
-        }
-    }
+    auto cmp = strcmp(s1.bare_str(), s2.bare_str());
+    SASSERT(cmp != 0);
+    return cmp < 0;
 }

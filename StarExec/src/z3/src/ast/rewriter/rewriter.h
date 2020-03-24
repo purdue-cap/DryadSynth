@@ -90,8 +90,10 @@ protected:
     void init_cache_stack();
     void del_cache_stack();
     void reset_cache();
-    void cache_result(expr * k, expr * v);
+    void cache_result(expr * k, expr * v) { cache_shifted_result(k, 0, v); }
+    void cache_shifted_result(expr * k, unsigned offset, expr * v);
     expr * get_cached(expr * k) const { return m_cache->find(k); } 
+    expr * get_cached(expr* k, unsigned offset) const { return m_cache->find(k, offset); }
 
     void cache_result(expr * k, expr * v, proof * pr);
     proof * get_cached_pr(expr * k) const { return static_cast<proof*>(m_cache_pr->find(k)); } 
@@ -279,8 +281,9 @@ protected:
         return false;
     }
 
-    bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) {
-        return m_cfg.get_macro(f, def, q, def_pr);
+    bool get_macro(func_decl * f, expr * & def, proof * & def_pr) {
+        quantifier* q = nullptr;
+        return m_cfg.get_macro(f, def, q, def_pr); 
     }
 
     void push_frame(expr * t, bool mcache, unsigned max_depth) {
@@ -297,7 +300,7 @@ protected:
     void process_var(var * v);
 
     template<bool ProofGen>
-    void process_const(app * t);
+    bool process_const(app * t);
 
     template<bool ProofGen>
     bool visit(expr * t, unsigned max_depth);
@@ -346,13 +349,17 @@ public:
     
     void set_bindings(unsigned num_bindings, expr * const * bindings);
     void set_inv_bindings(unsigned num_bindings, expr * const * bindings);
+    void update_binding_at(unsigned i, expr* binding);
+    void update_inv_binding_at(unsigned i, expr* binding);
     void operator()(expr * t, expr_ref & result, proof_ref & result_pr);
     void operator()(expr * t, expr_ref & result) { operator()(t, result, m_pr); }
-    void operator()(expr * n, unsigned num_bindings, expr * const * bindings, expr_ref & result) {
+    expr_ref operator()(expr * n, unsigned num_bindings, expr * const * bindings) {
+        expr_ref result(m());
         SASSERT(!m_proof_gen);
         reset();
         set_inv_bindings(num_bindings, bindings);
         operator()(n, result);
+        return result;
     }
 
     void resume(expr_ref & result, proof_ref & result_pr);

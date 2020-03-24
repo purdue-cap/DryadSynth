@@ -31,7 +31,7 @@ class distribute_forall_tactic : public tactic {
                                expr_ref & result,
                                proof_ref & result_pr) {
 
-            if (!old_q->is_forall()) {
+            if (!is_forall(old_q)) {
                 return false;
             }
 
@@ -49,9 +49,7 @@ class distribute_forall_tactic : public tactic {
                     expr * not_arg = m.mk_not(arg);
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, not_arg);
-                    expr_ref new_q(m);
-                    elim_unused_vars(m, tmp_q, params_ref(), new_q);
-                    new_args.push_back(new_q);
+                    new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
                 return true;
@@ -69,9 +67,7 @@ class distribute_forall_tactic : public tactic {
                     expr * arg     = to_app(new_body)->get_arg(i);
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, arg);
-                    expr_ref new_q(m);
-                    elim_unused_vars(m, tmp_q, params_ref(), new_q);
-                    new_args.push_back(new_q);
+                    new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
                 return true;
@@ -100,16 +96,13 @@ public:
     }
 
     void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+                    goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
         ast_manager & m = g->m();
         bool produce_proofs = g->proofs_enabled();
         rw r(m, produce_proofs);
         m_rw = &r;
-        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
+        result.reset();
         tactic_report report("distribute-forall", *g);
 
         expr_ref   new_curr(m);

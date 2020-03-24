@@ -261,7 +261,7 @@ namespace datalog {
             num_bits = 1;
             return true;
         }
-        uint64 n, sz;
+        uint64_t n, sz;
         ast_manager& m = get_ast_manager();
         if (dl.is_numeral(e, n) && dl.try_get_size(m.get_sort(e), sz)) {
             num_bits = 0;
@@ -277,7 +277,7 @@ namespace datalog {
             return bv.get_bv_size(s);
         if (m.is_bool(s)) 
             return 1;
-        uint64 sz;
+        uint64_t sz;
         if (dl.try_get_size(s, sz)) {
             while (sz > 0) ++num_bits, sz /= 2;
             return num_bits;
@@ -869,7 +869,7 @@ namespace datalog {
             dm.set(*d, idx, BIT_1);
             result.intersect(dm, *d);
         }
-        else if ((m.is_eq(g, e1, e2) || m.is_iff(g, e1, e2)) && m.is_bool(e1)) {
+        else if (m.is_iff(g, e1, e2)) {
             udoc diff1, diff2;
             diff1.push_back(dm.allocateX());
             diff2.push_back(dm.allocateX());

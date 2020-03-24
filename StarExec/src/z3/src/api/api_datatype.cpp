@@ -56,7 +56,7 @@ extern "C" {
             del_datatype_decl(dt);
 
             if (!is_ok) {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
+                SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
                 RETURN_Z3(nullptr);
             }
         }
@@ -118,7 +118,7 @@ extern "C" {
             del_datatype_decl(dt);
 
             if (!is_ok) {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
+                SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
                 RETURN_Z3(nullptr);
             }
         }
@@ -160,69 +160,40 @@ extern "C" {
         LOG_Z3_mk_list_sort(c, name, elem_sort, nil_decl, is_nil_decl, cons_decl, is_cons_decl, head_decl, tail_decl);
         RESET_ERROR_CODE();
         ast_manager& m = mk_c(c)->m();
+        func_decl_ref nil(m), is_nil(m), cons(m), is_cons(m), head(m), tail(m);        
         datatype_util& dt_util = mk_c(c)->dtutil();
         mk_c(c)->reset_last_result();
-        datatype_util data_util(m);
-        accessor_decl* head_tail[2] = {
-            mk_accessor_decl(m, symbol("head"), type_ref(to_sort(elem_sort))),
-            mk_accessor_decl(m, symbol("tail"), type_ref(0))
-        };
-        constructor_decl* constrs[2] = {
-            mk_constructor_decl(symbol("nil"), symbol("is_nil"), 0, nullptr),
-            // Leo: SMT 2.0 document uses 'insert' instead of cons
-            mk_constructor_decl(symbol("cons"), symbol("is_cons"), 2, head_tail)
-        };
-
-        sort_ref_vector sorts(m);
-        {
-            datatype_decl * decl = mk_datatype_decl(dt_util, to_symbol(name), 0, nullptr, 2, constrs);
-            bool is_ok = mk_c(c)->get_dt_plugin()->mk_datatypes(1, &decl, 0, nullptr, sorts);
-            del_datatype_decl(decl);
-
-            if (!is_ok) {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
-                RETURN_Z3(nullptr);
-            }
+        sort_ref s = dt_util.mk_list_datatype(to_sort(elem_sort), to_symbol(name), cons, is_cons, head, tail, nil, is_nil);
+        
+        if (!s) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            RETURN_Z3(nullptr);
         }
-        sort * s = sorts.get(0);
 
         mk_c(c)->save_multiple_ast_trail(s);
-        ptr_vector<func_decl> const& cnstrs = *data_util.get_datatype_constructors(s);
-        SASSERT(cnstrs.size() == 2);
-        func_decl* f;
         if (nil_decl) {
-            f = cnstrs[0];
-            mk_c(c)->save_multiple_ast_trail(f);
-            *nil_decl = of_func_decl(f);
+            mk_c(c)->save_multiple_ast_trail(nil);
+            *nil_decl = of_func_decl(nil);
         }
         if (is_nil_decl) {
-            f = data_util.get_constructor_is(cnstrs[0]);
-            mk_c(c)->save_multiple_ast_trail(f);
-            *is_nil_decl = of_func_decl(f);
+            mk_c(c)->save_multiple_ast_trail(is_nil);
+            *is_nil_decl = of_func_decl(is_nil);
         }
         if (cons_decl) {
-            f = cnstrs[1];
-            mk_c(c)->save_multiple_ast_trail(f);
-            *cons_decl = of_func_decl(f);
+            mk_c(c)->save_multiple_ast_trail(cons);
+            *cons_decl = of_func_decl(cons);
         }
         if (is_cons_decl) {
-            f = data_util.get_constructor_is(cnstrs[1]);
-            mk_c(c)->save_multiple_ast_trail(f);
-            *is_cons_decl = of_func_decl(f);
+            mk_c(c)->save_multiple_ast_trail(is_cons);
+            *is_cons_decl = of_func_decl(is_cons);
         }
         if (head_decl) {
-            ptr_vector<func_decl> const& acc = *data_util.get_constructor_accessors(cnstrs[1]);
-            SASSERT(acc.size() == 2);
-            f = (acc)[0];
-            mk_c(c)->save_multiple_ast_trail(f);
-            *head_decl = of_func_decl(f);
+            mk_c(c)->save_multiple_ast_trail(head);
+            *head_decl = of_func_decl(head);
         }
         if (tail_decl) {
-            ptr_vector<func_decl> const& acc = *data_util.get_constructor_accessors(cnstrs[1]);
-            SASSERT(acc.size() == 2);
-            f = (acc)[1];
-            mk_c(c)->save_multiple_ast_trail(f);
-            *tail_decl = of_func_decl(f);
+            mk_c(c)->save_multiple_ast_trail(tail);
+            *tail_decl = of_func_decl(tail);
         }
         RETURN_Z3_mk_list_sort(of_sort(s));
         Z3_CATCH_RETURN(nullptr);
@@ -274,7 +245,7 @@ extern "C" {
         RESET_ERROR_CODE();
         mk_c(c)->reset_last_result();
         if (!constr) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return;
         }
         ast_manager& m = mk_c(c)->m();
@@ -282,7 +253,7 @@ extern "C" {
         func_decl* f = reinterpret_cast<constructor*>(constr)->m_constructor.get();
 
         if (!f) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return;
         }
         if (constructor_decl) {
@@ -353,7 +324,7 @@ extern "C" {
             del_datatype_decl(data);
 
             if (!is_ok) {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
+                SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
                 RETURN_Z3(nullptr);
             }
         }
@@ -416,7 +387,7 @@ extern "C" {
         del_datatype_decls(datas.size(), datas.c_ptr());
 
         if (!ok) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return;
         }
 
@@ -445,7 +416,7 @@ extern "C" {
         datatype_util& dt_util = mk_c(c)->dtutil();
 
         if (!dt_util.is_datatype(_t)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         return dt_util.get_datatype_constructors(_t)->size();
@@ -458,12 +429,12 @@ extern "C" {
         sort * _t = to_sort(t);
         datatype_util& dt_util = mk_c(c)->dtutil();
         if (!dt_util.is_datatype(_t)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
         }
         ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(_t);
         if (idx >= decls.size()) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
         }
         func_decl* decl = (decls)[idx];
@@ -488,12 +459,12 @@ extern "C" {
         datatype_util& dt_util = mk_c(c)->dtutil();
 
         if (!dt_util.is_datatype(_t)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(_t);
         if (idx >= decls.size()) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         func_decl* decl = (decls)[idx];
@@ -511,23 +482,23 @@ extern "C" {
         datatype_util& dt_util = mk_c(c)->dtutil();
 
         if (!dt_util.is_datatype(_t)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(_t);
         if (idx_c >= decls.size()) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
         }
         func_decl* decl = (decls)[idx_c];
         if (decl->get_arity() <= idx_a) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         ptr_vector<func_decl> const & accs = *dt_util.get_constructor_accessors(decl);
         SASSERT(accs.size() == decl->get_arity());
         if (accs.size() <= idx_a) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         decl = (accs)[idx_a];
@@ -543,7 +514,7 @@ extern "C" {
         sort * tuple = to_sort(t);
         datatype_util& dt_util = mk_c(c)->dtutil();
         if (!dt_util.is_datatype(tuple) || dt_util.is_recursive(tuple) || dt_util.get_datatype_num_constructors(tuple) != 1) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         Z3_func_decl r = get_datatype_sort_constructor_core(c, t, 0);
@@ -558,12 +529,12 @@ extern "C" {
         sort * tuple = to_sort(t);
         datatype_util& dt_util = mk_c(c)->dtutil();
         if (!dt_util.is_datatype(tuple) || dt_util.is_recursive(tuple) || dt_util.get_datatype_num_constructors(tuple) != 1) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(tuple);
         if (decls.size() != 1) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         ptr_vector<func_decl> const & accs = *dt_util.get_constructor_accessors(decls[0]);
@@ -578,17 +549,17 @@ extern "C" {
         sort * tuple = to_sort(t);
         datatype_util& dt_util = mk_c(c)->dtutil();
         if (!dt_util.is_datatype(tuple) || dt_util.is_recursive(tuple) || dt_util.get_datatype_num_constructors(tuple) != 1) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(tuple);
         if (decls.size() != 1) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
         ptr_vector<func_decl> const & accs = *dt_util.get_constructor_accessors((decls)[0]);
         if (accs.size() <= i) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         func_decl* acc = (accs)[i];
@@ -609,7 +580,7 @@ extern "C" {
         expr* args[2] = { _t, _v };
         sort* domain[2] = { m.get_sort(_t), m.get_sort(_v) };
         parameter param(_f);
-        func_decl * d = m.mk_func_decl(mk_c(c)->get_array_fid(), OP_DT_UPDATE_FIELD, 1, &param, 2, domain);
+        func_decl * d = m.mk_func_decl(mk_c(c)->get_dt_fid(), OP_DT_UPDATE_FIELD, 1, &param, 2, domain);
         app* r = m.mk_app(d, 2, args);
         mk_c(c)->save_ast_trail(r);
         check_sorts(c, r);

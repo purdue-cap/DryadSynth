@@ -42,8 +42,7 @@ namespace qe {
         }
 
         bool operator()(model& model, app* var, app_ref_vector& vars, expr_ref_vector& lits) {
-            expr_ref val(m);
-            VERIFY(model.eval(var, val));
+            expr_ref val = model(var);
             SASSERT(is_app(val));
             TRACE("qe", tout << mk_pp(var, m) << " := " << val << "\n";);
             m_val = to_app(val);
@@ -62,7 +61,7 @@ namespace qe {
                     project_nonrec(model, vars, lits);
                 }
             }
-            catch (cant_project) {
+            catch (const cant_project &) {
                 TRACE("qe", tout << "can't project:" << mk_pp(var, m) << "\n";);
                 return false;
             }
@@ -78,6 +77,7 @@ namespace qe {
             ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
             for (unsigned i = 0; i < acc.size(); ++i) {
                 arg = m.mk_fresh_const(acc[i]->get_name().str().c_str(), acc[i]->get_range());
+                vars.push_back(arg);
                 model.register_decl(arg->get_decl(), m_val->get_arg(i));
                 args.push_back(arg);
             }
@@ -300,6 +300,9 @@ namespace qe {
         return m_imp->solve(model, vars, lits);
     }
 
+    vector<def> datatype_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        return vector<def>();
+    }
     
     family_id datatype_project_plugin::get_family_id() {
         return m_imp->dt.get_family_id();

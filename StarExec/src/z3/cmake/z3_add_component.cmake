@@ -7,7 +7,7 @@ function(z3_expand_dependencies output_var)
   if (ARGC LESS 2)
     message(FATAL_ERROR "Invalid number of arguments")
   endif()
-  # Remaing args should be component names
+  # Remaining args should be component names
   set(_expanded_deps ${ARGN})
   set(_old_number_of_deps 0)
   list(LENGTH _expanded_deps _number_of_deps)
@@ -33,7 +33,7 @@ function(z3_add_component_dependencies_to_target target_name)
   if (NOT (TARGET ${target_name}))
     message(FATAL_ERROR "Target \"${target_name}\" does not exist")
   endif()
-  # Remaing args should be component names
+  # Remaining args should be component names
   set(_expanded_deps ${ARGN})
   foreach (dependency ${_expanded_deps})
     # Ensure this component's dependencies are built before this component.
@@ -116,9 +116,9 @@ macro(z3_add_component component_name)
     set(_full_output_file_path "${CMAKE_CURRENT_BINARY_DIR}/${_output_file}")
     message(STATUS "Adding rule to generate \"${_output_file}\"")
     add_custom_command(OUTPUT "${_output_file}"
-      COMMAND "${PYTHON_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/scripts/pyg2hpp.py" "${_full_pyg_file_path}" "${CMAKE_CURRENT_BINARY_DIR}"
+      COMMAND "${PYTHON_EXECUTABLE}" "${PROJECT_SOURCE_DIR}/scripts/pyg2hpp.py" "${_full_pyg_file_path}" "${CMAKE_CURRENT_BINARY_DIR}"
       MAIN_DEPENDENCY "${_full_pyg_file_path}"
-      DEPENDS "${CMAKE_SOURCE_DIR}/scripts/pyg2hpp.py"
+      DEPENDS "${PROJECT_SOURCE_DIR}/scripts/pyg2hpp.py"
               ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
       COMMENT "Generating \"${_full_output_file_path}\" from \"${pyg_file}\""
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
@@ -219,7 +219,7 @@ macro(z3_add_component component_name)
   # Record this component's dependencies
   foreach (dependency ${Z3_MOD_COMPONENT_DEPENDENCIES})
     if (NOT (TARGET ${dependency}))
-      message(FATAL_ERROR "Component \"${component_name}\" depends on a non existant component \"${dependency}\"")
+      message(FATAL_ERROR "Component \"${component_name}\" depends on a non existent component \"${dependency}\"")
     endif()
     set_property(GLOBAL APPEND PROPERTY Z3_${component_name}_DEPS "${dependency}")
   endforeach()
@@ -262,18 +262,20 @@ macro(z3_add_install_tactic_rule)
       GLOBAL
       PROPERTY Z3_${dependency}_TACTIC_HEADERS
     )
-    list(APPEND _tactic_header_files ${_component_tactic_header_files})
+    list(APPEND _tactic_header_files "${_component_tactic_header_files}")
   endforeach()
   unset(_component_tactic_header_files)
 
+  string(REPLACE ";" "\n" _tactic_header_files "${_tactic_header_files}")
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps" ${_tactic_header_files})
   add_custom_command(OUTPUT "install_tactic.cpp"
     COMMAND "${PYTHON_EXECUTABLE}"
-    "${CMAKE_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
+    "${PROJECT_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
     "${CMAKE_CURRENT_BINARY_DIR}"
-    ${_tactic_header_files}
-    DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
+    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps"
+    DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-            ${_tactic_header_files}
+            "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps"
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
     VERBATIM
@@ -306,10 +308,10 @@ macro(z3_add_memory_initializer_rule)
 
   add_custom_command(OUTPUT "mem_initializer.cpp"
     COMMAND "${PYTHON_EXECUTABLE}"
-    "${CMAKE_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
+    "${PROJECT_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
     "${CMAKE_CURRENT_BINARY_DIR}"
     ${_mem_init_finalize_headers}
-    DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
+    DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_mem_initializer_cpp.py"
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
             ${_mem_init_finalize_headers}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/mem_initializer.cpp\""
@@ -342,10 +344,10 @@ macro(z3_add_gparams_register_modules_rule)
 
   add_custom_command(OUTPUT "gparams_register_modules.cpp"
     COMMAND "${PYTHON_EXECUTABLE}"
-    "${CMAKE_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
+    "${PROJECT_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
     "${CMAKE_CURRENT_BINARY_DIR}"
     ${_register_module_header_files}
-    DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
+    DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_gparams_register_modules_cpp.py"
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
             ${_register_module_header_files}
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/gparams_register_modules.cpp\""

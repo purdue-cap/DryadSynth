@@ -25,6 +25,7 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/seq_decl_plugin.h"
+#include "ast/special_relations_decl_plugin.h"
 #include "util/map.h"
 
 struct static_features {
@@ -38,6 +39,7 @@ struct static_features {
     family_id                m_afid;
     family_id                m_lfid;    
     family_id                m_arrfid;
+    family_id                m_srfid;
     ast_mark                 m_already_visited;
     bool                     m_cnf;
     unsigned                 m_num_exprs;             // 
@@ -79,9 +81,11 @@ struct static_features {
     bool                     m_has_real;        //
     bool                     m_has_bv;          //
     bool                     m_has_fpa;         //
+    bool                     m_has_sr;          // has special relations
     bool                     m_has_str;         // has String-typed terms
     bool                     m_has_seq_non_str; // has non-String-typed Sequence terms
     bool                     m_has_arrays;      //
+    bool                     m_has_ext_arrays;  // does this use extended array theory.
     rational                 m_arith_k_sum;     // sum of the numerals in arith atoms.
     unsigned                 m_num_arith_terms;
     unsigned                 m_num_arith_eqs;   // equalities of the form t = k where k is a numeral

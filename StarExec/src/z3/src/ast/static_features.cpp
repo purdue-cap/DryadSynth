@@ -30,6 +30,7 @@ static_features::static_features(ast_manager & m):
     m_afid(m.mk_family_id("arith")),
     m_lfid(m.mk_family_id("label")),
     m_arrfid(m.mk_family_id("array")),
+    m_srfid(m.mk_family_id("special_relations")),
     m_label_sym("label"),
     m_pattern_sym("pattern"),
     m_expr_list_sym("expr-list") {
@@ -78,9 +79,11 @@ void static_features::reset() {
     m_has_real                             = false; 
     m_has_bv                               = false;
     m_has_fpa                              = false;
+    m_has_sr                               = false;
     m_has_str                              = false;
     m_has_seq_non_str                      = false;
     m_has_arrays                           = false;
+    m_has_ext_arrays                       = false;
     m_arith_k_sum                          .reset();
     m_num_arith_terms                      = 0;
     m_num_arith_eqs                        = 0;
@@ -153,8 +156,10 @@ bool static_features::is_diff_atom(expr const * e) const {
 bool static_features::is_gate(expr const * e) const {
     if (is_basic_expr(e)) {
         switch (to_app(e)->get_decl_kind()) {
-        case OP_ITE: case OP_AND: case OP_OR: case OP_IFF: case OP_XOR: case OP_IMPLIES:
+        case OP_ITE: case OP_AND: case OP_OR: case OP_XOR: case OP_IMPLIES:
             return true;
+        case OP_EQ:
+            return m_manager.is_bool(e);
         }
     }
     return false;
@@ -206,7 +211,7 @@ void static_features::update_core(expr * e) {
         case OP_OR:
             m_num_ors++;
             break;
-        case OP_IFF: 
+        case OP_EQ: 
             m_num_iffs++;
             break;
         }
@@ -271,13 +276,17 @@ void static_features::update_core(expr * e) {
         m_has_bv = true;
     if (!m_has_fpa && (m_fpautil.is_float(e) || m_fpautil.is_rm(e)))
         m_has_fpa = true;
-    if (!m_has_arrays && m_arrayutil.is_array(e))
+    if (is_app(e) && to_app(e)->get_family_id() == m_srfid) 
+        m_has_sr = true;
+    if (!m_has_arrays && m_arrayutil.is_array(e)) 
         m_has_arrays = true;
+    if (!m_has_ext_arrays && m_arrayutil.is_array(e) && 
+        !m_arrayutil.is_select(e) && !m_arrayutil.is_store(e)) 
+        m_has_ext_arrays = true;
     if (!m_has_str && m_sequtil.str.is_string_term(e))
         m_has_str = true;
-    if (!m_has_seq_non_str && m_sequtil.str.is_non_string_sequence(e)) {
+    if (!m_has_seq_non_str && m_sequtil.str.is_non_string_sequence(e)) 
         m_has_seq_non_str = true;
-    }
     if (is_app(e)) {
         family_id fid = to_app(e)->get_family_id();
         mark_theory(fid);
@@ -414,7 +423,7 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
             form_ctx_new   = true;
             or_and_ctx_new = true;
             break;
-        case OP_IFF:
+        case OP_EQ:
             form_ctx_new   = true;
             break;
         }

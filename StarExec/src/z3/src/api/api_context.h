@@ -29,6 +29,8 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/dl_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
+#include "ast/special_relations_decl_plugin.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "util/event_handler.h"
@@ -37,6 +39,9 @@ Revision History:
 #include "cmd_context/cmd_context.h"
 #include "api/api_polynomial.h"
 #include "util/hashtable.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
 
 namespace smtlib {
     class parser;
@@ -48,6 +53,24 @@ namespace realclosure {
 
 namespace api {
        
+    class seq_expr_solver : public expr_solver {
+        ast_manager& m;
+        params_ref const& p;
+        solver_ref   s;
+    public:
+        seq_expr_solver(ast_manager& m, params_ref const& p): m(m), p(p) {}
+        lbool check_sat(expr* e) {
+            if (!s) {
+                s = mk_smt_solver(m, p, symbol("ALL"));
+            }
+            s->push();
+            s->assert_expr(e);
+            lbool r = s->check_sat();
+            s->pop(1);
+            return r;
+        }
+    };
+
 
     class context : public tactic_manager {
         struct add_plugins {  add_plugins(ast_manager & m); };
@@ -61,8 +84,8 @@ namespace api {
         bv_util                    m_bv_util;
         datalog::dl_decl_util      m_datalog_util;
         fpa_util                   m_fpa_util;
-        datatype_util              m_dtutil;
         seq_util                   m_sutil;
+        recfun::util               m_recfun;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -84,6 +107,7 @@ namespace api {
         family_id                  m_pb_fid;
         family_id                  m_fpa_fid;
         family_id                  m_seq_fid;
+        family_id                  m_special_relations_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
         std::string                m_string_buffer; // temporary buffer used to cache strings sent to the "external" world.
@@ -115,20 +139,21 @@ namespace api {
         ~context();
         ast_manager & m() const { return *(m_manager.get()); }
 
-        context_params & params() { return m_params; }
+        context_params & params() { m_params.updt_params(); return m_params; }
         scoped_ptr<cmd_context>& cmd() { return m_cmd; }
         bool produce_proofs() const { return m().proofs_enabled(); }
         bool produce_models() const { return m_params.m_model; }
         bool produce_unsat_cores() const { return m_params.m_unsat_core; }
         bool use_auto_config() const { return m_params.m_auto_config; }
         unsigned get_timeout() const { return m_params.m_timeout; }
-        unsigned get_rlimit() const { return m_params.m_rlimit; }
+        unsigned get_rlimit() const { return m_params.rlimit(); }
         arith_util & autil() { return m_arith_util; }
         bv_util & bvutil() { return m_bv_util; }
         datalog::dl_decl_util & datalog_util() { return m_datalog_util; }
         fpa_util & fpautil() { return m_fpa_util; }
-        datatype_util& dtutil() { return m_dtutil; }
+        datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
+        recfun::util& recfun() { return m_recfun; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return m_arith_fid; }
@@ -139,10 +164,11 @@ namespace api {
         family_id get_fpa_fid() const { return m_fpa_fid; }
         family_id get_seq_fid() const { return m_seq_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
+        family_id get_special_relations_fid() const { return m_special_relations_fid; }
 
         Z3_error_code get_error_code() const { return m_error_code; }
         void reset_error_code();
-        void set_error_code(Z3_error_code err);
+        void set_error_code(Z3_error_code err, char const* opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         // Sign an error if solver is searching
         void check_searching();
@@ -155,8 +181,9 @@ namespace api {
 
         // Store a copy of str in m_string_buffer, and return a reference to it.
         // This method is used to communicate local/internal strings with the "external world"
+        char * mk_external_string(char const * str, unsigned n);
         char * mk_external_string(char const * str);
-        char * mk_external_string(std::string const & str);
+        char * mk_external_string(std::string && str);
 
         // Create a numeral of the given sort
         expr * mk_numeral_core(rational const & n, sort * s);
@@ -220,14 +247,6 @@ namespace api {
         //
         // ------------------------
         smt_params & fparams() { return m_fparams; }
-
-        // ------------------------
-        //
-        // Parser interface 
-        //
-        // ------------------------
-
-        std::string m_parser_error_buffer;        
         
     };
     
@@ -235,14 +254,14 @@ namespace api {
 
 inline api::context * mk_c(Z3_context c) { return reinterpret_cast<api::context*>(c); }
 #define RESET_ERROR_CODE() { mk_c(c)->reset_error_code(); }
-#define SET_ERROR_CODE(ERR) { mk_c(c)->set_error_code(ERR); }
-#define CHECK_NON_NULL(_p_,_ret_) { if (_p_ == 0) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
-#define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
+#define SET_ERROR_CODE(ERR, MSG) { mk_c(c)->set_error_code(ERR, MSG); }
+#define CHECK_NON_NULL(_p_,_ret_) { if (_p_ == 0) { SET_ERROR_CODE(Z3_INVALID_ARG, "ast is null"); return _ret_; } }
+#define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG, "not a valid ast"); return _ret_; } }
 #define CHECK_SEARCHING(c) mk_c(c)->check_searching();
 inline bool is_expr(Z3_ast a) { return is_expr(to_ast(a)); }
-#define CHECK_IS_EXPR(_p_, _ret_) { if (_p_ == 0 || !is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
+#define CHECK_IS_EXPR(_p_, _ret_) { if (_p_ == 0 || !is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG, "ast is not an expression"); return _ret_; } }
 inline bool is_bool_expr(Z3_context c, Z3_ast a) { return is_expr(a) && mk_c(c)->m().is_bool(to_expr(a)); }
-#define CHECK_FORMULA(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_) || !is_bool_expr(c, _a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
+#define CHECK_FORMULA(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_) || !is_bool_expr(c, _a_)) { SET_ERROR_CODE(Z3_INVALID_ARG, nullptr); return _ret_; } }
 inline void check_sorts(Z3_context c, ast * n) { mk_c(c)->check_sorts(n); }
 
 #endif

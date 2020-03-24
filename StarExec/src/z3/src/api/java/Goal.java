@@ -130,8 +130,7 @@ public class Goal extends Z3Object {
         int n = size();
         BoolExpr[] res = new BoolExpr[n];
         for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), Native.goalFormula(getContext()
-                    .nCtx(), getNativeObject(), i));
+            res[i] = (BoolExpr) Expr.create(getContext(), Native.goalFormula(getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 
@@ -239,6 +238,21 @@ public class Goal extends Z3Object {
         super(ctx, Native.mkGoal(ctx.nCtx(), (models),
             (unsatCores), (proofs)));
     }
+
+    /**
+     * Convert a model for the goal into a model of the
+     * original goal from which this goal was derived.
+     * 
+     * @return A model for {@code g}
+     * @throws Z3Exception
+     **/
+    public Model convertModel(Model m)
+    {
+        return new Model(getContext(), 
+            Native.goalConvertModel(getContext().nCtx(), getNativeObject(), m.getNativeObject()));
+    }
+
+
 
     @Override
     void incRef() {

@@ -199,18 +199,27 @@ namespace smt {
     void theory_arith<Ext>::branch_infeasible_int_var(theory_var v) {
         SASSERT(is_int(v));
         SASSERT(!get_value(v).is_int());
+        ast_manager & m = get_manager();
         m_stats.m_branches++;
-        TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
-              display_var(tout, v););
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
-        expr_ref bound(get_manager());
+        TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
+              display_var(tout, v);
+              tout << "k = " << k << ", _k = "<< _k << std::endl;
+              );
+        expr_ref bound(m);
         expr* e = get_enode(v)->get_owner();
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
-        TRACE("arith_int", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(to_app(bound), m.mk_not(to_app(bound)));
+            log_axiom_instantiation(body);
+        }
+        TRACE("arith_int", tout << mk_bounded_pp(bound, m) << "\n";);
         context & ctx = get_context();
         ctx.internalize(bound, true);
         ctx.mark_as_relevant(bound.get());
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     
@@ -363,6 +372,11 @@ namespace smt {
         mk_polynomial_ge(pol.size(), pol.c_ptr(), unsat_row[0]+rational(1), p2);
         
         context& ctx = get_context();
+        if (get_manager().has_trace_stream()) {
+            app_ref body(get_manager());
+            body = get_manager().mk_or(p1, p2);
+            log_axiom_instantiation(body);
+        }
         ctx.internalize(p1, false);
         ctx.internalize(p2, false);
         literal l1(ctx.get_literal(p1)), l2(ctx.get_literal(p2));
@@ -370,6 +384,7 @@ namespace smt {
         ctx.mark_as_relevant(p2.get());
         
         ctx.mk_th_axiom(get_id(), l1, l2);
+        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
        
         TRACE("arith_int", 
               tout << "cut: (or " << mk_pp(p1, get_manager()) << " " << mk_pp(p2, get_manager()) << ")\n";
@@ -394,9 +409,13 @@ namespace smt {
         for (; it != end; ++it) {
             if (!it->is_dead() && it->m_var != b && is_free(it->m_var)) {
                 theory_var v  = it->m_var;
-                expr * bound  = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(rational::zero(), is_int(v)));
+                expr* e = get_enode(v)->get_owner();
+                bool _is_int = m_util.is_int(e);
+                expr * bound  = m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int));
                 context & ctx = get_context();
+                if (get_manager().has_trace_stream()) log_axiom_instantiation(bound);
                 ctx.internalize(bound, true);
+                if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
                 ctx.mark_as_relevant(bound);
                 result = true;
             }
@@ -642,7 +661,9 @@ namespace smt {
         TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
         literal l     = null_literal;
         context & ctx = get_context();
+        if (get_manager().has_trace_stream()) log_axiom_instantiation(bound);
         ctx.internalize(bound, true);
+        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
         l = ctx.get_literal(bound);
         ctx.mark_as_relevant(l);
         dump_lemmas(l, ante);
@@ -1333,7 +1354,7 @@ namespace smt {
                       }
                   }
               });
-
+        m_stats.m_patches++;
         patch_int_infeasible_vars();
         fix_non_base_vars();
         
@@ -1366,6 +1387,7 @@ namespace smt {
         
         theory_var int_var = find_infeasible_int_base_var();
         if (int_var == null_theory_var) {
+            m_stats.m_patches_succ++;
             TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
             return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
         }
@@ -1383,6 +1405,7 @@ namespace smt {
 
         m_branch_cut_counter++;
         // TODO: add giveup code
+        TRACE("gomory_cut", tout << m_branch_cut_counter << ", " << m_params.m_arith_branch_cut_ratio << std::endl;);
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
             TRACE("opt_verbose", display(tout););
             move_non_base_vars_to_bounds();
@@ -1397,7 +1420,7 @@ namespace smt {
                 SASSERT(is_base(int_var));
                 row const & r = m_rows[get_var_row(int_var)];
                 if (!mk_gomory_cut(r)) {
-                    // silent failure
+                    TRACE("gomory_cut", tout << "silent failure\n";);
                 }
                 return FC_CONTINUE;
             }

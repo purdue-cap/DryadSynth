@@ -24,6 +24,7 @@ void bool_rewriter::updt_params(params_ref const & _p) {
     bool_rewriter_params p(_p);
     m_flat                 = p.flat();
     m_elim_and             = p.elim_and();
+    m_elim_ite             = p.elim_ite();
     m_local_ctx            = p.local_ctx();
     m_local_ctx_limit      = p.local_ctx_limit();
     m_blast_distinct       = p.blast_distinct();
@@ -39,7 +40,6 @@ br_status bool_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * co
     SASSERT(f->get_family_id() == m().get_basic_family_id());
     switch (f->get_decl_kind()) {
     case OP_EQ:
-    case OP_IFF:
         SASSERT(num_args == 2);
         return mk_eq_core(args[0], args[1], result);
     case OP_DISTINCT:
@@ -428,7 +428,7 @@ bool bool_rewriter::simp_nested_eq_ite(expr * t, expr_fast_mark1 & neg_lits, exp
         neg = true;
         t = to_app(t)->get_arg(0);
     }
-    if (m().is_iff(t) || m().is_eq(t)) {
+    if (m().is_eq(t)) {
         bool modified = false;
         expr * new_lhs = simp_arg(to_app(t)->get_arg(0), neg_lits, pos_lits, modified);
         expr * new_rhs = simp_arg(to_app(t)->get_arg(1), neg_lits, pos_lits, modified);
@@ -589,58 +589,39 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
     VERIFY(m().is_ite(ite, cond, t, e));
     SASSERT(m().is_value(val));
 
-    if (m().is_value(t) && m().is_value(e)) {
-        if (t != val && e != val) {
-            TRACE("try_ite_value", tout << mk_ismt2_pp(t, m()) << " " << mk_ismt2_pp(e, m()) << " " << mk_ismt2_pp(val, m()) << "\n";
-                  tout << t << " " << e << " " << val << "\n";);
-            result = m().mk_false();
-        }
-        else if (t == val && e == val) {
+    if (m().are_distinct(val, e)) {
+        result = m().mk_and(m().mk_eq(t, val), cond);
+        return BR_REWRITE2;
+    }
+    if (m().are_distinct(val, t)) {
+        result = m().mk_and(m().mk_eq(e, val), m().mk_not(cond));
+        return BR_REWRITE2;
+    }
+    if (m().are_equal(val, t)) {
+        if (m().are_equal(val, e)) {
             result = m().mk_true();
-        }
-        else if (t == val) {
-            result = cond;
+            return BR_DONE;
         }
         else {
-            SASSERT(e == val);
-            mk_not(cond, result);
+            result = m().mk_or(m().mk_eq(e, val), cond);
         }
-        return BR_DONE;
+        return BR_REWRITE2;
     }
-    if (m_ite_extra_rules) {
-        if (m().is_value(t)) {
-            if (val == t) {
-                result = m().mk_or(cond, m().mk_eq(val, e));
-            }
-            else {
-                mk_not(cond, result);
-                result = m().mk_and(result, m().mk_eq(val, e));
-            }
-            return BR_REWRITE2;
-        }
-        if (m().is_value(e)) {
-            if (val == e) {
-                mk_not(cond, result);
-                result = m().mk_or(result, m().mk_eq(val, t));
-            }
-            else {
-                result = m().mk_and(cond, m().mk_eq(val, t));
-            }
-            return BR_REWRITE2;
-        }
+    if (m().are_equal(val, e)) {
+        result = m().mk_or(m().mk_eq(t, val), m().mk_not(cond));
+        return BR_REWRITE2;
     }
-    {
-        expr* cond2, *t2, *e2;
-        if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
-            try_ite_value(to_app(t), val, result);
-            result = m().mk_ite(cond, result, m().mk_eq(e, val));
-            return BR_REWRITE2;
-        }
-        if (m().is_ite(e, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
-            try_ite_value(to_app(e), val, result);
-            result = m().mk_ite(cond, m().mk_eq(t, val), result);
-            return BR_REWRITE2;
-        }
+
+    expr* cond2 = nullptr, *t2 = nullptr, *e2 = nullptr;
+    if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
+        VERIFY(BR_FAILED != try_ite_value(to_app(t), val, result));
+        result = m().mk_ite(cond, result, m().mk_eq(e, val));
+        return BR_REWRITE2;
+    }
+    if (m().is_ite(e, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
+        VERIFY(BR_FAILED != try_ite_value(to_app(e), val, result));
+        result = m().mk_ite(cond, m().mk_eq(t, val), result);
+        return BR_REWRITE2;
     }
 
     return BR_FAILED;
@@ -660,19 +641,21 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
 
     br_status r = BR_FAILED;
     
-    if (m().is_ite(lhs) && m().is_value(rhs)) {
-        r = try_ite_value(to_app(lhs), to_app(rhs), result);
-        CTRACE("try_ite_value", r != BR_FAILED,
-               tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
+
+    if (m_ite_extra_rules) {
+        if (m().is_ite(lhs) && m().is_value(rhs)) {
+            r = try_ite_value(to_app(lhs), to_app(rhs), result);
+            CTRACE("try_ite_value", r != BR_FAILED,
+                   tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
+        }
+        else if (m().is_ite(rhs) && m().is_value(lhs)) {
+            r = try_ite_value(to_app(rhs), to_app(lhs), result);
+            CTRACE("try_ite_value", r != BR_FAILED,
+                   tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
+        }
+        if (r != BR_FAILED)
+            return r;
     }
-    else if (m().is_ite(rhs) && m().is_value(lhs)) {
-        r = try_ite_value(to_app(rhs), to_app(lhs), result);
-        CTRACE("try_ite_value", r != BR_FAILED,
-               tout << mk_bounded_pp(lhs, m()) << "\n" << mk_bounded_pp(rhs, m()) << "\n--->\n" << mk_bounded_pp(result, m()) << "\n";);
-    }
-    if (r != BR_FAILED)
-        return r;
-    
 
     if (m().is_bool(lhs)) {
         bool unfolded = false;
@@ -708,7 +691,7 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
 
         expr *la, *lb, *ra, *rb;
         // fold (iff (iff a b) (iff (not a) b)) to false
-        if (m().is_iff(lhs, la, lb) && m().is_iff(rhs, ra, rb)) {
+        if (m().is_eq(lhs, la, lb) && m().is_eq(rhs, ra, rb)) {
             expr *n;
             if ((la == ra && ((m().is_not(rb, n) && n == lb) ||
                 (m().is_not(lb, n) && n == rb))) ||
@@ -815,48 +798,52 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
                 result = c;
                 return BR_DONE;
             }
-            mk_or(c, e, result);
-            return BR_DONE;
+            if (m_elim_ite) {
+                mk_or(c, e, result);
+                return BR_DONE;
+            }
         }
         if (m().is_false(t)) {
             if (m().is_true(e)) {
                 mk_not(c, result);
                 return BR_DONE;
             }
-            expr_ref tmp(m());
-            mk_not(c, tmp);
-            mk_and(tmp, e, result);
-            return BR_DONE;
+            if (m_elim_ite) {
+                expr_ref tmp(m());
+                mk_not(c, tmp);
+                mk_and(tmp, e, result);
+                return BR_DONE;
+            }
         }
-        if (m().is_true(e)) {
+        if (m().is_true(e) && m_elim_ite) {            
             expr_ref tmp(m());
             mk_not(c, tmp);
             mk_or(tmp, t, result);
             return BR_DONE;
         }
-        if (m().is_false(e)) {
+        if (m().is_false(e) && m_elim_ite) {
             mk_and(c, t, result);
             return BR_DONE;
         }
-        if (c == e) {
+        if (c == e && m_elim_ite) {
             mk_and(c, t, result);
             return BR_DONE;
         }
-        if (c == t) {
+        if (c == t && m_elim_ite) {
             mk_or(c, e, result);
             return BR_DONE;
         }
-        if (m().is_complement_core(t, e)) { // t = not(e)
+        if (m().is_complement_core(t, e) && m_elim_ite) { // t = not(e)
             mk_eq(c, t, result);
             return BR_DONE;
         }
-        if (m().is_complement_core(e, t)) { // e = not(t)
+        if (m().is_complement_core(e, t) && m_elim_ite) { // e = not(t)
             mk_eq(c, t, result);
             return BR_DONE;
         }
     }
 
-    if (m().is_ite(t) && m_ite_extra_rules) {
+    if (m().is_ite(t) && m_ite_extra_rules && m_elim_ite) {
         // (ite c1 (ite c2 t1 t2) t1) ==> (ite (and c1 (not c2)) t2 t1)
         if (e == to_app(t)->get_arg(1)) {
             expr_ref not_c2(m());
@@ -909,7 +896,7 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         }
     }
 
-    if (m().is_ite(e) && m_ite_extra_rules) {
+    if (m().is_ite(e) && m_ite_extra_rules && m_elim_ite) {
         // (ite c1 t1 (ite c2 t1 t2)) ==> (ite (or c1 c2)        t1 t2)
         if (t == to_app(e)->get_arg(1)) {
             expr_ref new_c(m());

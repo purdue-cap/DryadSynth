@@ -55,10 +55,8 @@ namespace smt {
         bool is_int  = m_autil.is_int(n->get_owner());
         m_is_int.push_back(is_int);
         m_f_targets.push_back(f_target());
-        typename matrix::iterator it  = m_matrix.begin();
-        typename matrix::iterator end = m_matrix.end();
-        for (; it != end; ++it) {
-            it->push_back(cell());
+        for (auto& rows : m_matrix) {
+            rows.push_back(cell());
         }
         m_matrix.push_back(row());
         row & r = m_matrix.back();
@@ -367,10 +365,8 @@ namespace smt {
             m_is_int.shrink(old_num_vars);
             m_f_targets.shrink(old_num_vars);
             m_matrix.shrink(old_num_vars);
-            typename matrix::iterator it  = m_matrix.begin();
-            typename matrix::iterator end = m_matrix.end();
-            for (; it != end; ++it) {
-                it->shrink(old_num_vars);
+            for (auto& cells : m_matrix) {
+                cells.shrink(old_num_vars);
             }
         }
     }
@@ -756,7 +752,7 @@ namespace smt {
        (n_x, k_x) <= (n_y + n_c, k_y + k_c)
        
 
-       The only intersting case is n_x < n_y + n_c and k_x > k_y + k_c. 
+       The only interesting case is n_x < n_y + n_c and k_x > k_y + k_c.
        Using the definition of infinitesimal numbers
        we have:
        
@@ -1055,7 +1051,7 @@ namespace smt {
 
     template<typename Ext>
     expr_ref theory_dense_diff_logic<Ext>::mk_ge(
-        filter_model_converter& fm, theory_var v, inf_eps const& val) {
+        generic_model_converter& fm, theory_var v, inf_eps const& val) {
         return mk_ineq(v, val, false);
     }
 

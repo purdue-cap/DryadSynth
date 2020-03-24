@@ -53,16 +53,15 @@ public:
 
     rational(mpz const & z) { m().set(m_val, z); }
 
-    rational(double  z) { UNREACHABLE(); }
-
+    explicit rational(double  z) { UNREACHABLE(); }
     
     explicit rational(char const * v) { m().set(m_val, v); }
 
     struct i64 {};
-    rational(int64 i, i64) { m().set(m_val, i); }
+    rational(int64_t i, i64) { m().set(m_val, i); }
 
     struct ui64 {};
-    rational(uint64 i, ui64) { m().set(m_val, i); }
+    rational(uint64_t i, ui64) { m().set(m_val, i); }
     
     ~rational() { m().del(m_val); }
     
@@ -94,13 +93,19 @@ public:
     
     void display_decimal(std::ostream & out, unsigned prec, bool truncate = false) const { return m().display_decimal(out, m_val, prec, truncate); }
 
+    void display_smt2(std::ostream & out) const { return m().display_smt2(out, m_val, false); }
+
+    void display_hex(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_hex(out, m_val.numerator(), num_bits); }
+
+    void display_bin(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_bin(out, m_val.numerator(), num_bits); }
+
     bool is_uint64() const { return m().is_uint64(m_val); }
 
     bool is_int64() const { return m().is_int64(m_val); }
 
-    uint64 get_uint64() const { return m().get_uint64(m_val); }
+    uint64_t get_uint64() const { return m().get_uint64(m_val); }
 
-    int64 get_int64() const { return m().get_int64(m_val); }
+    int64_t get_int64() const { return m().get_int64(m_val); }
     
     bool is_unsigned() const { return is_uint64() && (get_uint64() < (1ull << 32)); }
 
@@ -113,7 +118,7 @@ public:
         if (is_small() && is_int()) return true; 
         // we don't assume that if it is small, then it is int32.
         if (!is_int64()) return false;
-        int64 v = get_int64();
+        int64_t v = get_int64();
         return INT_MIN <= v && v <= INT_MAX;
     }
 
@@ -186,6 +191,12 @@ public:
     friend inline rational machine_div(rational const & r1, rational const & r2) {
         rational r;
         rational::m().machine_idiv(r1.m_val, r2.m_val, r.m_val);
+        return r;
+    }
+
+    friend inline rational machine_div_rem(rational const & r1, rational const & r2, rational & rem) {
+        rational r;
+        rational::m().machine_idiv_rem(r1.m_val, r2.m_val, r.m_val, rem.m_val);
         return r;
     }
 
@@ -410,8 +421,6 @@ public:
         }
         return num_bits;
     }
-
-    
 };
 
 inline bool operator!=(rational const & r1, rational const & r2) { 
@@ -422,6 +431,10 @@ inline bool operator>(rational const & r1, rational const & r2) {
     return operator<(r2, r1); 
 }
 
+inline bool operator<(int r1, rational const & r2) {
+    return rational(r1) < r2;
+}
+
 inline bool operator<(rational const & r1, int r2) {
     return r1 < rational(r2);
 }
@@ -430,6 +443,11 @@ inline bool operator<=(rational const & r1, rational const & r2) {
     return !operator>(r1, r2); 
 }
 
+inline bool operator<=(rational const & r1, int r2) { 
+    return r1 <= rational(r2);
+}
+
+
 inline bool operator>=(rational const & r1, rational const & r2) { 
     return !operator<(r1, r2); 
 }
@@ -437,6 +455,11 @@ inline bool operator>=(rational const & r1, rational const & r2) {
 inline bool operator>(rational const & a, int b) {
     return a > rational(b);
 }
+
+inline bool operator>(int a, rational const & b) {
+    return rational(a) > b;
+}
+
 
 inline bool operator!=(rational const & a, int b) {
     return !(a == rational(b));

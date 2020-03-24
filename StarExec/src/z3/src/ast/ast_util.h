@@ -111,6 +111,17 @@ app  * mk_and(ast_manager & m, unsigned num_args, app * const * args);
 inline app_ref mk_and(app_ref_vector const& args) { return app_ref(mk_and(args.get_manager(), args.size(), args.c_ptr()), args.get_manager()); }
 inline expr_ref mk_and(expr_ref_vector const& args) { return expr_ref(mk_and(args.get_manager(), args.size(), args.c_ptr()), args.get_manager()); }
 
+inline app_ref operator&(expr_ref& a, expr* b) { return app_ref(a.m().mk_and(a, b), a.m()); }
+inline app_ref operator&(app_ref& a,  expr* b) { return app_ref(a.m().mk_and(a, b), a.m()); }
+inline app_ref operator&(var_ref& a,  expr* b) { return app_ref(a.m().mk_and(a, b), a.m()); }
+inline app_ref operator&(quantifier_ref& a,  expr* b) { return app_ref(a.m().mk_and(a, b), a.m()); }
+
+inline app_ref operator|(expr_ref& a, expr* b) { return app_ref(a.m().mk_or(a, b), a.m()); }
+inline app_ref operator|(app_ref& a,  expr* b) { return app_ref(a.m().mk_or(a, b), a.m()); }
+inline app_ref operator|(var_ref& a,  expr* b) { return app_ref(a.m().mk_or(a, b), a.m()); }
+inline app_ref operator|(quantifier_ref& a,  expr* b) { return app_ref(a.m().mk_or(a, b), a.m()); }
+app_ref operator+(expr_ref& a, expr_ref& b);
+
 /**
    Return (or args[0] ... args[num_args-1]) if num_args >= 2
    Return args[0]                           if num_args == 1
@@ -123,9 +134,14 @@ inline expr_ref mk_or(expr_ref_vector const& args) { return expr_ref(mk_or(args.
 
 /**
    Return a          if arg = (not a)
-   Retur (not arg)   otherwise
+   Return (not arg)  otherwise
  */
 expr * mk_not(ast_manager & m, expr * arg);
+
+expr_ref mk_not(const expr_ref& e);
+
+inline app_ref mk_not(const app_ref& e) { return app_ref(e.m().mk_not(e), e.m()); }
+
 
 /**
    Negate and push over conjunction or disjunction.
@@ -150,6 +166,8 @@ expr_ref mk_distinct(expr_ref_vector const& args);
 
 void flatten_and(expr_ref_vector& result);
 
+void flatten_and(expr_ref& fml);
+
 void flatten_and(expr* fml, expr_ref_vector& result);
 
 void flatten_or(expr_ref_vector& result);
@@ -158,4 +176,3 @@ void flatten_or(expr* fml, expr_ref_vector& result);
 
 
 #endif /* AST_UTIL_H_ */
-

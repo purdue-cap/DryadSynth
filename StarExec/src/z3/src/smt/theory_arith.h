@@ -31,6 +31,7 @@ Revision History:
 #include "smt/params/theory_arith_params.h"
 #include "smt/arith_eq_adapter.h"
 #include "smt/proto_model/numeral_factory.h"
+#include "smt/smt_context.h"
 #include "util/obj_pair_hashtable.h"
 #include "smt/old_interval.h"
 #include "math/grobner/grobner.h"
@@ -41,7 +42,7 @@ Revision History:
 namespace smt {
     
     struct theory_arith_stats {
-        unsigned m_conflicts, m_add_rows, m_pivots, m_diseq_cs, m_gomory_cuts, m_branches, m_gcd_tests;
+        unsigned m_conflicts, m_add_rows, m_pivots, m_diseq_cs, m_gomory_cuts, m_branches, m_gcd_tests, m_patches, m_patches_succ;
         unsigned m_assert_lower, m_assert_upper, m_assert_diseq, m_core2th_eqs, m_core2th_diseqs;
         unsigned m_th2core_eqs, m_th2core_diseqs, m_bound_props, m_offset_eqs, m_fixed_eqs, m_offline_eqs;
         unsigned m_max_min; 
@@ -155,9 +156,9 @@ namespace smt {
             row_entry & operator[](unsigned idx) { return m_entries[idx]; }
             row_entry const & operator[](unsigned idx) const { return m_entries[idx]; }
             typename vector<row_entry>::iterator begin_entries() { return m_entries.begin(); }
-            const typename vector<row_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
+            typename vector<row_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
             typename vector<row_entry>::iterator end_entries() { return m_entries.end(); }
-            const typename vector<row_entry>::const_iterator end_entries() const { return m_entries.end(); }
+            typename vector<row_entry>::const_iterator end_entries() const { return m_entries.end(); }
             row_entry & add_row_entry(int & pos_idx);
             void del_row_entry(unsigned idx);
             void compress(vector<column> & cols); 
@@ -194,9 +195,9 @@ namespace smt {
             col_entry & operator[](unsigned idx) { return m_entries[idx]; }
             col_entry const & operator[](unsigned idx) const { return m_entries[idx]; }
             typename svector<col_entry>::iterator begin_entries() { return m_entries.begin(); }
-            const typename svector<col_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
+            typename svector<col_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
             typename svector<col_entry>::iterator end_entries() { return m_entries.end(); }
-            const typename svector<col_entry>::const_iterator end_entries() const { return m_entries.end(); }
+            typename svector<col_entry>::const_iterator end_entries() const { return m_entries.end(); }
             col_entry & add_col_entry(int & pos_idx);
             void del_col_entry(unsigned idx);
         };
@@ -540,9 +541,9 @@ namespace smt {
         bool process_atoms() const;
         unsigned get_num_conflicts() const { return m_num_conflicts; }
         var_kind get_var_kind(theory_var v) const { return m_data[v].kind(); }
-        bool is_base(theory_var v) const { return get_var_kind(v) == BASE; }
-        bool is_quasi_base(theory_var v) const { return get_var_kind(v) == QUASI_BASE; }
-        bool is_non_base(theory_var v) const { return get_var_kind(v) == NON_BASE; }
+        bool is_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == BASE; }
+        bool is_quasi_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == QUASI_BASE; }
+        bool is_non_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == NON_BASE; }
         void set_var_kind(theory_var v, var_kind k) { m_data[v].m_kind = k; }
         unsigned get_var_row(theory_var v) const { SASSERT(!is_non_base(v)); return m_data[v].m_row_id; }
         void set_var_row(theory_var v, unsigned r_id) { m_data[v].m_row_id = r_id; }
@@ -1070,6 +1071,8 @@ namespace smt {
 
         bool get_lower(enode* n, expr_ref& r);
         bool get_upper(enode* n, expr_ref& r);
+        bool get_lower(enode* n, rational& r, bool &is_strict);
+        bool get_upper(enode* n, rational& r, bool &is_strict);
         bool to_expr(inf_numeral const& val, bool is_int, expr_ref& r);
 
 
@@ -1078,10 +1081,10 @@ namespace smt {
         // Optimization
         //
         // -----------------------------------
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_numeral const& val);
         inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
         inf_eps_rational<inf_rational> value(theory_var v) override;
         theory_var add_objective(app* term) override;
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);
         void enable_record_conflict(expr* bound);
         void record_conflict(unsigned num_lits, literal const * lits, 
                           unsigned num_eqs, enode_pair const * eqs,

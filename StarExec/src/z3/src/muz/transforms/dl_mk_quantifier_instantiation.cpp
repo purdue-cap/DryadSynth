@@ -156,8 +156,7 @@ namespace datalog {
                 SASSERT(m_binding[i]);
             });
         m_binding.reverse();
-        expr_ref res(m);
-        instantiate(m, q, m_binding.c_ptr(), res);
+        expr_ref res = instantiate(m, q, m_binding.c_ptr());
         m_binding.reverse();
         m_cnst2var(res);
         conjs.push_back(res);
@@ -180,7 +179,7 @@ namespace datalog {
             }
             m_terms[n] = e;
             visited.mark(e);
-            if (m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) {
+            if (m.is_eq(e, e1, e2)) {
                 m_uf.merge(e1->get_id(), e2->get_id());
             }
             if (is_app(e)) {
@@ -222,10 +221,7 @@ namespace datalog {
         for (unsigned i = 0; i < qs.size(); ++i) {
             instantiate_quantifier(qs[i].get(), conjs);
         }
-        obj_map<func_decl, ptr_vector<expr>*>::iterator it = m_funs.begin(), end = m_funs.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
-        }
+        for (auto & kv : m_funs) dealloc(kv.m_value);
         m_funs.reset();
 
         fml = m.mk_and(conjs.size(), conjs.c_ptr());
@@ -284,7 +280,7 @@ namespace datalog {
             }
         }
 
-        // model convertion: identity function.
+        // model conversion: identity function.
 
         if (instantiated) {
             result->inherit_predicates(source);

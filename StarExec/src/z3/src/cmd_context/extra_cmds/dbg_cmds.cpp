@@ -29,7 +29,11 @@ Notes:
 #include "tactic/arith/bound_manager.h"
 #include "ast/used_vars.h"
 #include "ast/rewriter/var_subst.h"
+#include "ast/ast_util.h"
 #include "util/gparams.h"
+#include "qe/qe_mbp.h"
+#include "qe/qe_mbi.h"
+#include "qe/qe_term_graph.h"
 
 
 BINARY_SYM_CMD(get_quantifier_body_cmd,
@@ -73,25 +77,12 @@ BINARY_SYM_CMD(shift_vars_cmd,
     store_expr_ref(ctx, m_sym, r.get());
 });
 
-UNARY_CMD(pp_shared_cmd, "dbg-pp-shared", "<term>", "display shared subterms of the given term", CPK_EXPR, expr *, {
-    shared_occs s(ctx.m());
-    s(arg);
-    ctx.regular_stream() << "(shared";
-    shared_occs::iterator it  = s.begin_shared();
-    shared_occs::iterator end = s.end_shared();
-    for (; it != end; ++it) {
-        expr * curr = *it;
-        ctx.regular_stream() << std::endl << "  ";
-        ctx.display(ctx.regular_stream(), curr, 2);
-    }
-    ctx.regular_stream() << ")" << std::endl;
+
+UNARY_CMD(assert_not_cmd, "assert-not", "<term>", "assert negation", CPK_EXPR, expr *, {
+    expr_ref ne(ctx.m().mk_not(arg), ctx.m());
+    ctx.assert_expr(ne);
 });
 
-UNARY_CMD(num_shared_cmd, "dbg-num-shared", "<term>", "return the number of shared subterms", CPK_EXPR, expr *, {
-    shared_occs s(ctx.m());
-    s(arg);
-    ctx.regular_stream() << s.num_shared() << std::endl;
-});
 
 UNARY_CMD(size_cmd, "dbg-size", "<term>", "return the size of the given term", CPK_EXPR, expr *, {
     ctx.regular_stream() << get_num_exprs(arg) << std::endl;
@@ -131,9 +122,8 @@ public:
         m_idx++;
     }
     void execute(cmd_context & ctx) override {
-        expr_ref r(ctx.m());
         beta_reducer p(ctx.m());
-        p(m_source, m_subst.size(), m_subst.c_ptr(), r);
+        expr_ref r = p(m_source, m_subst.size(), m_subst.c_ptr());
         store_expr_ref(ctx, m_target, r.get());
     }
 };
@@ -270,8 +260,7 @@ UNARY_CMD(elim_unused_vars_cmd, "dbg-elim-unused-vars", "<expr>", "eliminate unu
         ctx.display(ctx.regular_stream(), arg);
         return;
     }
-    expr_ref r(ctx.m());
-    elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get(), r);
+    expr_ref r = elim_unused_vars(ctx.m(), to_quantifier(arg), gparams::get_ref());
     SASSERT(!is_quantifier(r) || !to_quantifier(r)->may_have_unused_vars());
     ctx.display(ctx.regular_stream(), r);
     ctx.regular_stream() << std::endl;
@@ -303,8 +292,7 @@ public:
         if (num != m_q->get_num_decls())
             throw cmd_exception("invalid command, mismatch between the number of quantified variables and the number of arguments.");
         unsigned i = num;
-        while (i > 0) {
-            --i;
+        while (i-- > 0) {
             sort * s = ctx.m().get_sort(ts[i]);
             if (s != m_q->get_decl_sort(i)) {
                 std::ostringstream buffer;
@@ -316,8 +304,7 @@ public:
     }
 
     void execute(cmd_context & ctx) override {
-        expr_ref r(ctx.m());
-        instantiate(ctx.m(), m_q, m_args.c_ptr(), r);
+        expr_ref r = instantiate(ctx.m(), m_q, m_args.c_ptr());
         ctx.display(ctx.regular_stream(), r);
         ctx.regular_stream() << std::endl;
     }
@@ -352,6 +339,192 @@ public:
     void execute(cmd_context & ctx) override { ctx.display_dimacs(); }
 };
 
+class mbp_cmd : public cmd {
+    expr* m_fml;
+    ptr_vector<expr> m_vars;
+public:
+    mbp_cmd():cmd("mbp") {}
+    char const * get_usage() const override { return "<expr> (<vars>)"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform model based projection"; }
+    unsigned get_arity() const override { return 2; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        if (m_fml == nullptr) return CPK_EXPR; 
+        return CPK_EXPR_LIST;
+    }
+    void set_next_arg(cmd_context& ctx, expr * arg) override { m_fml = arg; }
+    void set_next_arg(cmd_context & ctx, unsigned num, expr * const * ts) override {
+        m_vars.append(num, ts);
+    }
+    void prepare(cmd_context & ctx) override { m_fml = nullptr; m_vars.reset(); }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        app_ref_vector vars(m);
+        model_ref mdl;
+        if (!ctx.is_model_available(mdl) || !ctx.get_check_sat_result()) {
+            throw cmd_exception("model is not available");
+        }
+        for (expr* v : m_vars) {
+            if (!is_uninterp_const(v)) {
+                throw cmd_exception("invalid variable argument. Uninterpreted variable expected");
+            }
+            vars.push_back(to_app(v));
+        }
+        qe::mbp mbp(m);
+        expr_ref fml(m_fml, m);
+        mbp.spacer(vars, *mdl.get(), fml);
+        ctx.regular_stream() << fml << "\n";
+    }
+};
+
+class mbi_cmd : public cmd {
+    expr* m_a;
+    expr* m_b;
+    ptr_vector<func_decl> m_vars;
+public:
+    mbi_cmd():cmd("mbi") {}
+    char const * get_usage() const override { return "<expr> <expr> (vars)"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform model based interpolation"; }
+    unsigned get_arity() const override { return 3; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        if (m_a == nullptr) return CPK_EXPR; 
+        if (m_b == nullptr) return CPK_EXPR; 
+        return CPK_FUNC_DECL_LIST;
+    }
+    void set_next_arg(cmd_context& ctx, expr * arg) override { 
+        if (m_a == nullptr) 
+            m_a = arg; 
+        else 
+            m_b = arg; 
+    }
+    void set_next_arg(cmd_context & ctx, unsigned num, func_decl * const * ts) override {
+        m_vars.append(num, ts);
+    }
+    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr; m_vars.reset(); }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        func_decl_ref_vector vars(m);
+        for (func_decl* v : m_vars) {
+            vars.push_back(v);
+        }
+        qe::interpolator mbi(m);
+        expr_ref a(m_a, m);
+        expr_ref b(m_b, m);
+        expr_ref itp(m);
+        solver_factory& sf = ctx.get_solver_factory();
+        params_ref p;
+        solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        sA->assert_expr(a);
+        sB->assert_expr(b);
+        qe::prop_mbi_plugin pA(sA.get());
+        qe::prop_mbi_plugin pB(sB.get());
+        pA.set_shared(vars);
+        pB.set_shared(vars);
+        lbool res = mbi.pingpong(pA, pB, itp);
+        ctx.regular_stream() << res << " " << itp << "\n";
+    }
+};
+
+
+class eufi_cmd : public cmd {
+    expr* m_a;
+    expr* m_b;
+    ptr_vector<func_decl> m_vars;
+public:
+    eufi_cmd():cmd("eufi") {}
+    char const * get_usage() const override { return "<expr> <expr> (vars)"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform model based interpolation"; }
+    unsigned get_arity() const override { return 3; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        if (m_a == nullptr) return CPK_EXPR; 
+        if (m_b == nullptr) return CPK_EXPR; 
+        return CPK_FUNC_DECL_LIST;
+    }
+    void set_next_arg(cmd_context& ctx, expr * arg) override { 
+        if (m_a == nullptr) 
+            m_a = arg; 
+        else 
+            m_b = arg; 
+    }
+    void set_next_arg(cmd_context & ctx, unsigned num, func_decl * const * ts) override {
+        m_vars.append(num, ts);
+    }
+    void prepare(cmd_context & ctx) override { m_a = nullptr; m_b = nullptr; m_vars.reset(); }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        func_decl_ref_vector vars(m);
+        for (func_decl* v : m_vars) {
+            vars.push_back(v);
+        }
+        qe::interpolator mbi(m);
+        expr_ref a(m_a, m);
+        expr_ref b(m_b, m);
+        expr_ref itp(m);
+        solver_factory& sf = ctx.get_solver_factory();
+        params_ref p;
+        solver_ref sA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sB = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sNotA = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        solver_ref sNotB = sf(m, p, false /* no proofs */, true, true, symbol::null);
+        sA->assert_expr(a);
+        sB->assert_expr(b);
+        qe::euf_arith_mbi_plugin pA(sA.get(), sNotA.get());
+        qe::prop_mbi_plugin pB(sB.get());
+        pA.set_shared(vars);
+        pB.set_shared(vars);
+        lbool res = mbi.pogo(pA, pB, itp);
+        ctx.regular_stream() << res << " " << itp << "\n";
+    }
+};
+
+
+class euf_project_cmd : public cmd {
+    unsigned              m_arg_index;
+    ptr_vector<expr>      m_lits;
+    ptr_vector<func_decl> m_vars;
+public:
+    euf_project_cmd():cmd("euf-project") {}
+    char const * get_usage() const override { return "(exprs) (vars)"; }
+    char const * get_descr(cmd_context & ctx) const override { return "perform congruence projection"; }
+    unsigned get_arity() const override { return 2; }
+    cmd_arg_kind next_arg_kind(cmd_context& ctx) const override {
+        if (m_arg_index == 0) return CPK_EXPR_LIST;
+        return CPK_FUNC_DECL_LIST;
+    }
+    void set_next_arg(cmd_context& ctx, unsigned num, expr * const* args) override { 
+        m_lits.append(num, args);
+        m_arg_index = 1;
+    }
+    void set_next_arg(cmd_context & ctx, unsigned num, func_decl * const * ts) override {
+        m_vars.append(num, ts);
+    }
+    void prepare(cmd_context & ctx) override { m_arg_index = 0; m_lits.reset(); m_vars.reset(); }
+    void execute(cmd_context & ctx) override { 
+        ast_manager& m = ctx.m();
+        func_decl_ref_vector vars(m);
+        expr_ref_vector lits(m);
+        for (func_decl* v : m_vars) vars.push_back(v);
+        for (expr* e : m_lits) lits.push_back(e);
+        flatten_and(lits);
+        solver_factory& sf = ctx.get_solver_factory();
+        params_ref pa;
+        solver_ref s = sf(m, pa, false, true, true, symbol::null);
+        solver_ref se = sf(m, pa, false, true, true, symbol::null);
+        s->assert_expr(lits);
+        lbool r = s->check_sat();
+        if (r != l_true) {
+            ctx.regular_stream() << "sat check " << r << "\n";
+            return;
+        }
+        model_ref mdl;
+        s->get_model(mdl);
+        qe::euf_arith_mbi_plugin plugin(s.get(), se.get());
+        plugin.project(mdl, lits);
+        ctx.regular_stream() << lits << "\n";
+    }
+
+};
+
 
 void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(print_dimacs_cmd));
@@ -359,8 +532,7 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(set_cmd));
     ctx.insert(alloc(pp_var_cmd));
     ctx.insert(alloc(shift_vars_cmd));
-    ctx.insert(alloc(pp_shared_cmd));
-    ctx.insert(alloc(num_shared_cmd));
+    ctx.insert(alloc(assert_not_cmd));
     ctx.insert(alloc(size_cmd));
     ctx.insert(alloc(subst_cmd));
     ctx.insert(alloc(bool_rewriter_cmd));
@@ -377,4 +549,8 @@ void install_dbg_cmds(cmd_context & ctx) {
     ctx.insert(alloc(instantiate_cmd));
     ctx.insert(alloc(instantiate_nested_cmd));
     ctx.insert(alloc(set_next_id));
+    ctx.insert(alloc(mbp_cmd));
+    ctx.insert(alloc(mbi_cmd));
+    ctx.insert(alloc(euf_project_cmd));
+    ctx.insert(alloc(eufi_cmd));
 }

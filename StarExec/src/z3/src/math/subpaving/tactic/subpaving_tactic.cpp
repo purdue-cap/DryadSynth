@@ -183,7 +183,7 @@ class subpaving_tactic : public tactic {
                     process_clause(g.form(i));
                 }
             }
-            catch (subpaving::exception) {
+            catch (const subpaving::exception &) {
                 throw tactic_exception("failed to internalize goal into subpaving module");
             }
         }
@@ -195,7 +195,7 @@ class subpaving_tactic : public tactic {
             try {
                 (*m_ctx)();
             }
-            catch (subpaving::exception) {
+            catch (const subpaving::exception &) {
                 throw tactic_exception("failed building subpaving tree...");
             }
             if (m_display) {
@@ -241,19 +241,13 @@ public:
         m_stats.reset();
     }
 
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
             m_imp->process(*in);
             m_imp->collect_statistics(m_stats);
             result.reset();
             result.push_back(in.get());
-            mc   = nullptr;
-            pc   = nullptr;
-            core = nullptr;
         }
         catch (z3_exception & ex) {
             // convert all Z3 exceptions into tactic exceptions

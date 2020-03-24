@@ -204,6 +204,14 @@ public:
 
     unsigned long long get_num_collision() const { return m_table.get_num_collision(); }
 
+    void get_collisions(Key * k, vector<Key*>& collisions) {
+        vector<key_data> cs;
+        m_table.get_collisions(key_data(k), cs);
+        for (key_data const& kd : cs) {
+            collisions.push_back(kd.m_key);
+        }
+    }
+
     void swap(obj_map & other) {
         m_table.swap(other.m_table);
     }
@@ -214,10 +222,8 @@ public:
 */
 template<typename Key, typename Value>
 void reset_dealloc_values(obj_map<Key, Value*> & m) {
-    typename obj_map<Key, Value*>::iterator it  = m.begin();
-    typename obj_map<Key, Value*>::iterator end = m.end();
-    for (; it != end; ++it) {
-        dealloc(it->m_value);
+    for (auto & kv : m) {
+        dealloc(kv.m_value);
     }
     m.reset();
 }

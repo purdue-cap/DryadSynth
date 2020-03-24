@@ -21,13 +21,13 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "util/optional.h"
 #include "tactic/arith/bv2int_rewriter.h"
 #include "tactic/arith/bv2real_rewriter.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/arith/bound_manager.h"
 #include "util/obj_pair_hashtable.h"
 #include "ast/ast_smt2_pp.h"
@@ -60,7 +60,7 @@ class nla2bv_tactic : public tactic {
         expr_ref_vector             m_trail;
         unsigned                    m_num_bits;
         unsigned                    m_default_bv_size;
-        filter_model_converter_ref  m_fmc;
+        generic_model_converter_ref  m_fmc;
         
     public:
         imp(ast_manager & m, params_ref const& p):
@@ -86,25 +86,29 @@ class nla2bv_tactic : public tactic {
             TRACE("nla2bv", g.display(tout);
                   tout << "Muls: " << count_mul(g) << "\n";
                   );
-            m_fmc = alloc(filter_model_converter, m_manager);
+            tactic_report report("nla->bv", g);
+            m_fmc = alloc(generic_model_converter, m_manager, "nla2bv");
             m_bounds(g);
             collect_power2(g);
-            if(!collect_vars(g)) {
+            switch (collect_vars(g)) {
+            case has_num: 
+                break;
+            case not_supported:
                 throw tactic_exception("goal is not in the fragment supported by nla2bv");
+            case is_bool:
+                return;
             }
-            tactic_report report("nla->bv", g);
             substitute_vars(g);
             TRACE("nla2bv", g.display(tout << "substitute vars\n"););
             reduce_bv2int(g);
             reduce_bv2real(g);
             TRACE("nla2bv", g.display(tout << "after reduce\n"););
-            extension_model_converter * evc = alloc(extension_model_converter, m_manager);
-            mc = concat(m_fmc.get(), evc);
+            mc = m_fmc.get();
             for (unsigned i = 0; i < m_vars.size(); ++i) {
-                evc->insert(m_vars[i].get(), m_defs[i].get());
+                m_fmc->add(m_vars[i].get(), m_defs[i].get());
             }
             for (unsigned i = 0; i < m_bv2real.num_aux_decls(); ++i) {
-                m_fmc->insert(m_bv2real.get_aux_decl(i));
+                m_fmc->hide(m_bv2real.get_aux_decl(i));
             }        
             IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "(nla->bv :sat-preserving " << m_is_sat_preserving << ")\n";);
             TRACE("nla2bv_verbose", g.display(tout););
@@ -233,7 +237,7 @@ class nla2bv_tactic : public tactic {
             bv_sort = m_bv.mk_sort(num_bits);
             std::string name = n->get_decl()->get_name().str();
             s_bv = m_manager.mk_fresh_const(name.c_str(), bv_sort);
-            m_fmc->insert(to_app(s_bv)->get_decl());
+            m_fmc->hide(s_bv);
             s_bv = m_bv.mk_bv2int(s_bv);
             if (low) {
                 if (!(*low).is_zero()) {
@@ -271,8 +275,8 @@ class nla2bv_tactic : public tactic {
             s = m_manager.mk_fresh_const(name.c_str(), bv_sort);
             name += "_r";
             t = m_manager.mk_fresh_const(name.c_str(), bv_sort);
-            m_fmc->insert(to_app(s)->get_decl());
-            m_fmc->insert(to_app(t)->get_decl());
+            m_fmc->hide(s);
+            m_fmc->hide(t);
             s_bv = m_bv2real.mk_bv2real(s, t);
             m_trail.push_back(s_bv);
             m_subst.insert(n, s_bv);
@@ -310,41 +314,47 @@ class nla2bv_tactic : public tactic {
         
         class get_uninterp_proc {
             imp& m_imp;
+            arith_util& a;
+            ast_manager& m;
+            pb_util    pb;
             ptr_vector<app> m_vars;
+            bool            m_no_arith;
             bool m_in_supported_fragment;
         public:
-            get_uninterp_proc(imp& s): m_imp(s), m_in_supported_fragment(true) {}
+            get_uninterp_proc(imp& s): m_imp(s), a(s.m_arith), m(a.get_manager()), pb(m), m_no_arith(true), m_in_supported_fragment(true) {}
             ptr_vector<app> const& vars() { return m_vars; }
+            bool no_arith() const { return m_no_arith; }
             void operator()(var * n) { 
                 m_in_supported_fragment = false; 
             }
             void operator()(app* n) { 
-                arith_util& a = m_imp.m_arith;
-                ast_manager& m = a.get_manager();
-                if (a.is_int(n) &&
-                    is_uninterp_const(n)) {
+                if (a.is_int(n) && is_uninterp_const(n)) {
                     m_vars.push_back(n);
                 }
-                else if (a.is_real(n) &&
-                         is_uninterp_const(n)) {
+                else if (a.is_real(n) && is_uninterp_const(n)) {
                     m_vars.push_back(n);
                 }
                 else if (m.is_bool(n) && is_uninterp_const(n)) {
                     
                 }
-                else if (!(a.is_mul(n) ||
-                           a.is_add(n) ||
-                           a.is_sub(n) ||
-                           a.is_le(n) ||
-                           a.is_lt(n) ||
-                           a.is_ge(n) ||
-                           a.is_gt(n) ||
-                           a.is_numeral(n) ||
-                           a.is_uminus(n) ||
-                           m_imp.m_bv2real.is_pos_le(n) ||
-                           m_imp.m_bv2real.is_pos_lt(n) ||
-                           n->get_family_id() == a.get_manager().get_basic_family_id())) {
-                    TRACE("nla2bv", tout << "Not supported: " << mk_ismt2_pp(n, a.get_manager()) << "\n";);
+                else if (m.is_bool(n) && n->get_decl()->get_family_id() == pb.get_family_id()) {
+                    
+                }
+                else if (a.is_mul(n) ||
+                         a.is_add(n) ||
+                         a.is_sub(n) ||
+                         a.is_le(n) ||
+                         a.is_lt(n) ||
+                         a.is_ge(n) ||
+                         a.is_gt(n) ||
+                         a.is_numeral(n) ||
+                         a.is_uminus(n) ||
+                         m_imp.m_bv2real.is_pos_le(n) ||
+                         m_imp.m_bv2real.is_pos_lt(n)) {
+                    m_no_arith = false;
+                }
+                else if (n->get_family_id() != m.get_basic_family_id()) {
+                    TRACE("nla2bv", tout << "Not supported: " << mk_ismt2_pp(n, m) << "\n";);
                     m_in_supported_fragment = false;
                 }
                 m_imp.update_num_bits(n);
@@ -355,13 +365,17 @@ class nla2bv_tactic : public tactic {
             bool is_supported() const { return m_in_supported_fragment; }
         };
         
-        bool collect_vars(goal const & g) {
+        enum collect_t { has_num, not_supported, is_bool };
+
+        collect_t collect_vars(goal const & g) {
             get_uninterp_proc fe_var(*this);
             for_each_expr_at(fe_var, g);
             for (unsigned i = 0; i < fe_var.vars().size(); ++i) {
                 add_var(fe_var.vars()[i]);
             }
-            return fe_var.is_supported() && !fe_var.vars().empty();
+            if (!fe_var.is_supported()) return not_supported;
+            if (fe_var.vars().empty() && fe_var.no_arith()) return is_bool;
+            return has_num;
         }
         
         class count_mul_proc {
@@ -442,19 +456,17 @@ public:
        \return false if transformation is not possible.
     */
     void operator()(goal_ref const & g,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+                    goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());
         fail_if_proof_generation("nla2bv", g);
         fail_if_unsat_core_generation("nla2bv", g);
-        mc = nullptr; pc = nullptr; core = nullptr; result.reset();
-
+        result.reset();
+        
         imp proc(g->m(), m_params);
         scoped_set_imp setter(*this, proc);
+        model_converter_ref mc;
         proc(*(g.get()), mc);
-        
+        g->add(mc.get());
         result.push_back(g.get());
         SASSERT(g->is_well_sorted());
     }

@@ -132,6 +132,8 @@ namespace smt {
 
         lbool check(app_ref_vector const& asms) { return check(asms.size(), (expr* const*)asms.c_ptr()); }
 
+        lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
+
         /**
            \brief extract consequences among variables.
         */
@@ -213,9 +215,29 @@ namespace smt {
         void get_guessed_literals(expr_ref_vector & result);
 
         /**
+           \brief return the next case split literal.
+        */
+        expr_ref next_cube();
+
+        /**
+           \brief retrieve depth of variables from decision stack.
+        */
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
+
+        /**
+           \brief retrieve trail of assignment stack.
+        */
+        expr_ref_vector get_trail();
+
+        /**
+           \brief set activity of literal
+        */
+        void set_activity(expr* lit, double activity);
+
+        /**
            \brief (For debubbing purposes) Prints the state of the kernel
         */
-        void display(std::ostream & out) const;
+        std::ostream& display(std::ostream & out) const;
 
         /**
            \brief Collect runtime statistics.

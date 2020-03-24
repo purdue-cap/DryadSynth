@@ -36,6 +36,7 @@ void check_sat_result::set_reason_unknown(event_handler& eh) {
     }
 }
 
+
 simple_check_sat_result::simple_check_sat_result(ast_manager & m):
     m_core(m),
     m_proof(m) {
@@ -48,12 +49,14 @@ void simple_check_sat_result::collect_statistics(statistics & st) const {
     st.copy(m_stats); 
 }
 
-void simple_check_sat_result::get_unsat_core(ptr_vector<expr> & r) { 
-    if (m_status == l_false) 
+void simple_check_sat_result::get_unsat_core(expr_ref_vector & r) { 
+    if (m_status == l_false) {
+        r.reset();
         r.append(m_core.size(), m_core.c_ptr()); 
+    }
 }
  
-void simple_check_sat_result::get_model(model_ref & m) { 
+void simple_check_sat_result::get_model_core(model_ref & m) { 
     if (m_status != l_false) 
         m = m_model; 
     else 

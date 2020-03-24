@@ -38,6 +38,7 @@ Revision History:
 #include "util/params.h"
 #include "ast/rewriter/th_rewriter.h"
 
+
 class proto_model : public model_core {
     plugin_manager<value_factory> m_factories;
     user_sort_factory *           m_user_sort_factory;
@@ -100,8 +101,8 @@ public:
     //
     // Complete partial function interps
     //
-    void complete_partial_func(func_decl * f);
-    void complete_partial_funcs();
+    void complete_partial_func(func_decl * f, bool use_fresh);
+    void complete_partial_funcs(bool use_fresh);
 
     //
     // Create final model object. 

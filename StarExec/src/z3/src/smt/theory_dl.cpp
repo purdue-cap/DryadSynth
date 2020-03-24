@@ -182,7 +182,7 @@ namespace smt {
                 
                 if (n->get_decl() != v) {
                     expr* rep = m().mk_app(r, n);
-                    uint64 vl;
+                    uint64_t vl;
                     if (u().is_numeral_ext(n, vl)) {
                         assert_cnstr(m().mk_eq(rep, mk_bv_constant(vl, s)));
                     }
@@ -237,12 +237,12 @@ namespace smt {
             return true;
         }
 
-        app* mk_bv_constant(uint64 val, sort* s) {
+        app* mk_bv_constant(uint64_t val, sort* s) {
             return b().mk_numeral(rational(val, rational::ui64()), 64);
         }
 
         app* max_value(sort* s) {
-            uint64 sz;
+            uint64_t sz;
             VERIFY(u().try_get_size(s, sz));
             SASSERT(sz > 0);
             return mk_bv_constant(sz-1, s);
@@ -256,6 +256,11 @@ namespace smt {
             lt = u().mk_lt(x,y);
             le = b().mk_ule(m().mk_app(r,y),m().mk_app(r,x)); 
             context& ctx = get_context();
+            if (m().has_trace_stream()) {
+                app_ref body(m());
+                body = m().mk_eq(lt, le);
+                log_axiom_instantiation(body);
+            }
             ctx.internalize(lt, false);
             ctx.internalize(le, false);
             literal lit1(ctx.get_literal(lt));
@@ -266,12 +271,15 @@ namespace smt {
             literal lits2[2] = { ~lit1, ~lit2 };
             ctx.mk_th_axiom(get_id(), 2, lits1);
             ctx.mk_th_axiom(get_id(), 2, lits2);
+            if (m().has_trace_stream()) m().trace_stream() << "[end-of-instance]\n";
         }
 
         void assert_cnstr(expr* e) {
             TRACE("theory_dl", tout << mk_pp(e, m()) << "\n";);
             context& ctx = get_context();
+            if (m().has_trace_stream()) log_axiom_instantiation(e);
             ctx.internalize(e, false);
+            if (m().has_trace_stream()) m().trace_stream() << "[end-of-instance]\n";
             literal lit(ctx.get_literal(e));
             ctx.mark_as_relevant(lit);
             ctx.mk_th_axiom(get_id(), 1, &lit);

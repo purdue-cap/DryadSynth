@@ -24,34 +24,13 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 
+namespace {
 class bv_size_reduction_tactic : public tactic {
-    struct imp;
-    imp *      m_imp;
-public:
-    bv_size_reduction_tactic(ast_manager & m);
-
-    tactic * translate(ast_manager & m) override {
-        return alloc(bv_size_reduction_tactic, m);
-    }
-
-    ~bv_size_reduction_tactic() override;
-
-    void operator()(goal_ref const & g, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core) override;
-
-    void cleanup() override;
-};
-
-tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p) {
-    return clean(alloc(bv_size_reduction_tactic, m));
-}
-
-struct bv_size_reduction_tactic::imp {
     typedef rational numeral;
-    typedef extension_model_converter bv_size_reduction_mc;
+    typedef generic_model_converter bv_size_reduction_mc;
     
     ast_manager &             m;
     bv_util                   m_util;
@@ -60,14 +39,31 @@ struct bv_size_reduction_tactic::imp {
     obj_map<app, numeral>     m_unsigned_lowers;
     obj_map<app, numeral>     m_unsigned_uppers;
     ref<bv_size_reduction_mc> m_mc;
-    filter_model_converter_ref m_fmc;
+    generic_model_converter_ref m_fmc;
     scoped_ptr<expr_replacer> m_replacer;
     bool                      m_produce_models;
 
-    imp(ast_manager & _m):
-        m(_m),
+public:
+    bv_size_reduction_tactic(ast_manager & m) :
+        m(m),
         m_util(m),
         m_replacer(mk_default_expr_replacer(m)) {
+    }
+
+    tactic * translate(ast_manager & m) override {
+        return alloc(bv_size_reduction_tactic, m);
+    }
+
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override;
+
+    void cleanup() override {
+        m_signed_lowers.reset();
+        m_signed_uppers.reset();
+        m_unsigned_lowers.reset();
+        m_unsigned_uppers.reset();
+        m_mc = nullptr;
+        m_fmc = nullptr;
+        m_replacer->reset();
     }
 
     void update_signed_lower(app * v, numeral const & k) {
@@ -179,7 +175,7 @@ struct bv_size_reduction_tactic::imp {
             throw tactic_exception(m.limit().get_cancel_msg());
     }
     
-    void operator()(goal & g, model_converter_ref & mc) {
+    void run(goal & g, model_converter_ref & mc) {
         if (g.inconsistent())
             return;
         TRACE("before_bv_size_reduction", g.display(tout););
@@ -266,12 +262,12 @@ struct bv_size_reduction_tactic::imp {
                             subst.insert(v, new_def);
                             if (m_produce_models) {
                                 if (!m_mc) 
-                                    m_mc = alloc(bv_size_reduction_mc, m);
-                                m_mc->insert(v->get_decl(), new_def);
+                                    m_mc = alloc(bv_size_reduction_mc, m, "bv_size_reduction");
+                                m_mc->add(v, new_def);
                                 if (!m_fmc && new_const) 
-                                    m_fmc = alloc(filter_model_converter, m);
+                                    m_fmc = alloc(generic_model_converter, m, "bv_size_reduction");
                                 if (new_const) 
-                                    m_fmc->insert(new_const->get_decl());
+                                    m_fmc->hide(new_const);
                             }
                             num_reduced++;
                         }
@@ -335,9 +331,9 @@ struct bv_size_reduction_tactic::imp {
                                 m_mc = alloc(bv_size_reduction_mc, m);
                             m_mc->insert(v->get_decl(), new_def);
                             if (!m_fmc && new_const) 
-                                m_fmc = alloc(filter_model_converter, m);
+                                m_fmc = alloc(generic_model_converter, m, "bv_size_reduction");
                             if (new_const) 
-                                m_fmc->insert(new_const->get_decl());
+                                m_fmc->hide(new_const);
                         }
                         num_reduced++;
                         TRACE("bv_size_reduction", tout << "New definition = " << mk_ismt2_pp(new_def, m) << "\n";);
@@ -374,33 +370,21 @@ struct bv_size_reduction_tactic::imp {
 
 };
 
-bv_size_reduction_tactic::bv_size_reduction_tactic(ast_manager & m) {
-    m_imp = alloc(imp, m);
-}
-
-bv_size_reduction_tactic::~bv_size_reduction_tactic() {
-    dealloc(m_imp);
-}
-
 void bv_size_reduction_tactic::operator()(goal_ref const & g, 
-                                          goal_ref_buffer & result, 
-                                          model_converter_ref & mc, 
-                                          proof_converter_ref & pc,
-                                          expr_dependency_ref & core) {
+                                          goal_ref_buffer & result) {
     SASSERT(g->is_well_sorted());
     fail_if_proof_generation("bv-size-reduction", g);
     fail_if_unsat_core_generation("bv-size-reduction", g);
-    mc = nullptr; pc = nullptr; core = nullptr; result.reset();
-    m_imp->operator()(*(g.get()), mc);
+    result.reset();
+    model_converter_ref mc;
+    run(*(g.get()), mc);
     g->inc_depth();
+    g->add(mc.get());
     result.push_back(g.get());
     SASSERT(g->is_well_sorted());
 }
-
- 
-void bv_size_reduction_tactic::cleanup() {
-    ast_manager & m = m_imp->m;
-    m_imp->~imp();
-    new (m_imp) imp(m);
 }
 
+tactic * mk_bv_size_reduction_tactic(ast_manager & m, params_ref const & p) {
+    return clean(alloc(bv_size_reduction_tactic, m));
+}

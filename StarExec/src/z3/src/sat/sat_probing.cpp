@@ -19,6 +19,7 @@ Revision History:
 --*/
 #include "sat/sat_probing.h"
 #include "sat/sat_solver.h"
+#include "sat/sat_simplifier_params.hpp"
 
 namespace sat {
     probing::probing(solver & _s, params_ref const & p):
@@ -51,6 +52,9 @@ namespace sat {
         unsigned tr_sz = s.m_trail.size();
         for (unsigned i = old_tr_sz; i < tr_sz; i++) {
             entry.m_lits.push_back(s.m_trail[i]);
+            if (s.m_config.m_drat) {
+                s.m_drat.add(~l, s.m_trail[i], true);
+            }
         }
     }
 
@@ -62,11 +66,13 @@ namespace sat {
         SASSERT(s.value(l.var()) == l_undef);
         literal_vector * implied_lits = updt_cache ? nullptr : cached_implied_lits(l);
         if (implied_lits) {
-            literal_vector::iterator it  = implied_lits->begin();
-            literal_vector::iterator end = implied_lits->end();
-            for (; it != end; ++it) {
-                if (m_assigned.contains(*it)) {
-                    s.assign(*it, justification());
+            for (literal lit : *implied_lits) {
+                if (m_assigned.contains(lit)) {
+                    if (s.m_config.m_drat) {
+                        s.m_drat.add(l, lit, true);
+                        s.m_drat.add(~l, lit, true);
+                    }
+                    s.assign_scoped(lit);
                     m_num_assigned++;
                 }
             }
@@ -74,14 +80,14 @@ namespace sat {
         else {
             m_to_assert.reset();
             s.push();
-            s.assign(l, justification());
+            s.assign_scoped(l);
             m_counter--;
             unsigned old_tr_sz = s.m_trail.size();
             s.propagate(false);
             if (s.inconsistent()) {
                 // ~l must be true
                 s.pop(1);
-                s.assign(~l, justification());
+                s.assign_scoped(~l);
                 s.propagate(false);
                 return false;
             }
@@ -96,10 +102,12 @@ namespace sat {
                 cache_bins(l, old_tr_sz);
             s.pop(1);
 
-            literal_vector::iterator it  = m_to_assert.begin();
-            literal_vector::iterator end = m_to_assert.end();
-            for (; it != end; ++it) {
-                s.assign(*it, justification());
+            for (literal lit : m_to_assert) {
+                if (s.m_config.m_drat) {
+                    s.m_drat.add(l, lit, true);
+                    s.m_drat.add(~l, lit, true);
+                }
+                s.assign_scoped(lit);
                 m_num_assigned++;
             }
         }
@@ -114,13 +122,13 @@ namespace sat {
         m_counter--;
         s.push();
         literal l(v, false);
-        s.assign(l, justification());
+        s.assign_scoped(l);
         unsigned old_tr_sz = s.m_trail.size();
         s.propagate(false);
         if (s.inconsistent()) {
             // ~l must be true
             s.pop(1);
-            s.assign(~l, justification());
+            s.assign_scoped(~l);
             s.propagate(false);
             m_num_assigned++;
             return;
@@ -139,10 +147,9 @@ namespace sat {
 
         if (m_probing_binary) {
             watch_list & wlist = s.get_wlist(~l);
-            for (unsigned i = 0; i < wlist.size(); i++) {
-                watched & w = wlist[i];
+            for (watched & w : wlist) {
                 if (!w.is_binary_clause())
-                    break;
+                    continue;
                 literal l2 = w.get_literal();
                 if (l.index() > l2.index())
                     continue;
@@ -172,7 +179,7 @@ namespace sat {
     struct probing::report {
         probing    & m_probing;
         stopwatch    m_watch;
-        unsigned     m_num_assigned;
+        unsigned     m_num_assigned;        
         report(probing & p):
             m_probing(p),
             m_num_assigned(p.m_num_assigned) {
@@ -181,12 +188,13 @@ namespace sat {
 
         ~report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL,
-                       verbose_stream() << " (sat-probing :probing-assigned "
-                       << (m_probing.m_num_assigned - m_num_assigned)
-                       << " :cost " << m_probing.m_counter;
+            unsigned units = (m_probing.m_num_assigned - m_num_assigned);
+            IF_VERBOSE(2,
+                       verbose_stream() << " (sat-probing";
+                       if (units > 0) verbose_stream() << " :probing-assigned " << units;
+                       verbose_stream() << " :cost " << m_probing.m_counter;
                        if (m_probing.m_stopped_at != 0) verbose_stream() << " :stopped-at " << m_probing.m_stopped_at;
-                       verbose_stream() << mem_stat() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       verbose_stream() << mem_stat() << m_watch << ")\n";);
         }
     };
 
@@ -243,12 +251,13 @@ namespace sat {
         return r;
     }
 
-    void probing::updt_params(params_ref const & p) {
-        m_probing             = p.get_bool("probing", true);
-        m_probing_limit       = p.get_uint("probing_limit", 5000000);
-        m_probing_cache       = p.get_bool("probing_cache", true);
-        m_probing_binary      = p.get_bool("probing_binary", true);
-        m_probing_cache_limit = megabytes_to_bytes(p.get_uint("probing_chache_limit", 1024));
+    void probing::updt_params(params_ref const & _p) {
+        sat_simplifier_params p(_p);
+        m_probing             = p.probing();
+        m_probing_limit       = p.probing_limit();
+        m_probing_cache       = p.probing_cache();
+        m_probing_binary      = p.probing_binary();
+        m_probing_cache_limit = p.probing_cache_limit();
     }
 
     void probing::collect_param_descrs(param_descrs & d) {
@@ -262,7 +271,7 @@ namespace sat {
     }
 
     void probing::collect_statistics(statistics & st) const {
-        st.update("probing assigned", m_num_assigned);
+        st.update("sat probing assigned", m_num_assigned);
     }
 
     void probing::reset_statistics() {

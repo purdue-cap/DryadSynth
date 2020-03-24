@@ -31,7 +31,7 @@ namespace smt {
         theory_lra(ast_manager& m, theory_arith_params& ap);
         ~theory_lra() override;
         theory* mk_fresh(context* new_ctx) override;
-        char const* get_name() const override { return "lra"; }
+        char const* get_name() const override { return "arithmetic"; }
         
         void init(context * ctx) override;
 
@@ -78,6 +78,11 @@ namespace smt {
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
         bool get_value(enode* n, expr_ref& r) override;
+        bool get_value(enode* n, rational& r);
+        bool get_lower(enode* n, expr_ref& r);
+        bool get_upper(enode* n, expr_ref& r);
+        bool get_lower(enode* n, rational& r, bool& is_strict);
+        bool get_upper(enode* n, rational& r, bool& is_strict);
 
         bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
                 
@@ -86,12 +91,10 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
 
         // optimization
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val);
         inf_eps value(theory_var) override;
         inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
         theory_var add_objective(app* term) override;
-        virtual expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val);
-
-
     };
 
 }

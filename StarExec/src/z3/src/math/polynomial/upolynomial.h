@@ -153,7 +153,7 @@ namespace upolynomial {
            \brief Set manager as Z_p[X]
         */
         void set_zp(numeral const & p) { m().set_zp(p); }
-        void set_zp(uint64 p) { m().set_zp(p); }
+        void set_zp(uint64_t p) { m().set_zp(p); }
 
         void checkpoint();
 
@@ -256,12 +256,12 @@ namespace upolynomial {
         void derivative(numeral_vector const & p, numeral_vector & d_p) { derivative(p.size(), p.c_ptr(), d_p); }
 
         /**
-           \brief Divide coeffients of p by their GCD
+           \brief Divide coefficients of p by their GCD
         */
         void normalize(unsigned sz, numeral * p);
         
         /**
-           \brief Divide coeffients of p by their GCD
+           \brief Divide coefficients of p by their GCD
         */
         void normalize(numeral_vector & p);
 
@@ -486,7 +486,7 @@ namespace upolynomial {
         core_manager::scoped_numeral m_p;
     public:
         scoped_set_zp(core_manager & _m, numeral const & p):m(_m), m_modular(m.modular()), m_p(m.m()) {  m_p = m.p(); m.set_zp(p); }
-        scoped_set_zp(core_manager & _m, uint64 p):m(_m), m_modular(m.modular()), m_p(m.m()) {  m_p = m.p(); m.set_zp(p); }
+        scoped_set_zp(core_manager & _m, uint64_t p):m(_m), m_modular(m.modular()), m_p(m.m()) {  m_p = m.p(); m.set_zp(p); }
         ~scoped_set_zp() {  if (m_modular) m.set_zp(m_p); else m.set_z(); }
     };
 

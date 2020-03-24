@@ -25,7 +25,7 @@ Notes:
 
 namespace smt {
 
-    theory_wmaxsat::theory_wmaxsat(ast_manager& m, filter_model_converter& mc):
+    theory_wmaxsat::theory_wmaxsat(ast_manager& m, generic_model_converter& mc):
         theory(m.mk_family_id("weighted_maxsat")),
         m_mc(mc),
         m_vars(m),
@@ -92,7 +92,7 @@ namespace smt {
         ast_manager& m = get_manager();
         app_ref var(m), wfml(m);
         var = m.mk_fresh_const("w", m.mk_bool_sort());
-        m_mc.insert(var->get_decl());
+        m_mc.hide(var);
         wfml = m.mk_or(var, fml);
         ctx.assert_expr(wfml);
         m_rweights.push_back(w);
@@ -103,8 +103,8 @@ namespace smt {
         m_normalize = true;
         bool_var bv = register_var(var, true);
         (void)bv;
-        TRACE("opt", tout << "enable: v" << m_bool2var[bv] << " b" << bv << " " << mk_pp(var, get_manager()) << "\n";
-              tout << wfml << "\n";);
+        TRACE("opt", tout << "inc: " << ctx.inconsistent() << " enable: v" << m_bool2var[bv] 
+              << " b" << bv << " " << mk_pp(var, get_manager()) << "\n" << wfml << "\n";);
         return var;
     }
 
@@ -134,8 +134,10 @@ namespace smt {
             theory_var v = mk_var(x);
             ctx.attach_th_var(x, this, v);
             m_bool2var.insert(bv, v);
-            SASSERT(v == static_cast<theory_var>(m_var2bool.size()));
-            m_var2bool.push_back(bv);
+            while (m_var2bool.size() <= static_cast<unsigned>(v)) {
+                m_var2bool.push_back(null_bool_var);
+            }
+            m_var2bool[v] = bv;
             SASSERT(ctx.bool_var2enode(bv));
         }
         return bv;

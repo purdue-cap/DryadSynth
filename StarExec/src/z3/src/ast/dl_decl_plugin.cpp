@@ -54,7 +54,7 @@ namespace datalog {
         }
         std::ostringstream buffer;
         buffer << msg << ", value is not within bound " << low << " <= " << val << " <= " << up;
-        m_manager->raise_exception(buffer.str().c_str());
+        m_manager->raise_exception(buffer.str());
         return false;
     }
 
@@ -147,7 +147,7 @@ namespace datalog {
         for (unsigned i = 0; i < n; ++i) {
             parameter const& p = r->get_parameter(i);
             if (!p.is_ast() || !is_sort(p.get_ast())) {
-                m_manager->raise_exception("exptected sort parameter");
+                m_manager->raise_exception("expected sort parameter");
                 return false;
             }
             sorts.push_back(to_sort(p.get_ast()));
@@ -185,7 +185,7 @@ namespace datalog {
                            verbose_stream() << "Domain: " << mk_pp(domain[0], m) << "\n" <<
                            mk_pp(sorts[i], m) << "\n" <<
                            mk_pp(domain[i+1], m) << "\n";);
-                m_manager->raise_exception("sort miss-match for relational access");
+                m_manager->raise_exception("sort mismatch for relational access");
                 return nullptr;
             }
         }
@@ -252,7 +252,7 @@ namespace datalog {
     func_decl * dl_decl_plugin::mk_unionw(decl_kind k, sort* s1, sort* s2) {
         ast_manager& m = *m_manager;
         if (s1 != s2) {
-            m_manager->raise_exception("sort miss-match for arguments to union");
+            m_manager->raise_exception("sort mismatch for arguments to union");
             return nullptr;
         }
         if (!is_rel_sort(s1)) {                
@@ -298,7 +298,7 @@ namespace datalog {
                     return nullptr;
                 }
                 if (sorts[idx] != m.get_sort(e)) {
-                    m_manager->raise_exception("sort miss-match in filter");
+                    m_manager->raise_exception("sort mismatch in filter");
                     return nullptr;
                 }
                 break;
@@ -391,7 +391,7 @@ namespace datalog {
                 return nullptr;
             }
             if (sorts1[i1] != sorts2[i2]) {
-                m_manager->raise_exception("sort miss-match in join");
+                m_manager->raise_exception("sort mismatch in join");
                 return nullptr;
             }
         }
@@ -435,7 +435,7 @@ namespace datalog {
                 return nullptr;
             }
             if (sorts1[i1] != sorts2[i2]) {
-                m_manager->raise_exception("sort miss-match in join");
+                m_manager->raise_exception("sort mismatch in join");
                 return nullptr;
             }
         }
@@ -652,9 +652,9 @@ namespace datalog {
 
     // create a constant belonging to a given finite domain.
 
-    app* dl_decl_util::mk_numeral(uint64 value, sort* s) {
+    app* dl_decl_util::mk_numeral(uint64_t value, sort* s) {
         if (is_finite_sort(s)) {
-            uint64 sz = 0;
+            uint64_t sz = 0;
             if (try_get_size(s, sz) && sz <= value) {
                 m.raise_exception("value is out of bounds");
             }
@@ -676,11 +676,11 @@ namespace datalog {
         }
         std::stringstream strm;
         strm << "sort '" << mk_pp(s, m) << "' is not recognized as a sort that contains numeric values.\nUse Bool, BitVec, Int, Real, or a Finite domain sort";
-        m.raise_exception(strm.str().c_str());
+        m.raise_exception(strm.str());
         return nullptr;
     }
 
-    bool dl_decl_util::is_numeral(const expr* e, uint64& v) const {
+    bool dl_decl_util::is_numeral(const expr* e, uint64_t& v) const {
         if (is_numeral(e)) {
             const app* c = to_app(e);
             SASSERT(c->get_decl()->get_num_parameters() == 2);
@@ -693,7 +693,7 @@ namespace datalog {
         return false;
     }
 
-    bool dl_decl_util::is_numeral_ext(expr* e, uint64& v) const {
+    bool dl_decl_util::is_numeral_ext(expr* e, uint64_t& v) const {
         if (is_numeral(e, v)) {
             return true;
         }
@@ -724,7 +724,7 @@ namespace datalog {
         return m.is_true(c) || m.is_false(c);
     }
 
-    sort* dl_decl_util::mk_sort(const symbol& name, uint64  domain_size) {
+    sort* dl_decl_util::mk_sort(const symbol& name, uint64_t  domain_size) {
         if (domain_size == 0) {
             std::stringstream sstm;
             sstm << "Domain size of sort '" << name << "' may not be 0";
@@ -734,7 +734,7 @@ namespace datalog {
         return m.mk_sort(m_fid, DL_FINITE_SORT, 2, params);
     }
 
-    bool dl_decl_util::try_get_size(const sort * s, uint64& size) const {
+    bool dl_decl_util::try_get_size(const sort * s, uint64_t& size) const {
         sort_size sz = s->get_info()->get_num_elements();
         if (sz.is_finite()) {
             size = sz.size();

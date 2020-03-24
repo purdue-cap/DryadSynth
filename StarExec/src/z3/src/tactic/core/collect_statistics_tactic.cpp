@@ -63,10 +63,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {}
 
-    void operator()(goal_ref const & g, goal_ref_buffer & result,
-                    model_converter_ref & mc, proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
-        mc = nullptr;
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         tactic_report report("collect-statistics", *g);
 
         collect_proc cp(m, m_stats);
@@ -76,10 +73,8 @@ public:
             for_each_expr(cp, visited, g->form(i));
 
         std::cout << "(" << std::endl;
-        stats_type::iterator it = m_stats.begin();
-        stats_type::iterator end = m_stats.end();
-        for (; it != end; it++)
-            std::cout << " :" << it->first << "    " << it->second << std::endl;
+        for (auto const& kv : m_stats) 
+            std::cout << " :" << kv.first << "    " << kv.second << std::endl;
         std::cout << ")" << std::endl;
 
         g->inc_depth();
@@ -114,10 +109,17 @@ protected:
             m_stats["quantifiers"]++;
             SASSERT(is_app(q->get_expr()));
             app * body = to_app(q->get_expr());
-            if (q->is_forall())
+            switch (q->get_kind()) {
+            case forall_k:
                 m_stats["forall-variables"] += q->get_num_decls();
-            else
+                break;
+            case exists_k:
                 m_stats["exists-variables"] += q->get_num_decls();
+                break;
+            case lambda_k:
+                m_stats["lambda-variables"] += q->get_num_decls();
+                break;
+            }
             m_stats["patterns"] += q->get_num_patterns();
             m_stats["no-patterns"] += q->get_num_no_patterns();
             m_qdepth++;

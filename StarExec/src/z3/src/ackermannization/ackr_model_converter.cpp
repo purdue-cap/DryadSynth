@@ -39,8 +39,9 @@ public:
 
     ~ackr_model_converter() override { }
 
-    void operator()(model_ref & md, unsigned goal_idx) override {
-        SASSERT(goal_idx == 0);
+    void get_units(obj_map<expr, bool>& units) override { units.reset(); }
+
+    void operator()(model_ref & md) override {
         SASSERT(!fixed_model || md.get() == 0 || (!md->get_num_constants() && !md->get_num_functions()));
         model_ref& old_model = fixed_model ? abstr_model : md;
         SASSERT(old_model.get());
@@ -48,8 +49,6 @@ public:
         convert(old_model.get(), new_model);
         md = new_model;
     }
-
-    void operator()(model_ref & md) override { operator()(md, 0); }
 
     model_converter * translate(ast_translation & translator) override {
         ackr_info_ref retv_info = info->translate(translator);
@@ -60,6 +59,10 @@ public:
         else {
             return alloc(ackr_model_converter, translator.to(), retv_info);
         }
+    }
+
+    void display(std::ostream & out) override {
+        out << "(ackr-model-converter)\n";
     }
 
 protected:
@@ -81,7 +84,7 @@ void ackr_model_converter::convert(model * source, model * destination) {
 }
 
 void ackr_model_converter::convert_constants(model * source, model * destination) {
-    TRACE("ackr_model", tout << "converting constants\n";);
+    TRACE("ackermannize", tout << "converting constants\n";);
     obj_map<func_decl, func_interp*> interpretations;
     model_evaluator evaluator(*source);
     evaluator.set_model_completion(true);
@@ -110,7 +113,7 @@ void ackr_model_converter::convert_constants(model * source, model * destination
 void ackr_model_converter::add_entry(model_evaluator & evaluator,
                                      app* term, expr* value,
                                      obj_map<func_decl, func_interp*>& interpretations) {
-    TRACE("ackr_model", tout << "add_entry"
+    TRACE("ackermannize", tout << "add_entry"
           << mk_ismt2_pp(term, m, 2)
           << "->"
           << mk_ismt2_pp(value, m, 2) << "\n";
@@ -131,10 +134,10 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         info->abstract(arg, aarg);
         expr_ref arg_value(m);
         evaluator(aarg, arg_value);
-        args.push_back(arg_value);
+        args.push_back(std::move(arg_value));
     }
     if (fi->get_entry(args.c_ptr()) == nullptr) {
-        TRACE("ackr_model",
+        TRACE("ackermannize",
               tout << mk_ismt2_pp(declaration, m) << " args: " << std::endl;
                 for (unsigned i = 0; i < args.size(); i++)
                     tout << mk_ismt2_pp(args.get(i), m) << std::endl;
@@ -142,8 +145,9 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         fi->insert_new_entry(args.c_ptr(), value);
     }
     else {
-        TRACE("ackr_model", tout << "entry already present\n";);
+        TRACE("ackermannize", tout << "entry already present\n";);
     }
+
 }
 
 model_converter * mk_ackr_model_converter(ast_manager & m, const ackr_info_ref& info) {

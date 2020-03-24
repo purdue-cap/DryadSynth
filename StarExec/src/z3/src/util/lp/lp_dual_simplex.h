@@ -28,15 +28,13 @@ template <typename T, typename X>
 class lp_dual_simplex: public lp_solver<T, X> {
     lp_dual_core_solver<T, X> * m_core_solver;
     vector<T> m_b_copy;
-    vector<T> m_low_bounds; // We don't have a convention here that all low bounds are zeros. At least it does not hold for the first stage solver
+    vector<T> m_lower_bounds; // We don't have a convention here that all low bounds are zeros. At least it does not hold for the first stage solver
     vector<column_type> m_column_types_of_core_solver;
     vector<column_type> m_column_types_of_logicals;
     vector<bool>  m_can_enter_basis;
 public:
     ~lp_dual_simplex() override {
-        if (m_core_solver != nullptr) {
-            delete m_core_solver;
-        }
+        delete m_core_solver;
     }
 
     lp_dual_simplex() : m_core_solver(nullptr) {}

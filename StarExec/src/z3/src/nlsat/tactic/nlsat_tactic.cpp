@@ -83,9 +83,11 @@ class nlsat_tactic : public tactic {
         bool eval_model(model& model, goal& g) {
             unsigned sz = g.size();
             for (unsigned i = 0; i < sz; i++) {
-                expr_ref val(m);
-                if (model.eval(g.form(i), val) && !m.is_true(val)) {
-                    TRACE("nlsat", tout << mk_pp(g.form(i), m) << " -> " << val << "\n";);
+                if (!model.is_true(g.form(i))) {
+                    TRACE("nlsat", tout << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
+                    IF_VERBOSE(0, verbose_stream() << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
+                    IF_VERBOSE(1, verbose_stream() << model << "\n");
+                    IF_VERBOSE(1, m_solver.display(verbose_stream()));
                     return false;
                 }
             }
@@ -124,17 +126,14 @@ class nlsat_tactic : public tactic {
                 md->register_decl(to_app(a)->get_decl(), val == l_true ? m.mk_true() : m.mk_false());
             }
             DEBUG_CODE(eval_model(*md.get(), g););
+            // VERIFY(eval_model(*md.get(), g));
             mc = model2model_converter(md.get());
             return ok;
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = nullptr; pc = nullptr; core = nullptr;
             tactic_report report("nlsat", *g);
             
             if (g->is_decided()) {
@@ -154,6 +153,9 @@ class nlsat_tactic : public tactic {
             t2x.mk_inv(m_display_var.m_var2expr);
             m_solver.set_display_var(m_display_var);
             
+            IF_VERBOSE(10000, m_solver.display(verbose_stream()));
+            IF_VERBOSE(10000, g->display(verbose_stream()));
+
             lbool st = m_solver.check();
            
             if (st == l_undef) {
@@ -166,9 +168,11 @@ class nlsat_tactic : public tactic {
                 if (!contains_unsupported(b2a, x2t)) {
                     // If mk_model is false it means that the model produced by nlsat 
                     // assigns noninteger values to integer variables
+                    model_converter_ref mc;
                     if (mk_model(*g.get(), b2a, x2t, mc)) {
                         // result goal is trivially SAT
                         g->reset(); 
+                        g->add(mc.get());
                     }
                 }
             }
@@ -177,8 +181,8 @@ class nlsat_tactic : public tactic {
                 if (g->unsat_core_enabled()) {
                     vector<nlsat::assumption, false> assumptions;
                     m_solver.get_core(assumptions);
-                    for (unsigned i = 0; i < assumptions.size(); ++i) {
-                        expr_dependency* d = static_cast<expr_dependency*>(assumptions[i]);
+                    for (nlsat::assumption a : assumptions) {
+                        expr_dependency* d = static_cast<expr_dependency*>(a);
                         lcore = m.mk_join(lcore, d);
                     }
                 }
@@ -232,15 +236,12 @@ public:
         algebraic_numbers::manager::collect_param_descrs(r);
     }
     
-    void operator()(goal_ref const & in,
-                    goal_ref_buffer & result,
-                    model_converter_ref & mc,
-                    proof_converter_ref & pc,
-                    expr_dependency_ref & core) override {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
             imp local_imp(in->m(), m_params);
             scoped_set_imp setter(*this, local_imp);
-            local_imp(in, result, mc, pc, core);
+            local_imp(in, result);
         }
         catch (z3_error & ex) {
             throw ex;

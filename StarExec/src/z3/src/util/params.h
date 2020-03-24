@@ -139,5 +139,7 @@ void insert_max_steps(param_descrs & r);
 void insert_produce_models(param_descrs & r);
 void insert_produce_proofs(param_descrs & r);
 void insert_timeout(param_descrs & r);
+void insert_rlimit(param_descrs & r);
+void insert_ctrl_c(param_descrs & r);
 
 #endif

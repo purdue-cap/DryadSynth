@@ -36,6 +36,41 @@ namespace smt {
         theory_id get_from_theory() const override { return null_theory_id; }
     };
 
+    theory_datatype::final_check_st::final_check_st(theory_datatype * th) : th(th) {
+        SASSERT(th->m_to_unmark.empty());
+        SASSERT(th->m_to_unmark2.empty());
+        th->m_used_eqs.reset();
+        th->m_stack.reset();
+        th->m_parent.reset();
+    }
+
+    theory_datatype::final_check_st::~final_check_st() {
+        unmark_enodes(th->m_to_unmark.size(), th->m_to_unmark.c_ptr());
+        unmark_enodes2(th->m_to_unmark2.size(), th->m_to_unmark2.c_ptr());
+        th->m_to_unmark.reset();
+        th->m_to_unmark2.reset();
+        th->m_used_eqs.reset();
+        th->m_stack.reset();
+        th->m_parent.reset();
+    }   
+    
+    void theory_datatype::oc_mark_on_stack(enode * n) {
+        n = n->get_root();
+        n->set_mark();
+        m_to_unmark.push_back(n); 
+    }
+
+    void theory_datatype::oc_mark_cycle_free(enode * n) {
+        n = n->get_root();
+        n->set_mark2();
+        m_to_unmark2.push_back(n); 
+    }
+
+    void theory_datatype::oc_push_stack(enode * n) {
+        m_stack.push_back(std::make_pair(EXIT, n));
+        m_stack.push_back(std::make_pair(ENTER, n));
+    }
+
 
     theory* theory_datatype::mk_fresh(context* new_ctx) { 
         return alloc(theory_datatype, new_ctx->get_manager(), m_params); 
@@ -104,8 +139,17 @@ namespace smt {
             expr * acc    = m.mk_app(d, n->get_owner());
             args.push_back(acc);
         }
-        expr * mk       = m.mk_app(c, args.size(), args.c_ptr());
+        expr_ref mk(m.mk_app(c, args.size(), args.c_ptr()), m);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_eq(n->get_owner(), mk);
+            if (antecedent != null_literal) {
+                body = m.mk_implies(get_context().bool_var2expr(antecedent.var()), body);
+            }
+            log_axiom_instantiation(body, 1, &n);
+        }
         assert_eq_axiom(n, mk, antecedent);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     /**
@@ -122,11 +166,24 @@ namespace smt {
         func_decl * d     = n->get_decl();
         ptr_vector<func_decl> const & accessors   = *m_util.get_constructor_accessors(d);
         SASSERT(n->get_num_args() == accessors.size());
+        app_ref_vector bindings(m);
+        vector<std::tuple<enode *, enode *>> used_enodes;
+        used_enodes.push_back(std::make_tuple(nullptr, n));
+        for (unsigned i = 0; i < n->get_num_args(); ++i) {
+            bindings.push_back(n->get_arg(i)->get_owner());
+        }
+        unsigned base_id = get_manager().has_trace_stream() && accessors.size() > 0 ? m_util.get_plugin()->get_axiom_base_id(d->get_name()) : 0;
         unsigned i = 0;
         for (func_decl * acc : accessors) {
-            app * acc_app     = m.mk_app(acc, n->get_owner());
+            app_ref acc_app(m.mk_app(acc, n->get_owner()), m);
             enode * arg       = n->get_arg(i);
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_eq(arg->get_owner(), acc_app);
+                log_axiom_instantiation(body, base_id + 3*i, bindings.size(), bindings.c_ptr(), base_id - 3, used_enodes);
+            }
             assert_eq_axiom(arg, acc_app, null_literal);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             ++i;
         }
     }
@@ -182,11 +239,20 @@ namespace smt {
                 ctx.internalize(acc_app, false);
                 arg = ctx.get_enode(acc_app);
             }
-            app * acc_own = m.mk_app(acc1, own);
+            app_ref acc_own(m.mk_app(acc1, own), m);
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(rec_app, m.mk_eq(arg->get_owner(), acc_own));
+                log_axiom_instantiation(body, 1, &n);
+            }
             assert_eq_axiom(arg, acc_own, is_con); 
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         // update_field is identity if 'n' is not created by a matching constructor.        
+        app_ref imp(m.mk_implies(m.mk_not(rec_app), m.mk_eq(n->get_owner(), arg1)), m);
+        if (m.has_trace_stream()) log_axiom_instantiation(imp, 1, &n);
         assert_eq_axiom(n, arg1, ~is_con);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     theory_var theory_datatype::mk_var(enode * n) {
@@ -306,7 +372,13 @@ namespace smt {
         //   
         // If the theory variable is not created for 'a', then a wrong model will be generated.
         TRACE("datatype", tout << "apply_sort_cnstr: #" << n->get_owner_id() << "\n";);
-        TRACE("datatype_bug", tout << "apply_sort_cnstr:\n" << mk_pp(n->get_owner(), get_manager()) << "\n";);
+            TRACE("datatype_bug", 
+                  tout << "apply_sort_cnstr:\n" << mk_pp(n->get_owner(), get_manager()) << " ";
+                  tout << m_util.is_datatype(s) << " ";
+                  if (m_util.is_datatype(s)) tout << "is-infinite: " << s->is_infinite() << " "; 
+                  if (m_util.is_datatype(s)) tout << "attached: " << is_attached_to_var(n) << " ";
+                  tout << "\n";
+                  );
         if ((get_context().has_quantifiers() || (m_util.is_datatype(s) && !s->is_infinite())) && !is_attached_to_var(n)) {
             mk_var(n);
         }
@@ -330,7 +402,7 @@ namespace smt {
         if (!is_recognizer(n))
             return;
         TRACE("datatype", tout << "assigning recognizer: #" << n->get_owner_id() << " is_true: " << is_true << "\n" 
-              << mk_bounded_pp(n->get_owner(), get_manager()) << "\n";);
+              << enode_pp(n, ctx) << "\n";);
         SASSERT(n->get_num_args() == 1);
         enode * arg   = n->get_arg(0);
         theory_var tv = arg->get_th_var(get_id());
@@ -358,11 +430,10 @@ namespace smt {
     }
 
     void theory_datatype::relevant_eh(app * n) {
-        TRACE("datatype", tout << "relevant_eh: " << mk_bounded_pp(n, get_manager()) << "\n";);
         context & ctx = get_context();
+        TRACE("datatype", tout << "relevant_eh: " << mk_pp(n, get_manager()) << "\n";);
         SASSERT(ctx.relevancy());
         if (is_recognizer(n)) {
-            TRACE("datatype", tout << "relevant_eh: #" << n->get_id() << "\n" << mk_bounded_pp(n, get_manager()) << "\n";);
             SASSERT(ctx.e_internalized(n));
             enode * e = ctx.get_enode(n);
             theory_var v = e->get_arg(0)->get_th_var(get_id());
@@ -389,10 +460,11 @@ namespace smt {
     final_check_status theory_datatype::final_check_eh() {
         int num_vars = get_num_vars();
         final_check_status r = FC_DONE;
+        final_check_st _guard(this); // RAII for managing state
         for (int v = 0; v < num_vars; v++) {
             if (v == static_cast<int>(m_find.find(v))) {
                 enode * node = get_enode(v);
-                if (occurs_check(node)) {
+                if (!oc_cycle_free(node) && occurs_check(node)) {
                     // conflict was detected... 
                     // return...
                     return FC_CONTINUE;
@@ -410,6 +482,96 @@ namespace smt {
         return r;
     }
 
+    // Assuming `app` is equal to a constructor term, return the constructor enode
+    inline enode * theory_datatype::oc_get_cstor(enode * app) {
+        theory_var v = app->get_root()->get_th_var(get_id());
+        SASSERT(v != null_theory_var);
+        v = m_find.find(v);
+        var_data * d = m_var_data[v];
+        SASSERT(d->m_constructor);
+        return d->m_constructor;
+    }
+
+    void theory_datatype::explain_is_child(enode* parent, enode* child) {
+        enode * parentc = oc_get_cstor(parent);        
+        if (parent != parentc) {
+            m_used_eqs.push_back(enode_pair(parent, parentc));
+        }
+
+        // collect equalities on all children that may have been used.
+        bool found = false;
+        for (enode * arg : enode::args(parentc)) {
+            // found an argument which is equal to root
+            if (arg->get_root() == child->get_root()) {
+                if (arg != child) {
+                    m_used_eqs.push_back(enode_pair(arg, child));
+                }
+                found = true;
+            }
+        }
+        VERIFY(found);
+    }
+
+    // explain the cycle root -> ... -> app -> root
+    void theory_datatype::occurs_check_explain(enode * app, enode * root) {
+        TRACE("datatype", tout << "occurs_check_explain " << mk_bounded_pp(app->get_owner(), get_manager()) << " <-> " << mk_bounded_pp(root->get_owner(), get_manager()) << "\n";);
+
+        // first: explain that root=v, given that app=cstor(...,v,...)
+
+        explain_is_child(app, root);
+
+        // now explain app=cstor(..,v,..) where v=root, and recurse with parent of app
+        while (app->get_root() != root->get_root()) {
+            enode* parent_app = m_parent[app->get_root()];
+            explain_is_child(parent_app, app);
+            SASSERT(is_constructor(parent_app));
+            app = parent_app;            
+        }
+        
+        SASSERT(app->get_root() == root->get_root());
+        if (app != root) {
+            m_used_eqs.push_back(enode_pair(app, root));
+        }
+
+        TRACE("datatype",
+              tout << "occurs_check\n";
+              for (enode_pair const& p : m_used_eqs) {
+                  tout << enode_eq_pp(p, get_context());
+              });
+    }
+
+    // start exploring subgraph below `app`
+    bool theory_datatype::occurs_check_enter(enode * app) {
+        app = app->get_root();
+        theory_var v = app->get_th_var(get_id());
+        if (v == null_theory_var) {
+            return false;
+        }
+        v = m_find.find(v);
+        var_data * d = m_var_data[v];
+        if (!d->m_constructor) {
+            return false;
+        }
+        enode * parent = d->m_constructor;
+        oc_mark_on_stack(parent);
+        for (enode * arg : enode::args(parent)) {
+            if (oc_cycle_free(arg)) {
+                continue;
+            }
+            if (oc_on_stack(arg)) {
+                // arg was explored before app, and is still on the stack: cycle
+                occurs_check_explain(parent, arg);
+                return true;
+            }
+            // explore `arg` (with paren)
+            if (m_util.is_datatype(get_manager().get_sort(arg->get_owner()))) {
+                m_parent.insert(arg->get_root(), parent);
+                oc_push_stack(arg);
+            }
+        }
+        return false;
+    }
+
     /**
        \brief Check if n can be reached starting from n and following equalities and constructors.
        For example, occur_check(a1) returns true in the following set of equalities:
@@ -418,66 +580,40 @@ namespace smt {
        a3 = cons(v3, a1)
     */
     bool theory_datatype::occurs_check(enode * n) {
-        TRACE("datatype", tout << "occurs check: #" << n->get_owner_id() << "\n";);
-        m_to_unmark.reset();
-        m_used_eqs.reset();
-        m_main   = n;
-        bool res = occurs_check_core(m_main);
-        unmark_enodes(m_to_unmark.size(), m_to_unmark.c_ptr());
+        TRACE("datatype", tout << "occurs check: " << enode_pp(n, get_context()) << "\n";);
+        m_stats.m_occurs_check++;
+
+        bool res = false;
+        oc_push_stack(n);
+
+        // DFS traversal from `n`. Look at top element and explore it.
+        while (!res && !m_stack.empty()) {
+            stack_op op = m_stack.back().first;
+            enode * app = m_stack.back().second;
+            m_stack.pop_back();
+
+            if (oc_cycle_free(app)) continue;
+
+            TRACE("datatype", tout << "occurs check loop: " << enode_pp(app, get_context()) << (op==ENTER?" enter":" exit")<< "\n";);
+
+            switch (op) {
+            case ENTER:
+              res = occurs_check_enter(app);
+              break;
+
+            case EXIT:
+              oc_mark_cycle_free(app);
+              break;
+            }
+        }
+
         if (res) {
+            // m_used_eqs should contain conflict
             context & ctx = get_context();
             region & r    = ctx.get_region();
             ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), r, 0, nullptr, m_used_eqs.size(), m_used_eqs.c_ptr())));
-            TRACE("occurs_check",
-                  tout << "occurs_check: true\n";
-                  for (enode_pair const& p : m_used_eqs) {
-                      tout << "eq: #" << p.first->get_owner_id() << " #" << p.second->get_owner_id() << "\n";
-                      tout << mk_bounded_pp(p.first->get_owner(), get_manager()) << " " << mk_bounded_pp(p.second->get_owner(), get_manager()) << "\n";
-                  });
         }
         return res;
-    }
-
-    /**
-       \brief Auxiliary method for occurs_check.
-       TODO: improve performance.
-    */
-    bool theory_datatype::occurs_check_core(enode * app) {
-        if (app->is_marked())
-            return false;
-        
-        m_stats.m_occurs_check++;
-        app->set_mark();
-        m_to_unmark.push_back(app);
-        
-        TRACE("datatype", tout << "occurs check_core: #" << app->get_owner_id() << " #" << m_main->get_owner_id() << "\n";);
-
-        theory_var v = app->get_root()->get_th_var(get_id());
-        if (v != null_theory_var) {
-            v = m_find.find(v);
-            var_data * d = m_var_data[v];
-            if (d->m_constructor) {
-                if (app != d->m_constructor)
-                    m_used_eqs.push_back(enode_pair(app, d->m_constructor));
-                unsigned num_args = d->m_constructor->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
-                    enode * arg = d->m_constructor->get_arg(i);
-                    if (arg->get_root() == m_main->get_root()) {
-                        if (arg != m_main)
-                            m_used_eqs.push_back(enode_pair(arg, m_main));
-                        return true;
-                    }
-                    if (m_util.is_datatype(get_manager().get_sort(arg->get_owner())) && occurs_check_core(arg))
-                        return true;
-                }
-                if (app != d->m_constructor) {
-                    SASSERT(m_used_eqs.back().first  == app);
-                    SASSERT(m_used_eqs.back().second == d->m_constructor);
-                    m_used_eqs.pop_back();
-                }
-            }
-        }
-        return false;
     }
         
     void theory_datatype::reset_eh() {
@@ -530,7 +666,7 @@ namespace smt {
         var_data * d = m_var_data[v];
         out << "v" << v << " #" << get_enode(v)->get_owner_id() << " -> v" << m_find.find(v) << " ";
         if (d->m_constructor)
-            out << mk_bounded_pp(d->m_constructor->get_owner(), get_manager());
+            out << enode_pp(d->m_constructor, get_context());
         else
             out << "(null)";
         out << "\n";
@@ -620,11 +756,11 @@ namespace smt {
         sort * s     = recognizer->get_decl()->get_domain(0);
         if (d->m_recognizers.empty()) {
             SASSERT(m_util.is_datatype(s));
-            d->m_recognizers.resize(m_util.get_datatype_num_constructors(s));
+            d->m_recognizers.resize(m_util.get_datatype_num_constructors(s), nullptr);
         }
         SASSERT(d->m_recognizers.size() == m_util.get_datatype_num_constructors(s));
         unsigned c_idx = m_util.get_recognizer_constructor_idx(recognizer->get_decl());
-        if (d->m_recognizers[c_idx] == 0) {
+        if (d->m_recognizers[c_idx] == nullptr) {
             lbool val = ctx.get_assignment(recognizer);
             TRACE("datatype", tout << "adding recognizer to v" << v << " rec: #" << recognizer->get_owner_id() << " val: " << val << "\n";);
             if (val == l_true) {
@@ -695,11 +831,11 @@ namespace smt {
             SASSERT(!lits.empty());
             region & reg = ctx.get_region();
             TRACE("datatype_conflict", tout << mk_ismt2_pp(recognizer->get_owner(), get_manager()) << "\n";
-                  for (unsigned i = 0; i < lits.size(); i++) {
-                      ctx.display_detailed_literal(tout, lits[i]); tout << "\n";
+                  for (literal l : lits) {
+                      ctx.display_detailed_literal(tout, l) << "\n";
                   }
-                  for (unsigned i = 0; i < eqs.size(); i++) {
-                      tout << mk_ismt2_pp(eqs[i].first->get_owner(), get_manager()) << " = " << mk_ismt2_pp(eqs[i].second->get_owner(), get_manager()) << "\n";
+                  for (auto const& p : eqs) {
+                      tout << enode_eq_pp(p, ctx);
                   });
             ctx.set_conflict(ctx.mk_justification(ext_theory_conflict_justification(get_id(), reg, lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr())));
         }

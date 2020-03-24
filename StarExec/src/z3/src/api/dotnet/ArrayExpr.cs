@@ -16,12 +16,12 @@ Author:
 Notes:
     
 --*/
+using System.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -35,8 +35,21 @@ namespace Microsoft.Z3
         internal ArrayExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
-        #endregion
+        #endregion	
+
+        /// <summary> Single argument select </summary>
+        public Expr this[Expr index] 
+        {
+            get { return Context.MkSelect(this, index); }
+        }
+
+        /// <summary> Multi argument select </summary>
+        public Expr this[IEnumerable<Expr> index] 
+        {
+            get { return Context.MkSelect(this, index.ToArray()); }
+        }
+
     }
 }

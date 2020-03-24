@@ -58,6 +58,12 @@ public:
         inc_ref(n);
         m_buffer.push_back(n);
     }
+
+    template <typename M>
+    void push_back(obj_ref<T,M> && n) {
+        m_buffer.push_back(n.get());
+        n.steal();
+    }
     
     void pop_back() {
         SASSERT(!m_buffer.empty());
@@ -81,6 +87,9 @@ public:
     T * operator[](unsigned idx) const {
         return m_buffer[idx];
     }
+
+    T* const* begin() const { return c_ptr(); }
+    T* const* end() const { return c_ptr() + size(); }
 
     void set(unsigned idx, T * n) {
         inc_ref(n);

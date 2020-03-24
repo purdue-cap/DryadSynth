@@ -70,17 +70,18 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
             return BR_FAILED;
         app * a = to_app(args[0]);
         func_decl * c_decl = a->get_decl();
-        if (c_decl != m_util.get_accessor_constructor(f)) {
+        func_decl * acc = m_util.get_update_accessor(f);
+        if (c_decl != m_util.get_accessor_constructor(acc)) {
             result = a;
             return BR_DONE;
         }
-        ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c_decl);
-        SASSERT(acc.size() == a->get_num_args());
-        unsigned num = acc.size();
+        ptr_vector<func_decl> const & accs = *m_util.get_constructor_accessors(c_decl);
+        SASSERT(accs.size() == a->get_num_args());
+        unsigned num = accs.size();
         ptr_buffer<expr> new_args;
         for (unsigned i = 0; i < num; ++i) {
             
-            if (f == acc[i]) {
+            if (acc == accs[i]) {
                 new_args.push_back(args[1]);
             }
             else {
@@ -124,7 +125,7 @@ br_status datatype_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & resul
     //   (= (+ c5 a5) b5)                    <<< NOT SIMPLIFIED WITH RESPECT TO ARITHMETIC
     //   (= (cons a6 nil) (cons b6 nil)))    <<< NOT SIMPLIFIED WITH RESPECT TO DATATYPE theory
     //
-    // Note that asserted_formulas::reduce() applied the simplier many times.
+    // Note that asserted_formulas::reduce() applied the simplifier many times.
     // After the first simplification step we had:
     //  (= a1 b1)
     //  (= (cons a2 (cons a3 (cons (+ a4 1) (cons (+ a5 c5) (cons a6 nil))))))

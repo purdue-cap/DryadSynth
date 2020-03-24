@@ -377,14 +377,15 @@ namespace nlsat {
         }
 
         /**
-           \brief Return the sign of the polynomial in the current interpration.
+           \brief Return the sign of the polynomial in the current interpretation.
            
            \pre All variables of p are assigned in the current interpretation.
         */
         int eval_sign(poly * p) {
             // TODO: check if it is useful to cache results
             SASSERT(m_assignment.is_assigned(max_var(p)));
-            return m_am.eval_sign_at(polynomial_ref(p, m_pm), m_assignment);
+            int r = m_am.eval_sign_at(polynomial_ref(p, m_pm), m_assignment);
+            return r > 0 ? +1 : (r < 0 ? -1 : 0);
         }
         
         bool satisfied(int sign, atom::kind k) {
@@ -469,7 +470,7 @@ namespace nlsat {
             }
         }
 
-        // Evalute the sign of p1^e1*...*pn^en (of atom a) in cell c of table t. 
+        // Evaluate the sign of p1^e1*...*pn^en (of atom a) in cell c of table t.
         int sign_at(ineq_atom * a, sign_table const & t, unsigned c) const {
             int sign = 1;
             unsigned num_ps = a->size();
@@ -556,7 +557,7 @@ namespace nlsat {
                                 result = m_ism.mk(true, true, dummy, true, true, dummy, jst); 
                             }
                             else {
-                                // save -oo as begining of infeasible interval
+                                // save -oo as beginning of infeasible interval
                                 prev_open    = true;
                                 prev_inf     = true;
                                 prev_root_id = UINT_MAX;

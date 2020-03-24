@@ -13,10 +13,12 @@ z3_add_component(smt
     old_interval.cpp
     qi_queue.cpp
     smt_almost_cg_table.cpp
+    smt_arith_value.cpp
     smt_case_split_queue.cpp
     smt_cg_table.cpp
     smt_checker.cpp
     smt_clause.cpp
+    smt_clause_proof.cpp
     smt_conflict_resolution.cpp
     smt_consequences.cpp
     smt_context.cpp
@@ -31,6 +33,7 @@ z3_add_component(smt
     smt_justification.cpp
     smt_kernel.cpp
     smt_literal.cpp
+    smt_lookahead.cpp
     smt_model_checker.cpp
     smt_model_finder.cpp
     smt_model_generator.cpp
@@ -45,6 +48,7 @@ z3_add_component(smt
     smt_value_sort.cpp
     smt2_extra_cmds.cpp
     theory_arith.cpp
+    theory_array_bapa.cpp
     theory_array_base.cpp
     theory_array.cpp
     theory_array_full.cpp
@@ -55,10 +59,13 @@ z3_add_component(smt
     theory_dl.cpp
     theory_dummy.cpp
     theory_fpa.cpp
+    theory_jobscheduler.cpp
     theory_lra.cpp
     theory_opt.cpp
     theory_pb.cpp
+    theory_recfun.cpp
     theory_seq.cpp
+    theory_special_relations.cpp
     theory_str.cpp
     theory_utvpi.cpp
     theory_wmaxsat.cpp
@@ -70,6 +77,7 @@ z3_add_component(smt
     euclid
     fpa
     grobner
+    nlsat
     lp
     macros
     normal_forms

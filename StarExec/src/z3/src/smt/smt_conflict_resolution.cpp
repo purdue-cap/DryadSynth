@@ -51,7 +51,7 @@ namespace smt {
     }
 
     /**
-       \brief Mark all enodes in a 'proof' tree brach starting at n
+       \brief Mark all enodes in a 'proof' tree branch starting at n
        n -> ... -> root
     */
     template<bool Set>
@@ -277,17 +277,17 @@ namespace smt {
             unsigned num_lits = cls->get_num_literals();
             unsigned i        = 0;
             if (consequent != false_literal) {
-                SASSERT(cls->get_literal(0) == consequent || cls->get_literal(1) == consequent);
-                if (cls->get_literal(0) == consequent) {
+                SASSERT((*cls)[0] == consequent || (*cls)[1] == consequent);
+                if ((*cls)[0] == consequent) {
                     i = 1;
                 }
                 else {
-                    r = std::max(r, m_ctx.get_assign_level(cls->get_literal(0)));
+                    r = std::max(r, m_ctx.get_assign_level((*cls)[0]));
                     i = 2;
                 }
             }
             for(; i < num_lits; i++)
-                r = std::max(r, m_ctx.get_assign_level(cls->get_literal(i)));
+                r = std::max(r, m_ctx.get_assign_level((*cls)[i]));
             justification * js = cls->get_justification();
             if (js)
                 r = std::max(r, get_justification_max_lvl(js));
@@ -311,7 +311,7 @@ namespace smt {
         bool_var var = antecedent.var();
         unsigned lvl = m_ctx.get_assign_level(var);
         SASSERT(var < static_cast<int>(m_ctx.get_num_bool_vars()));
-        TRACE("conflict", tout << "processing antecedent (level " << lvl << "):";
+        TRACE("conflict_", tout << "processing antecedent (level " << lvl << "):";
               m_ctx.display_literal(tout, antecedent);
               m_ctx.display_detailed_literal(tout << " ", antecedent) << "\n";);
         
@@ -429,7 +429,7 @@ namespace smt {
     void conflict_resolution::finalize_resolve(b_justification conflict, literal not_l) {
         unmark_justifications(0);
 
-        TRACE("conflict", m_ctx.display_literals(tout << "before minimization:\n", m_lemma) << "\n";);
+        TRACE("conflict", m_ctx.display_literals(tout << "before minimization:\n", m_lemma) << "\n" << m_lemma << "\n";);
 
         TRACE("conflict_verbose",m_ctx.display_literals_verbose(tout << "before minimization:\n", m_lemma) << "\n";);
 
@@ -471,8 +471,9 @@ namespace smt {
         b_justification js;
         literal consequent;
 
-        if (!initialize_resolve(conflict, not_l, js, consequent))
+        if (!initialize_resolve(conflict, not_l, js, consequent)) {
             return false;
+        }
 
         unsigned idx = skip_literals_above_conflict_level();
 
@@ -484,7 +485,7 @@ namespace smt {
 
         unsigned num_marks = 0;
         if (not_l != null_literal) {
-            TRACE("conflict", tout << "not_l: "; m_ctx.display_literal_verbose(tout, not_l); tout << "\n";);
+            TRACE("conflict", tout << "not_l: "; m_ctx.display_literal_verbose(tout, not_l) << "\n";);
             process_antecedent(not_l, num_marks);
         }
 
@@ -497,7 +498,7 @@ namespace smt {
             }
 
             TRACE("conflict", tout << "processing consequent id: " << idx << " lit: " << consequent << " "; m_ctx.display_literal(tout, consequent); 
-                  m_ctx.display_literal_verbose(tout, consequent) << "\n";
+                  m_ctx.display_literal_verbose(tout << " ", consequent) << "\n";
                   tout << "num_marks: " << num_marks << ", js kind: " << js.get_kind() << " level: " << m_ctx.get_assign_level(consequent) << "\n";
                   );
             SASSERT(js != null_b_justification);
@@ -510,19 +511,19 @@ namespace smt {
                 unsigned num_lits = cls->get_num_literals();
                 unsigned i        = 0;
                 if (consequent != false_literal) {
-                    SASSERT(cls->get_literal(0) == consequent || cls->get_literal(1) == consequent);
-                    if (cls->get_literal(0) == consequent) {
+                    SASSERT((*cls)[0] == consequent || (*cls)[1] == consequent);
+                    if ((*cls)[0] == consequent) {
                         i = 1;
                     }
                     else {
-                        literal l = cls->get_literal(0);
+                        literal l = (*cls)[0];
                         SASSERT(consequent.var() != l.var());
                         process_antecedent(~l, num_marks);
                         i = 2;
                     }
                 }
                 for(; i < num_lits; i++) {
-                    literal l = cls->get_literal(i);
+                    literal l = (*cls)[i];
                     SASSERT(consequent.var() != l.var());
                     process_antecedent(~l, num_marks);
                 }
@@ -671,10 +672,10 @@ namespace smt {
             case b_justification::CLAUSE: {
                 clause * cls      = js.get_clause();
                 unsigned num_lits = cls->get_num_literals();
-                unsigned pos      = cls->get_literal(1).var() == var;
+                unsigned pos      = (*cls)[1].var() == var;
                 for (unsigned i = 0; i < num_lits; i++) {
                     if (pos != i) {
-                        literal l = cls->get_literal(i);
+                        literal l = (*cls)[i];
                         SASSERT(l.var() != var);
                         if (!process_antecedent_for_minimization(~l)) {
                             reset_unmark_and_justifications(old_size, old_js_qhead);
@@ -771,7 +772,7 @@ namespace smt {
         app * fact     = to_app(m_manager.get_fact(pr));
         app * n1_owner = n1->get_owner();
         app * n2_owner = n2->get_owner();
-        bool is_eq = m_manager.is_eq(fact) || m_manager.is_iff(fact);
+        bool is_eq = m_manager.is_eq(fact);
         if (!is_eq || (fact->get_arg(0) != n2_owner && fact->get_arg(1) != n2_owner)) {
             CTRACE("norm_eq_proof_bug", !m_ctx.is_true(n2) && !m_ctx.is_false(n2),
                    tout << "n1: #" << n1->get_owner_id() << ", n2: #" << n2->get_owner_id() << "\n";
@@ -794,7 +795,7 @@ namespace smt {
         TRACE("norm_eq_proof",
               tout << "#" << n1->get_owner_id() << " = #" << n2->get_owner_id() << "\n";
               tout << mk_ll_pp(pr, m_manager, true, false););
-        SASSERT(m_manager.is_eq(fact) || m_manager.is_iff(fact));
+        SASSERT(m_manager.is_eq(fact));
         SASSERT((fact->get_arg(0) == n1->get_owner() && fact->get_arg(1) == n2->get_owner()) ||
                 (fact->get_arg(1) == n1->get_owner() && fact->get_arg(0) == n2->get_owner()));
         if (fact->get_arg(0) == n1_owner && fact->get_arg(1) == n2_owner)
@@ -1033,6 +1034,7 @@ namespace smt {
             return pr;
         }
         SASSERT(js != 0);
+        TRACE("proof_gen_bug", tout << js << "\n";);
         m_todo_pr.push_back(tp_elem(js));
         return nullptr;
     }
@@ -1371,7 +1373,7 @@ namespace smt {
         }
 
         while (true) {
-            TRACE("unsat_core_bug", tout << consequent << " js.get_kind(): " << js.get_kind() << ", idx: " << idx << "\n";);
+            TRACE("unsat_core_bug", tout << consequent << ", idx: " << idx << " " << js.get_kind() << "\n";);
             switch (js.get_kind()) {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();
@@ -1416,7 +1418,7 @@ namespace smt {
             }
             while (idx >= 0) {
                 literal l = m_assigned_literals[idx];
-                TRACE("unsat_core_bug", tout << "l: " << l << ", get_assign_level(l): " << m_ctx.get_assign_level(l) << ", is_marked(l): " << m_ctx.is_marked(l.var()) << "\n";);
+                CTRACE("unsat_core_bug", m_ctx.is_marked(l.var()), tout << "l: " << l << ", get_assign_level(l): " << m_ctx.get_assign_level(l) << "\n";);
                 if (m_ctx.get_assign_level(l) < search_lvl)
                     goto end_unsat_core;
                 if (m_ctx.is_marked(l.var()))

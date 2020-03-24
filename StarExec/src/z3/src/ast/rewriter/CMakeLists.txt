@@ -16,8 +16,11 @@ z3_add_component(rewriter
     enum2bv_rewriter.cpp
     expr_replacer.cpp
     expr_safe_replace.cpp
+    factor_equivs.cpp
     factor_rewriter.cpp
     fpa_rewriter.cpp
+    func_decl_replace.cpp
+    hoist_rewriter.cpp
     inj_axiom.cpp
     label_rewriter.cpp
     maximize_ac_sharing.cpp

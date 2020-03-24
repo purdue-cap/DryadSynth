@@ -183,19 +183,11 @@ tactic * dom_simplify_tactic::translate(ast_manager & m) {
     return alloc(dom_simplify_tactic, m, m_simplifier->translate(m), m_params);
 }
 
-void dom_simplify_tactic::operator()(
-    goal_ref const & in,
-    goal_ref_buffer & result,
-    model_converter_ref & mc,
-    proof_converter_ref & pc,
-    expr_dependency_ref & core) {
-    mc = nullptr; pc = nullptr; core = nullptr;
-
+void dom_simplify_tactic::operator()(goal_ref const & in, goal_ref_buffer & result) {
     tactic_report report("dom-simplify", *in.get());
     simplify_goal(*(in.get()));
     in->inc_depth();
     result.push_back(in.get());
-
 }
 
 void dom_simplify_tactic::cleanup() {
@@ -345,10 +337,12 @@ expr_ref dom_simplify_tactic::simplify_and_or(bool is_and, app * e) {
         }
         args.reverse();
     }
+    
     pop(scope_level() - old_lvl);
     r = is_and ? mk_and(args) : mk_or(args);
     return r;
 }
+
 
 
 bool dom_simplify_tactic::init(goal& g) {
@@ -494,7 +488,7 @@ bool expr_substitution_simplifier::is_gt(expr* lhs, expr* rhs) {
 
 void expr_substitution_simplifier::update_substitution(expr* n, proof* pr) {
     expr* lhs, *rhs, *n1;
-    if (is_ground(n) && (m.is_eq(n, lhs, rhs) || m.is_iff(n, lhs, rhs))) {
+    if (is_ground(n) && m.is_eq(n, lhs, rhs)) {
         compute_depth(lhs);
         compute_depth(rhs);
         m_trail.push_back(lhs);

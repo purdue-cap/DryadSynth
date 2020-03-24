@@ -487,7 +487,7 @@ namespace datalog {
 
             res->init(*res_table, joined_orelations, true);
 
-            if(m_tr_table_joined_cols.size()) {
+            if(!m_tr_table_joined_cols.empty()) {
                 //There were some shared variables between the table and the relation part.
                 //We enforce those equalities here.
                 if(!m_filter_tr_identities) {
@@ -1311,8 +1311,7 @@ namespace datalog {
             if(m_rel_cond_columns.empty()) {
                 expr_ref_vector renaming(m_manager);
                 get_renaming_args(r.m_sig2table, r.get_signature(), renaming);
-                expr_ref table_cond(m_manager);
-                m_subst(condition, renaming.size(), renaming.c_ptr(), table_cond);
+                expr_ref table_cond = m_subst(condition, renaming.size(), renaming.c_ptr());
                 m_table_filter = rmgr.mk_filter_interpreted_fn(r.get_table(), to_app(table_cond));
             }
             else {
@@ -1320,7 +1319,7 @@ namespace datalog {
 
                 if(!m_table_cond_columns.empty()) {
                     //We will keep the table variables that appear in the condition together 
-                    //with the index column and then iterate throught the tuples, evaluating 
+                    //with the index column and then iterate through the tuples, evaluating
                     //the rest of the condition on the inner relations.
                     unsigned_vector removed_cols;
                     unsigned table_data_col_cnt = r.m_table_sig.size()-1;
@@ -1361,9 +1360,7 @@ namespace datalog {
                         continue;
                     }
                     if(!m_rel_filter) {
-                        expr_ref inner_cond(m_manager);
-                        m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr(), 
-                            inner_cond);
+                        expr_ref inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
                         m_rel_filter = rmgr.mk_filter_interpreted_fn(*inner, to_app(inner_cond));
                     }
                     (*m_rel_filter)(*inner);
@@ -1411,11 +1408,10 @@ namespace datalog {
 
                 //create the condition with table values substituted in and relation values properly renamed
                 expr_ref inner_cond(m_manager);
-                m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr(), 
-                    inner_cond);
+                inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
 
                 relation_base * new_rel = old_rel.clone();
-
+                
                 scoped_ptr<relation_mutator_fn> filter = rmgr.mk_filter_interpreted_fn(*new_rel, to_app(inner_cond));
                 (*filter)(*new_rel);
  

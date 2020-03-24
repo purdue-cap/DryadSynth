@@ -348,6 +348,7 @@ public:
     //
     void compress() {
         SASSERT(!m_delta.empty());
+        TRACE("seq", display(tout););
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             for (unsigned j = 0; j < m_delta[i].size(); ++j) {
                 move const& mv = m_delta[i][j];
@@ -428,7 +429,18 @@ public:
                             add(mv);
                         }
                     }
+                    else if (1 == out_degree(src) && (is_final_state(src) || !is_final_state(dst))) {
+                        moves const& mvs = m_delta[dst];
+                        moves mvs1;
+                        for (move const& mv : mvs) {
+                            mvs1.push_back(move(m, src, mv.dst(), mv.t()));
+                        }
+                        for (move const& mv : mvs1) {
+                            add(mv);
+                        }
+                    }
                     else {
+                        TRACE("seq", tout << "epsilon not removed " << out_degree(src) << " " << is_final_state(src) << " " << is_final_state(dst) << "\n";);
                         continue;
                     }                    
                     remove(src, dst, nullptr);
@@ -449,6 +461,7 @@ public:
             }
         }
         sinkify_dead_states();
+        TRACE("seq", display(tout););
     }
 
     bool is_sequence(unsigned& length) const {
@@ -548,9 +561,8 @@ public:
     template<class D>
     std::ostream& display(std::ostream& out, D& displayer = D()) const {
         out << "init: " << init() << "\n";
-        out << "final: ";
-        for (unsigned i = 0; i < m_final_states.size(); ++i) out << m_final_states[i] << " ";
-        out << "\n";
+        out << "final: " << m_final_states << "\n";
+
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             moves const& mvs = m_delta[i];
             for (move const& mv : mvs) {
@@ -566,6 +578,22 @@ public:
     }
 private:
 
+    std::ostream& display(std::ostream& out) const {
+        out << "init: " << init() << "\n";
+        out << "final: " << m_final_states << "\n";
+
+        for (unsigned i = 0; i < m_delta.size(); ++i) {
+            moves const& mvs = m_delta[i];
+            for (move const& mv : mvs) {
+                out << i << " -> " << mv.dst() << " ";
+                if (mv.t()) {
+                    out << "if *** "; 
+                }
+                out << "\n";
+            }
+        }
+        return out;
+    }
     void sinkify_dead_states() {
         uint_set dead_states;
         for (unsigned i = 0; i < m_delta.size(); ++i) {
@@ -593,20 +621,23 @@ private:
             }
             to_remove.reset();
         }
-        TRACE("seq", tout << "remove: " << dead_states << "\n";);
+        TRACE("seq", tout << "remove: " << dead_states << "\n"; 
+              tout << "final: " << m_final_states << "\n";
+              );
         for (unsigned s : dead_states) {
             CTRACE("seq", !m_delta[s].empty(), tout << "live state " << s << "\n";); 
             m_delta[s].reset();
         }
     }
 
+#if 0
     void remove_dead_states() {
         unsigned_vector remap;
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             
         }
     }    
-
+#endif
 
     void add(move const& mv) {
         if (!is_duplicate_cheap(mv)) {

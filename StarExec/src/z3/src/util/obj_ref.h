@@ -92,6 +92,13 @@ public:
         return *this;
     }
 
+    obj_ref & operator=(obj_ref && n) {
+        SASSERT(&m_manager == &n.m_manager);
+        std::swap(m_obj, n.m_obj);
+        n.reset();
+        return *this;
+    }
+
     void reset() {
         dec_ref();
         m_obj = nullptr;
@@ -106,7 +113,7 @@ public:
     */
     T * steal() { 
         T * r = m_obj;
-        m_obj = 0;
+        m_obj = nullptr;
         return r;
     }
 };
