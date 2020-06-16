@@ -4,6 +4,10 @@ Dryad Synthesizer for SyGuS competition.
 
 For a complete description on methods, please see `doc/DryadSynth_published.pdf`.
 
+# Publications
+
+- [Reconciling enumerative and deductive program synthesis.](https://dl.acm.org/doi/abs/10.1145/3385412.3386027) Kangjing Huang, Xiaokang Qiu, Peiyuan Shen, and Yanjun Wang. In Proceedings of the 41st ACM SIGPLAN Conference on Programming Language Design and Implementation, pp. 1159-1174. 2020.
+
 # Installation and Running
 
 Currently the synthesizer is not packaged, but you could compile and run it from the project directory.
@@ -85,8 +89,3 @@ The compiled class files would be put in `classes` directory, and related librar
 Finally, there's a script `exec.sh` in the directory for easier execution, simply setup proper `LD_LIBRARY_PATH` and run it like
 ```./exec.sh <arguments that are after Run>```
 and it would execute `Run` class properly.
-
-
-# Publication
-
-This work has been published in [PLDI 2020](https://dl.acm.org/doi/abs/10.1145/3385412.3386027).
