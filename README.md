@@ -2,7 +2,7 @@
 
 Dryad Synthesizer for SyGuS competition.
 
-For a complete description on methods, please see `doc/DryadSynth_submitted.pdf`.
+For a complete description on methods, please see `doc/DryadSynth_published.pdf`.
 
 # Installation and Running
 
@@ -87,3 +87,6 @@ Finally, there's a script `exec.sh` in the directory for easier execution, simpl
 and it would execute `Run` class properly.
 
 
+# Publication
+
+This work has been published in [PLDI 2020](https://dl.acm.org/doi/abs/10.1145/3385412.3386027).
