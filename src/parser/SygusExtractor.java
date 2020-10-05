@@ -671,7 +671,7 @@ public class SygusExtractor extends SygusBaseListener {
                 tmp+=1;
             }
         }
-        return z3ctx.mkBV(tmp,(len-1));
+        return z3ctx.mkBV(tmp,(len-2));
     }
     public void identermplustostack(SygusParser.IdentermplusContext ctx,SygusParser.TermContext topctx){
         List<Expr> tmpargs = new ArrayList<Expr>();
