@@ -658,7 +658,7 @@ public class SygusExtractor extends SygusBaseListener {
                 tmp+=c-'a'+10;
             }
         }
-        return z3ctx.mkBV(tmp,(len-1)*4);
+        return z3ctx.mkBV(tmp,(len-2)*4);
     }
     BitVecNum bin(String binnum){
         int len = binnum.length();
