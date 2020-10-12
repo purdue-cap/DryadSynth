@@ -1,236 +1,314 @@
 grammar Sygus;
 
-start : prog
-      | //epsilon
-      ;
+start : (cmd)+ ;
 
-prog : setLogicCmd cmdPlus
-     | cmdPlus
-     ;
-
-symbol : SYMBOL
-       ;
-
-setLogicCmd : '(' 'set-logic' symbol ')'
-            ;
-
-cmdPlus : cmd cmdPlusTail
+literal : numeral
+		| decimal
+        | boolconst
+        | hexconst
+        | binconst
+        | stringconst
         ;
 
-cmdPlusTail : cmd cmdPlusTail
-            | //empty
-            ;
+numeral : '0'
+		| NUMERAL
+		;
 
-cmd : funDefCmd
-    | funDeclCmd
-    | synthFunCmd
-    | checkSynthCmd
-    | constraintCmd
-    | sortDefCmd
-    | setOptsCmd
-    | varDeclCmd
-    //for inv
-    | synthInvCmd
-    | declarePrimedVar
-    | invConstraintCmd
-    //for CLIA grammar extension
-    | cliaGrammarCmd
-    ;
+decimal : (numeral '.' ('0')* numeral)
+		;
 
-varDeclCmd : '(' 'declare-var' symbol sortExpr ')'
-           ;
-
-sortDefCmd : '(' 'define-sort' symbol sortExpr ')'
-           ;
-
-sortExpr : '(' 'BitVec' intConst ')'
-         | 'Int'
-         | 'Bool'
-         | 'Real'
-         | '(' 'Enum' eCList ')'
-         | '(' 'Array' sortExpr sortExpr ')'
-         | symbol
-         ;
-
-intConst : INTEGER
-         ;
-
-boolConst : 'true'
+boolconst : 'true'
           | 'false'
           ;
 
-bVConst : BVCONST
-        ;
+hexconst : HEXCONST ;
 
-enumConst : symbol '::' symbol
-          ;
+binconst : BINCONST ;
 
-realConst : REALCONST
-          ;
+stringconst : STRINGCONST
+			| EMPTYSTRING
+			; 
 
-eCList : '(' symbolPlus ')'
-       ;
 
-symbolPlus : symbol symbolPlusTail
-           ;
 
-symbolPlusTail : symbol symbolPlusTail
-               | //empty
-               ;
+identifier : symbol 
+		   | identifierextra
+		   ;
+identifierextra : '(' '_' symbol (index)+ ')';
 
-setOptsCmd : '(' 'set-options' optList ')'
-           ;
+index : numeral
+	  | symbol
+	  ;
 
-optList : '(' symbolPairPlus ')'
-        ;
+sort : identifier
+	 | sortextra
+	 ;
+sortextra : '(' identifier (sort)+ ')';
 
-symbolPairPlus : symbolPair symbolPairPlusTail
-               ;
+term : identifier
+	 | literal
+	 | identermplus
+	 | exists
+	 | forall
+	 | let
+	 ;
 
-symbolPairPlusTail : symbolPair symbolPairPlusTail
-                   | //empty
-                   ;
+iteexpr : '(' 'ite' term term term ')';
 
-symbolPair : '(' symbol QUOTEDLIT ')'
-           ;
+boolexpr : boolconst
+		 | andexpr
+		 | orexpr
+		 | notexpr
+		 | eqexpr
+		 | gtexpr
+		 | geexpr
+		 | ltexpr
+		 | leexpr
+		 | toexpr
+		 ;
+andexpr : '(' 'and' (term)+ ')';
+orexpr : '(' 'or' (term)+ ')';
+notexpr : '(' 'not' term ')';
+eqexpr : '(' '=' term term ')';
+gtexpr : '(' '>' term term ')';
+geexpr : '(' '>=' term term ')';
+ltexpr : '(' '<' term term ')';
+leexpr : '(' '<=' term term ')';
+toexpr : '(' '=>' term term ')';
 
-funDefCmd : '(' 'define-fun' symbol argList sortExpr term ')'
-          ;
+intexpr : numeral
+		| addexpr
+		| minusexpr
+		| negexpr
+		| mulexpr
+		;
+addexpr : '(' '+' (term)+ ')';
+minusexpr : '(' '-' term term ')';
+negexpr : '(' '-' term ')';
+mulexpr : '(' '*' term term ')';
 
-funDeclCmd : '(' 'declare-fun' symbol '(' sortStar ')' sortExpr ')'
-           ;
+bitexpr : bitarith
+		| bitwise
+		;
+bitarith : bvadd
+		 | bvsub
+		 | bvneg
+		 | bvmul
+		 | bvurem
+		 | bvsrem
+		 | bvsmod
+		 | bvshl
+		 | bvlshr
+		 | bvashr
+		 ;
+bvadd : '(' 'bvadd' term term ')';
+bvsub : '(' 'bvsub' term term ')';
+bvneg : '(' 'bvneg' term ')';
+bvmul : '(' 'bvmul' term term ')';
+bvurem : '(' 'bvurem' term term ')';
+bvsrem : '(' 'bvsrem' term term ')';
+bvsmod : '(' 'bvsmod' term term ')';
+bvshl : '(' 'bvshl' term term ')';
+bvlshr : '(' 'bvlshr' term term ')';
+bvashr : '(' 'bvashr' term term ')';
+bitwise : bvor
+		| bvand
+		| bvnot
+		| bvnand
+		| bvxor
+		| bvnor
+		| bvxnor
+		;
+bvor : '(' 'bvor' term term ')';
+bvand : '(' 'bvand' term term ')';
+bvnot : '(' 'bvnot' term ')';
+bvnand : '(' 'bvnand' term term ')';
+bvxor : '(' 'bvxor' term term ')';
+bvnor : '(' 'bvnor' term term ')';
+bvxnor : '(' 'bvxnor' term term ')';
 
-sortStar : sortExpr sortStar
-         | //empty
-         ;
+exists : '(' 'exists' '(' (sortedvar)+ ')' term ')';
+forall : '(' 'forall' '(' (sortedvar)+ ')' term ')';
+let : '(' 'let' '(' (varbinding)+ ')' term ')';
+identermplusextra : '(' identifier (term)+ ')';
 
-argList : '(' symbolSortPairStar ')'
-        ;
+bfterm : identifier
+	 | literal
+	 | idenbftermplus
+	 ;
 
-symbolSortPairStar : symbolSortPair symbolSortPairStar
-                   | //epsilon
-                   ;
+bfiteexpr : '(' 'ite' bfterm bfterm bfterm ')';
 
-symbolSortPair : '(' symbol sortExpr ')'
-               ;
+bfboolexpr : bfandexpr
+		 | bforexpr
+		 | bfnotexpr
+		 | bfeqexpr
+		 | bfgtexpr
+		 | bfgeexpr
+		 | bfltexpr
+		 | bfleexpr
+		 | bftoexpr
+		 ;
+bfandexpr : '(' 'and' (bfterm)+ ')';
+bforexpr : '(' 'or' (bfterm)+ ')';
+bfnotexpr : '(' 'not' bfterm ')';
+bfeqexpr : '(' '=' bfterm bfterm ')';
+bfgtexpr : '(' '>' bfterm bfterm ')';
+bfgeexpr : '(' '>=' bfterm bfterm ')';
+bfltexpr : '(' '<' bfterm bfterm ')';
+bfleexpr : '(' '<=' bfterm bfterm ')';
+bftoexpr : '(' '=>' bfterm bfterm ')';
 
-term : '(' symbol termStar ')'
-     | literal
-     | symbol
-     | letTerm
-     ;
+bfintexpr : bfaddexpr
+		| bfminusexpr
+		| bfnegexpr
+		| bfmulexpr
+		;
+bfaddexpr : '(' '+' (bfterm)+ ')';
+bfminusexpr : '(' '-' bfterm bfterm ')';
+bfnegexpr : '(' '-' bfterm ')';
+bfmulexpr : '(' '*' bfterm bfterm ')';
 
-letTerm : '(' 'let' '(' letBindingTermPlus ')' term ')'
-        ;
+bfbitexpr : bfbitarith
+		| bfbitwise
+		;
+bfbitarith : bfbvadd
+		 | bfbvsub
+		 | bfbvneg
+		 | bfbvmul
+		 | bfbvurem
+		 | bfbvsrem
+		 | bfbvsmod
+		 | bfbvshl
+		 | bfbvlshr
+		 | bfbvashr
+		 ;
+bfbvadd : '(' 'bvadd' bfterm bfterm ')';
+bfbvsub : '(' 'bvsub' bfterm bfterm ')';
+bfbvneg : '(' 'bvneg' bfterm ')';
+bfbvmul : '(' 'bvmul' bfterm bfterm ')';
+bfbvurem : '(' 'bvurem' bfterm bfterm ')';
+bfbvsrem : '(' 'bvsrem' bfterm bfterm ')';
+bfbvsmod : '(' 'bvsmod' bfterm bfterm ')';
+bfbvshl : '(' 'bvshl' bfterm bfterm ')';
+bfbvlshr : '(' 'bvlshr' bfterm bfterm ')';
+bfbvashr : '(' 'bvashr' bfterm bfterm ')';
+bfbitwise : bfbvor
+		| bfbvand
+		| bfbvnot
+		| bfbvnand
+		| bfbvxor
+		| bfbvnor
+		| bfbvxnor
+		;
+bfbvor : '(' 'bvor' bfterm bfterm ')';
+bfbvand : '(' 'bvand' bfterm bfterm ')';
+bfbvnot : '(' 'bvnot' bfterm ')';
+bfbvnand : '(' 'bvnand' bfterm bfterm ')';
+bfbvxor : '(' 'bvxor' bfterm bfterm ')';
+bfbvnor : '(' 'bvnor' bfterm bfterm ')';
+bfbvxnor : '(' 'bvxnor' bfterm bfterm ')';
+idenbftermplus : bfiteexpr
+			 | bfboolexpr
+			 | bfintexpr
+			 | bfbitexpr
+			 | idenbftermplusextra
+			 ;
+idenbftermplusextra : '(' identifier (bfterm)+ ')';
 
-letBindingTermPlus : letBindingTerm letBindingTermPlusTail
-                   ;
+identermplus : iteexpr
+			 | boolexpr
+			 | intexpr
+			 | bitexpr
+			 | identermplusextra
+			 ;
 
-letBindingTermPlusTail : letBindingTerm letBindingTermPlusTail
-                       | //empty
-                       ;
 
-letBindingTerm : '(' symbol sortExpr term ')'
-               ;
+sortedvar : '(' symbol sort ')' ;
 
-termStar : term termStar
-         | //epsilon
-         ;
+varbinding : '(' symbol term ')' ;
 
-literal : intConst
-        | boolConst
-        | bVConst
-        | enumConst
-        | realConst
-        ;
+feature : 'grammars'
+		| 'fwd-decls'
+		| 'recursion'
+		;
 
-nTDefPlus : nTDef nTDefPlusTail
-          ;
+cmd : checksynth
+	| constraint
+	| declarevar
+	| invconstraint
+	| setfeature
+	| synthfun
+	| synthinv
+	| smtcmd
+	;
 
-nTDefPlusTail : nTDef nTDefPlusTail
-              | //empty
-              ;
+checksynth : '(' 'check-synth' ')';
+constraint : '(' 'constraint' term ')';
+declarevar : '(' 'declare-var' symbol sort ')';
+invconstraint : '(' 'inv-constraint' symbol symbol symbol symbol ')';
+setfeature : '(' 'set-feature' ':' feature boolconst ')';
+synthfun : '(' 'synth-fun' symbol '(' (sortedvar)* ')' sort (grammardef)? ')';
+synthinv : '(' 'synth-inv' symbol '(' (sortedvar)* ')' (grammardef)? ')';
 
-nTDef : '(' symbol sortExpr '(' gTermPlus ')' ')'
-      ;
+smtcmd : declaredatatype
+	   | declaredatatypes
+	   | declaresort
+	   | definefun
+	   | definesort
+	   | setinfo
+	   | setlogic
+	   | setoption
+	   ;
 
-gTermPlus : gTerm gTermPlusTail
-          ;
+declaredatatype : '(' 'declare-datatype' symbol dtdec ')';
+declaredatatypes : '(' 'declare-datatypes' '(' (sortdecl)+ ')' '(' (dtdec)+ ')' ')';
+declaresort : '(' 'declare-sort' symbol numeral ')';
+definefun : '(' 'define-fun' symbol '(' (sortedvar)* ')' sort term  ')';
+definesort : '(' 'define-sort' symbol sort ')';
+setinfo : '(' 'set-info' ':' symbol literal ')';
 
-gTermPlusTail : gTerm gTermPlusTail
-              | //empty
-              ;
+setlogic : '(' 'set-logic' logicsymbol ')';
+logicsymbol : 'LIA'
+			| 'SLIA'
+			| 'BV'
+			;
 
-checkSynthCmd : '(' 'check-synth' ')'
-              ;
+setoption : '(' 'set-option' ':' symbol literal ')';
 
-constraintCmd : '(' 'constraint' term ')'
-              ;
+sortdecl : '(' symbol numeral ')' ;
 
-synthFunCmd : '(' 'synth-fun' symbol argList sortExpr
-              '(' nTDefPlus ')' ')'
-            | '(' 'synth-fun' symbol argList sortExpr ')'
-            ;
+dtdec : '(' dtconsdec ')' ;
 
-gTerm : symbol
-      | literal
-      | '(' symbol gTermStar ')'
-      | '(' 'Constant' sortExpr ')'
-      | '(' 'Variable' sortExpr ')'
-      | '(' 'InputVariable' sortExpr ')'
-      | '(' 'LocalVariable' sortExpr ')'
-      | letGTerm
-      ;
+dtconsdec : '(' symbol sortedvar ')' ;
 
-letGTerm : '(' 'let' '(' letBindingGTermPlus ')' gTerm ')'
-         ;
+grammardef : '('  (sortedvar)+ ')' '(' (groupedrulelist)+ ')' ;
 
-letBindingGTermPlus : letBindingGTerm letBindingGTermPlusTail
-          ;
+groupedrulelist : '(' symbol sort '(' (gterm)+ ')' ')' ;
 
-letBindingGTermPlusTail : letBindingGTerm letBindingGTermPlusTail
-              | //empty
-              ;
+gterm : '(' 'Constant' sort ')'
+	  | '(' 'Variable' sort ')'
+	  | bfterm
+	  ;
 
-letBindingGTerm : '(' symbol sortExpr gTerm ')'
-                ;
+symbol : SYMBOL
+       ; 
+       //todo:reserved words
 
-gTermStar : gTerm gTermStar
-          | //epsilon
-          ;
-
-synthInvCmd : '(' 'synth-inv' symbol argList
-              '(' nTDefPlus ')' ')'
-            | '(' 'synth-inv' symbol argList ')'
-            ;
-
-declarePrimedVar : '(' 'declare-primed-var' symbol sortExpr ')'
-                 ;
-
-invConstraintCmd : '(' 'inv-constraint' symbol symbol symbol symbol ')'
-                 ;
-
-cliaGrammarCmd : '(' 'clia-grammar' ')'
-               ;
-
-WS : ( ' ' | '\t' | '\f' | '\n' )+ -> skip
-  ;
+WS : ( ' ' | '\t' | '\f' | '\n' )+ -> skip ;
 
 COMMENT
   : ';'(~('\n')*'\n') -> skip
   ;
 
-INTEGER : ('-'?([0-9])+)
-        ;
+NUMERAL : (('1'..'9') ('0'..'9')*) ;
 
-BVCONST : '#x'([0-9] | [a-f] | [A-F])+ | '#b'('0' | '1')+
-        ;
+HEXCONST : '#x'([0-9] | [a-f] | [A-F])+ ;
 
-REALCONST : ('-'?([0-9])+'.'([0-9])+)
-          ;
+BINCONST : '#b'('0' | '1')+ ;
 
-QUOTEDLIT : '"'([a-z]|[A-Z]|([0-9])|'.')+'"'
-          ;
+EMPTYSTRING : '""';
+STRINGCONST : '"' ((~["])|'""')+ '"';
 
-SYMBOL : ([a-z]|[A-Z]|'_'|'+'|'-'|'*'|'&'|'|'|'!'|'~'|'<'|'>'|'='|'/'|'%'|'?'|'.'|'$'|'^')(([a-z]|[A-Z]|'_'|'+'|'-'|'*'|'&'|'|'|'!'|'~'|'<'|'>'|'='|'/'|'%'|'?'|'.'|'$'|'^') | ([0-9]))*
-       ;
+SYMBOL : ([a-z]|[A-Z]|'_'|'+'|'-'|'*'|'&'|'|'|'!'|'~'|'<'|'>'|'='|'/'|'%'|'?'|'.'|'$'|'^')(([a-z]|[A-Z]|'_'|'+'|'-'|'*'|'&'|'|'|'!'|'~'|'<'|'>'|'='|'/'|'%'|'?'|'.'|'$'|'^') | ([0-9]))* ;
+
