@@ -115,6 +115,7 @@ bitwise : bvor
 		| bvand
 		| bvnot
 		| bvnand
+		| bvxor
 		| bvnor
 		| bvxnor
 		;
@@ -122,6 +123,7 @@ bvor : '(' 'bvor' term term ')';
 bvand : '(' 'bvand' term term ')';
 bvnot : '(' 'bvnot' term ')';
 bvnand : '(' 'bvnand' term term ')';
+bvxor : '(' 'bvxor' term term ')';
 bvnor : '(' 'bvnor' term term ')';
 bvxnor : '(' 'bvxnor' term term ')';
 
@@ -195,6 +197,7 @@ bfbitwise : bfbvor
 		| bfbvand
 		| bfbvnot
 		| bfbvnand
+		| bfbvxor
 		| bfbvnor
 		| bfbvxnor
 		;
@@ -202,6 +205,7 @@ bfbvor : '(' 'bvor' bfterm bfterm ')';
 bfbvand : '(' 'bvand' bfterm bfterm ')';
 bfbvnot : '(' 'bvnot' bfterm ')';
 bfbvnand : '(' 'bvnand' bfterm bfterm ')';
+bfbvxor : '(' 'bvxor' bfterm bfterm ')';
 bfbvnor : '(' 'bvnor' bfterm bfterm ')';
 bfbvxnor : '(' 'bvxnor' bfterm bfterm ')';
 idenbftermplus : bfiteexpr

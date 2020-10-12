@@ -450,6 +450,8 @@ public class SygusExtractor extends SygusBaseListener {
                         currentTerm = "bvnot";
                     }else if (tmpctx.bfbvnand()!=null) {
                         currentTerm = "bvnand";
+                    }else if (tmpctx.bfbvxor()!=null) {
+                        currentTerm = "bvxor";
                     }else if (tmpctx.bfbvnor()!=null) {
                         currentTerm = "bvnor";
                     }else if(tmpctx.bfbvxnor()!=null) {
@@ -779,6 +781,9 @@ public class SygusExtractor extends SygusBaseListener {
                 }else if (tmpctx.bvnand()!=null) {
                     assert args.length==2 : "Wrong args number";
                     expr = z3ctx.mkBVNAND((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvxor()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVXOR((BitVecExpr)args[0],(BitVecExpr)args[1]);
                 }else if (tmpctx.bvnor()!=null) {
                     assert args.length==2 : "Wrong args number";
                     expr = z3ctx.mkBVNOR((BitVecExpr)args[0],(BitVecExpr)args[1]);
@@ -795,6 +800,9 @@ public class SygusExtractor extends SygusBaseListener {
                 expr = df.apply(args);
             }else{
                 FuncDecl f =requests.get(name);
+                System.out.println("f_name: " + name);
+                System.out.println("f: " + f);
+                System.out.println("args: " + args);
                 assert f!=null;
                 expr = z3ctx.mkApp(f,args);
             }
