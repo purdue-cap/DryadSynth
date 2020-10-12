@@ -1088,9 +1088,6 @@ public class SygusExtractor extends SygusBaseListener {
                 expr = df.apply(args);
             }else{
                 FuncDecl f =requests.get(name);
-                System.out.println("f_name: " + name);
-                System.out.println("f: " + f);
-                System.out.println("args: " + args);
                 assert f!=null;
                 expr = z3ctx.mkApp(f,args);
             }
