@@ -1188,7 +1188,7 @@ public class SygusExtractor extends SygusBaseListener {
 
     public void enterSetlogic(SygusParser.SetlogicContext ctx) {
         String logic = ctx.logicsymbol().getText();
-        if(logic.equals("CLIA")){
+        if(logic.equals("LIA")){
             problemType = SygusProblem.ProbType.CLIA;
         } else if(logic.equals("SLIA")){
             problemType = SygusProblem.ProbType.SLIA;
