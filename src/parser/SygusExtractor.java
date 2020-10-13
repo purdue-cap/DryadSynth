@@ -933,19 +933,19 @@ public class SygusExtractor extends SygusBaseListener {
     }
     BitVecNum hex(String hexnum){
         int len = hexnum.length();
-        int tmp = 0;
+        long tmp = 0;
         for(char c:hexnum.toCharArray()){
             if(c>='0'&&c<='9'){
-                tmp*=2;
+                tmp*=16;
                 tmp+=c-'0';
             }
             if(c>='a'&&c<='f'){
-                tmp*=2;
+                tmp*=16;
                 tmp+=c-'a'+10;
             }
             if(c>='A'&&c<='F'){
-                tmp*=2;
-                tmp+=c-'a'+10;
+                tmp*=16;
+                tmp+=c-'A'+10;
             }
         }
         return z3ctx.mkBV(tmp,(len-2)*4);
