@@ -717,6 +717,8 @@ public class SygusExtractor extends SygusBaseListener {
                         currentTerm = "bvmul";
                     }else if (tmpctx.bfbvurem()!=null) {
                         currentTerm = "bvurem";
+                    }else if (tmpctx.bfbvudiv()!=null) {
+                        currentTerm = "bvudiv";
                     }else if (tmpctx.bfbvsrem()!=null) {
                         currentTerm = "bvsrem";
                     }else if (tmpctx.bfbvsmod()!=null) {
@@ -952,7 +954,7 @@ public class SygusExtractor extends SygusBaseListener {
     }
     BitVecNum bin(String binnum){
         int len = binnum.length();
-        int tmp = 0;
+        long tmp = 0;
         for(char c:binnum.toCharArray()){
             if(c=='0')
                 tmp*=2;
@@ -1039,6 +1041,9 @@ public class SygusExtractor extends SygusBaseListener {
                 }else if (tmpctx.bvurem()!=null) {
                     assert args.length==2 : "Wrong args number";
                     expr = z3ctx.mkBVURem((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvudiv()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVUDiv((BitVecExpr)args[0],(BitVecExpr)args[1]);
                 }else if (tmpctx.bvsrem()!=null) {
                     assert args.length==2 : "Wrong args number";
                     expr = z3ctx.mkBVSRem((BitVecExpr)args[0],(BitVecExpr)args[1]);
