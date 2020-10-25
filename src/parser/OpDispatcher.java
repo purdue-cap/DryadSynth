@@ -93,6 +93,9 @@ public class OpDispatcher {
         if (name.equals("bvudiv")) {
             return z3ctx.mkBVUDiv((BitVecExpr)args[0],(BitVecExpr)args[1]);
         }
+        if (name.equals("bvsdiv")) {
+            return z3ctx.mkBVSDiv((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
         if (name.equals("bvsrem")) {
             return z3ctx.mkBVSRem((BitVecExpr)args[0],(BitVecExpr)args[1]);
         }

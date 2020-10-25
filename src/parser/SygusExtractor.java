@@ -729,6 +729,8 @@ public class SygusExtractor extends SygusBaseListener {
                         currentTerm = "bvurem";
                     }else if (tmpctx.bfbvudiv()!=null) {
                         currentTerm = "bvudiv";
+                    }else if (tmpctx.bfbvsdiv()!=null) {
+                        currentTerm = "bvsdiv";
                     }else if (tmpctx.bfbvsrem()!=null) {
                         currentTerm = "bvsrem";
                     }else if (tmpctx.bfbvsmod()!=null) {
@@ -1066,6 +1068,9 @@ public class SygusExtractor extends SygusBaseListener {
                 }else if (tmpctx.bvudiv()!=null) {
                     assert args.length==2 : "Wrong args number";
                     expr = z3ctx.mkBVUDiv((BitVecExpr)args[0],(BitVecExpr)args[1]);
+                }else if (tmpctx.bvsdiv()!=null) {
+                    assert args.length==2 : "Wrong args number";
+                    expr = z3ctx.mkBVSDiv((BitVecExpr)args[0],(BitVecExpr)args[1]);
                 }else if (tmpctx.bvsrem()!=null) {
                     assert args.length==2 : "Wrong args number";
                     expr = z3ctx.mkBVSRem((BitVecExpr)args[0],(BitVecExpr)args[1]);

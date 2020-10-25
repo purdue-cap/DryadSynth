@@ -96,6 +96,7 @@ bitarith : bvadd
 		 | bvmul
 		 | bvurem
 		 | bvudiv
+		 | bvsdiv
 		 | bvsrem
 		 | bvsmod
 		 | bvshl
@@ -108,6 +109,7 @@ bvneg : '(' 'bvneg' term ')';
 bvmul : '(' 'bvmul' term term ')';
 bvurem : '(' 'bvurem' term term ')';
 bvudiv : '(' 'bvudiv' term term ')';
+bvsdiv : '(' 'bvsdiv' term term ')';
 bvsrem : '(' 'bvsrem' term term ')';
 bvsmod : '(' 'bvsmod' term term ')';
 bvshl : '(' 'bvshl' term term ')';
@@ -180,6 +182,7 @@ bfbitarith : bfbvadd
 		 | bfbvmul
 		 | bfbvurem
 		 | bfbvudiv
+		 | bfbvsdiv
 		 | bfbvsrem
 		 | bfbvsmod
 		 | bfbvshl
@@ -192,6 +195,7 @@ bfbvneg : '(' 'bvneg' bfterm ')';
 bfbvmul : '(' 'bvmul' bfterm bfterm ')';
 bfbvurem : '(' 'bvurem' bfterm bfterm ')';
 bfbvudiv : '(' 'bvudiv' bfterm bfterm ')';
+bfbvsdiv : '(' 'bvsdiv' bfterm bfterm ')';
 bfbvsrem : '(' 'bvsrem' bfterm bfterm ')';
 bfbvsmod : '(' 'bvsmod' bfterm bfterm ')';
 bfbvshl : '(' 'bvshl' bfterm bfterm ')';
