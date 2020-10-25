@@ -4,7 +4,7 @@ import org.antlr.v4.runtime.tree.*;
 import com.microsoft.z3.*;
 
 public class SygusExtractor extends SygusBaseListener {
-	Context z3ctx;
+	static Context z3ctx;
     public SygusExtractor(Context initctx) {
         z3ctx = initctx;
         combinedConstraint = z3ctx.mkTrue();
@@ -80,8 +80,16 @@ public class SygusExtractor extends SygusBaseListener {
         pblm.varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(this.varsRelation);
 
         pblm.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(this.glbSybTypeTbl);
+        // System.out.println("glbSybTypeTbl");
+        // for (String key: pblm.glbSybTypeTbl.keySet()) {
+        //     System.out.println(key + ": " + pblm.glbSybTypeTbl.get(key));
+        // }
         for (String key : this.cfgs.keySet()) {
             pblm.cfgs.put(key, new SygusProblem.CFG(this.cfgs.get(key)));
+            // System.out.println();
+            // System.out.println(key);
+            // System.out.println("cfg:");
+            // pblm.cfgs.get(key).printcfg();
         }
         pblm.isGeneral = this.isGeneral;
         return pblm;
@@ -629,7 +637,9 @@ public class SygusExtractor extends SygusBaseListener {
 
 
     public void enterGrammardef(SygusParser.GrammardefContext ctx){
-        problemType = SygusProblem.ProbType.GENERAL;
+        if (problemType != SygusProblem.ProbType.BV) {
+            problemType = SygusProblem.ProbType.GENERAL;
+        }
         isGeneral = true;
         currentCmd = CmdType.NTDEF;
     }
@@ -755,7 +765,16 @@ public class SygusExtractor extends SygusBaseListener {
             currentTerm = ctx.identifier().symbol().getText();
         }else if (ctx.literal()!=null) {
             currentTerm = ctx.literal().getText();
-            glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LITERAL);
+            if (ctx.literal().numeral() != null) {
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.NUMERAL);
+            } else if (ctx.literal().hexconst() != null) {
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.HEX);
+            } else if (ctx.literal().binconst() != null) {
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.BIN);
+            } else {
+                // Set the type to LITERAL for debugging purpose
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LITERAL);
+            }
         }else{
             currentTerm = null;
         }
@@ -931,7 +950,8 @@ public class SygusExtractor extends SygusBaseListener {
         }
         return null;
     }
-    BitVecNum hex(String hexnum){
+
+    public static BitVecNum hex(String hexnum){
         int len = hexnum.length();
         long tmp = 0;
         for(char c:hexnum.toCharArray()){
@@ -950,7 +970,8 @@ public class SygusExtractor extends SygusBaseListener {
         }
         return z3ctx.mkBV(tmp,(len-2)*4);
     }
-    BitVecNum bin(String binnum){
+
+    public static BitVecNum bin(String binnum){
         int len = binnum.length();
         int tmp = 0;
         for(char c:binnum.toCharArray()){
@@ -963,6 +984,7 @@ public class SygusExtractor extends SygusBaseListener {
         }
         return z3ctx.mkBV(tmp,(len-2));
     }
+
     public void identermplustostack(SygusParser.IdentermplusContext ctx,SygusParser.TermContext topctx){
         List<Expr> tmpargs = new ArrayList<Expr>();
         Object top = termStack.pop();

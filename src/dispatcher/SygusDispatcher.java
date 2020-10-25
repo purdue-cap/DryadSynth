@@ -9,7 +9,7 @@ import com.microsoft.z3.*;
 
 public class SygusDispatcher {
     public enum SolveMethod {
-        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC, INVDNC
+        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC, INVDNC, BV
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
@@ -202,6 +202,7 @@ public class SygusDispatcher {
 
     public void prescreen() {
         // first check if a General track problem can be convert to CLIA or not
+        logger.info("Problem type: " + problem.problemType);
         prescreenGeneral();
         if (this.enforceCEGIS) {
             logger.info("Enforcing CEGIS algorithms, skipping prescreen.");
@@ -210,6 +211,12 @@ public class SygusDispatcher {
         }
         boolean checkResult = this.checkGeneral();
         if (checkResult) {
+            checkResult = this.checkBV();
+            if (checkResult) {
+                logger.info("BitVec SyGuS problem detected, using BV-dedicated backend.");
+                this.method = SolveMethod.BV;
+                return;
+            }
             checkResult = this.checkDnC();
             if (checkResult) {
                 logger.info("General Divide and Conquer Algorithm applicable, applying");
@@ -439,6 +446,14 @@ public class SygusDispatcher {
             return;
         }
 
+        if (this.method == SolveMethod.BV) {
+            logger.info("Initializing BV-dedicated algorithms.");
+            // Support single thread only for now, ignoring numCore settings.
+            threads = new Thread[1];
+            threads[0] = new BVEnum(z3ctx, problem, logger, numCore);
+            return;
+        }
+
     }
 
     public DefinedFunc[] runAlgorithm() throws Exception{
@@ -488,6 +503,12 @@ public class SygusDispatcher {
             logger.info("Starting SSI-Comm algorithms.");
             threads[0].run();
             results = ((SSICommu)threads[0]).results;
+        }
+
+        if (this.method == SolveMethod.BV) {
+            logger.info("Starting BV algorithms.");
+            threads[0].run();
+            results = ((BVEnum)threads[0]).results;
         }
 
         if (this.method == SolveMethod.AT){
@@ -831,6 +852,10 @@ public class SygusDispatcher {
 
     boolean checkGeneral() {
         return problem.isGeneral;
+    }
+
+    boolean checkBV() {
+        return problem.problemType == SygusProblem.ProbType.BV;
     }
 
     boolean validateCandidates() {

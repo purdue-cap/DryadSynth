@@ -42,7 +42,7 @@ public class SygusProblem {
 
     // For grammar parsing
     public enum SybType {
-        LITERAL, GLBVAR, FUNC, SYMBOL, LCLARG, CSTINT, CSTBOL;
+        LITERAL, NUMERAL, HEX, BIN, GLBVAR, FUNC, SYMBOL, LCLARG, CSTINT, CSTBOL;
     }
     // Inner grammar class
     public static class CFG {
@@ -53,14 +53,24 @@ public class SygusProblem {
         public Map<String, SybType> sybTypeTbl = new LinkedHashMap<String, SybType>();
         public Map<String, Expr> localArgs = new LinkedHashMap<String, Expr>();
         public void printcfg(){
+            System.out.println("grammarSybSort");
             for(String key : this.grammarSybSort.keySet()){
                 System.out.println(key);
                 System.out.println(this.grammarSybSort.get(key).toString());
             }
+            System.out.println("grammarRules");
+            for(String key : this.grammarRules.keySet()){
+                System.out.println(key);
+                for (String[] grammarRule : this.grammarRules.get(key)) {
+                    System.out.println(Arrays.deepToString(grammarRule));
+                }
+            }
+            System.out.println("sybTypeTbl");
             for(String key : this.sybTypeTbl.keySet()){
                 System.out.println(key);
                 System.out.println(this.sybTypeTbl.get(key));
             }
+            System.out.println("localArgs");
             for(String key : this.localArgs.keySet()){
                 System.out.println(key);
                 System.out.println(this.localArgs.get(key).toString());
