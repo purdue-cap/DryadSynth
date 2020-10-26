@@ -60,7 +60,7 @@ public class BVEnum extends Thread {
                     String term = rule[0];
                     SygusProblem.SybType termType = getSybType(cfg, term);
                     if(termType.toString() == "CSTBIT"){
-                        for(int i = 0;i < Math.pow(2, 32);i++){ // not sure if this is the correct way to implement (Constant _Bitvec 32)
+                        /*for(int i = 0;i < 100;i++){ // not sure if this is the correct way to implement (Constant _Bitvec 32)
                            Expr terminal =  SygusExtractor.hex(i);
                            if (!exprByHeight.containsKey(1)) {
                                 List<Expr> exprs = new ArrayList<Expr>();
@@ -69,21 +69,8 @@ public class BVEnum extends Thread {
                             } else {
                                 exprByHeight.get(1).add(terminal);
                             }
-                        }
-                    }else if(termType.toString() == "VARBIT"){
-                        for(Map.Entry<String,Expr> entry: cfg.localArgs.entrySet()){
-                            Expr terminal = entry.getValue();
-                            System.out.println(terminal);
-                            if (!exprByHeight.containsKey(1)) {
-                                List<Expr> exprs = new ArrayList<Expr>();
-                                exprs.add(terminal);
-                                exprByHeight.put(1, exprs);
-                            } else {
-                                exprByHeight.get(1).add(terminal);
-                            }
-                        }
-                    }
-                    else{
+                        }*/
+                    }else{
                         Expr terminal = getSybExpr(cfg, term, termType);
                         // populate storage with expressions with h = 1
                         if (!exprByHeight.containsKey(1)) {

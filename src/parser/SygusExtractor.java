@@ -672,13 +672,12 @@ public class SygusExtractor extends SygusBaseListener {
                 System.arraycopy(args, 0, repr, 1, args.length);
                 currentCFG.grammarRules.get(currentSymbol).add(repr);
                 grammarArgs.clear();
-                //System.out.println(args[0]);
             }
         }//todo:add support for (Variable sort) for btr*
         else if(ctx.getChild(1) != null && ctx.getChild(1).getText().equals("Variable")){
-            if(ctx.sort().getText().equals("(_BitVec32)")){
-                currentTerm = "VariableBitVec32";
-                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.VARBIT);
+            for (String arg : currentArgNameList) {
+                currentTerm = arg;
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LCLARG);
                 String[] args = grammarArgs.toArray(new String[grammarArgs.size()]);
                 String[] repr = Arrays.copyOf(new String[]{currentTerm}, 1 + args.length);
                 System.arraycopy(args, 0, repr, 1, args.length);
@@ -993,16 +992,6 @@ public class SygusExtractor extends SygusBaseListener {
         }
         return z3ctx.mkBV(tmp,(len-2)*4);
     }
-
-    public static int log2(int N) 
-    { 
-  
-        // calculate log2 N indirectly 
-        // using log() method 
-        int result = (int)(Math.log(N) / Math.log(2)); 
-  
-        return result; 
-    } 
 
     public static BitVecNum hex(int i){
         return z3ctx.mkBV(i,32);
