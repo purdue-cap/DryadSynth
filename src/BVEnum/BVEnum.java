@@ -15,7 +15,6 @@ public class BVEnum extends Thread {
     // TODO: support BV constant
     private String start = null;  // start symbol of the grammar
     private Map<String, List<String[]>> recRules = new LinkedHashMap<String, List<String[]>>();  // grammar rules with recursive production
-    private List<String[]> startRecRules;// grammar rules with recursive production for start symbol
     private Map<String, Map<Integer, List<Expr>>> storage = new LinkedHashMap<String, Map<Integer, List<Expr>>>();  // type -> <tree_height -> possible_formulae>
     private Map<Integer, Map<Integer, Set<Integer[]>>> permutations = new LinkedHashMap<Integer, Map<Integer, Set<Integer[]>>>(); // max_height -> <num_args -> possible_permutations>
 
@@ -75,7 +74,6 @@ public class BVEnum extends Thread {
             this.recRules.put(symbol, recs);
             this.storage.put(symbol, exprByHeight);
         }
-        this.startRecRules = recRules.get(start);
     }
 
     SygusProblem.SybType getSybType(SygusProblem.CFG cfg, String syb) {
@@ -215,7 +213,7 @@ public class BVEnum extends Thread {
                 // generate all the possible expressions of given height and given type
                 List<Expr> candidateList = new ArrayList<Expr>();
                 // for each possible rule of the start symbol
-                for (String[] rule : this.startRecRules) {
+                for (String[] rule : this.recRules.get(nonTerminal)) {
                     int numArgs = rule.length - 1;
                     // get or generate all the possible permutations of tree heights
                     Set<Integer[]> permutations = getPermutation(height - 1, numArgs);
