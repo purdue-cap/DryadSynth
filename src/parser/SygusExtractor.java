@@ -667,22 +667,14 @@ public class SygusExtractor extends SygusBaseListener {
             } else if (ctx.sort().getText().equals("(_BitVec32)")){
                 currentTerm = "ConstantBitVec32";
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.CSTBIT);
-                String[] args = grammarArgs.toArray(new String[grammarArgs.size()]);
-                String[] repr = Arrays.copyOf(new String[]{currentTerm}, 1 + args.length);
-                System.arraycopy(args, 0, repr, 1, args.length);
-                currentCFG.grammarRules.get(currentSymbol).add(repr);
-                grammarArgs.clear();
-            }
-        }//todo:add support for (Variable sort) for btr*
+                currentCFG.grammarRules.get(currentSymbol).add(new String[]{currentTerm});
+            }//todo:add support for (_BitVec64) etc.
+        }
         else if(ctx.getChild(1) != null && ctx.getChild(1).getText().equals("Variable")){
             for (String arg : currentArgNameList) {
                 currentTerm = arg;
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LCLARG);
-                String[] args = grammarArgs.toArray(new String[grammarArgs.size()]);
-                String[] repr = Arrays.copyOf(new String[]{currentTerm}, 1 + args.length);
-                System.arraycopy(args, 0, repr, 1, args.length);
-                currentCFG.grammarRules.get(currentSymbol).add(repr);
-                grammarArgs.clear();
+                currentCFG.grammarRules.get(currentSymbol).add(new String[]{currentTerm});
             }
         }
     }
