@@ -24,6 +24,7 @@ public class SygusExtractor extends SygusBaseListener {
     Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
     Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
     Map<String, Set<Set<Expr>>> varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>();	// vars relationship map, used for INV DnC
+    Map<String, List<String>> symbolAsBfterm = new LinkedHashMap<String, List<String>>();
     List<Expr> currentArgList;
     List<String> currentArgNameList;
     List<Sort> currentSortList;
@@ -612,6 +613,17 @@ public class SygusExtractor extends SygusBaseListener {
         currentSortList = new ArrayList<Sort>();
     }
     public void exitSynthfun(SygusParser.SynthfunContext ctx) {
+        if(problemType == SygusProblem.ProbType.BV){
+            for(String symbol: currentCFG.sybTypeTbl.keySet()){
+                if(symbolAsBfterm.containsKey(symbol)){
+                    for(String parent_symbol : symbolAsBfterm.get(symbol)){
+                        for(String[] term : currentCFG.grammarRules.get(symbol)){
+                            currentCFG.grammarRules.get(parent_symbol).add(term);
+                        }
+                    }
+                }
+            }
+        }
         String name = ctx.symbol().getText();
         Expr[] argList = currentArgList.toArray(new Expr[currentArgList.size()]);
         Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
@@ -689,11 +701,11 @@ public class SygusExtractor extends SygusBaseListener {
                 currentTerm = "ite";
             }else if(ctx.idenbftermplus().bfboolexpr()!=null){
                 SygusParser.BfboolexprContext tmpctx = ctx.idenbftermplus().bfboolexpr();
-                if(tmpctx.bfandexpr()!=null){
+                if(tmpctx.bfandexpr()!=null || tmpctx.bfand()!=null){
                     currentTerm = "and";
                 }else if (tmpctx.bforexpr()!=null) {
                     currentTerm = "or";
-                }else if (tmpctx.bfnotexpr()!=null) {
+                }else if (tmpctx.bfnotexpr()!=null || tmpctx.bfnot()!=null) {
                     currentTerm = "not";
                 }else if (tmpctx.bfeqexpr()!=null) {
                     currentTerm = "=";
@@ -723,7 +735,8 @@ public class SygusExtractor extends SygusBaseListener {
                     currentTerm = "bvsle";
                 }else if (tmpctx.bfbvslt()!=null) {
                     currentTerm = "bvslt";
-
+                }else if (tmpctx.bfxor()!=null) {
+                    currentTerm = "xor";
                 }
             }else if(ctx.idenbftermplus().bfintexpr()!=null){
                 SygusParser.BfintexprContext tmpctx = ctx.idenbftermplus().bfintexpr();
@@ -800,6 +813,8 @@ public class SygusExtractor extends SygusBaseListener {
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.HEX);
             } else if (ctx.literal().binconst() != null) {
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.BIN);
+            } else if (ctx.literal().boolconst() != null) {
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.BOOL);
             } else {
                 // Set the type to LITERAL for debugging purpose
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LITERAL);
@@ -822,10 +837,19 @@ public class SygusExtractor extends SygusBaseListener {
                 grammarArgs.clear();
                 inGrammarArgs = false;
             }
-            
-            
-        } else{
+        } else if(currentArgNameList.contains(currentTerm) || currentTerm.equals("true") || currentTerm.equals("false")){
             currentCFG.grammarRules.get(currentSymbol).add(new String[]{currentTerm});
+        } else{
+            if(symbolAsBfterm.containsKey(currentTerm)){
+                List<String> parent_symbol = symbolAsBfterm.remove(currentTerm);
+                parent_symbol.add(currentSymbol);
+                symbolAsBfterm.put(currentTerm,parent_symbol);
+            }
+            else{
+                List<String> parent_symbol = new ArrayList<String>();
+                parent_symbol.add(currentSymbol);
+                symbolAsBfterm.put(currentTerm,parent_symbol);
+            }
         }
     }
     public void exitGroupedrulelist(SygusParser.GroupedrulelistContext ctx){
@@ -981,6 +1005,10 @@ public class SygusExtractor extends SygusBaseListener {
         return null;
     }
 
+    public static BoolExpr bool(String boolinput){
+        return boolinput.equals("true") ? z3ctx.mkTrue() : z3ctx.mkFalse();
+    }
+
     public static BitVecNum hex(String hexnum){
         int len = hexnum.length();
         long tmp = 0;
@@ -1037,11 +1065,11 @@ public class SygusExtractor extends SygusBaseListener {
             expr = z3ctx.mkITE((BoolExpr)args[0],args[1],args[2]);
         }else if(ctx.boolexpr()!=null){
             SygusParser.BoolexprContext tmpctx = ctx.boolexpr();
-            if(tmpctx.andexpr()!=null){
+            if(tmpctx.andexpr()!=null || tmpctx.and()!= null){
                 expr = z3ctx.mkAnd(Arrays.copyOf(args, args.length, BoolExpr[].class));
             }else if (tmpctx.orexpr()!=null) {
                 expr = z3ctx.mkOr(Arrays.copyOf(args, args.length, BoolExpr[].class));
-            }else if (tmpctx.notexpr()!=null) {
+            }else if (tmpctx.notexpr()!=null || tmpctx.not() != null) {
                 assert args.length==1 : "Wrong args number";
                 expr = z3ctx.mkNot((BoolExpr)args[0]);
             }else if (tmpctx.eqexpr()!=null) {
@@ -1086,6 +1114,9 @@ public class SygusExtractor extends SygusBaseListener {
             }else if (tmpctx.bvslt()!=null) {
                 assert args.length==2 : "Wrong args number";
                 expr = z3ctx.mkBVSLT((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.xor()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkXor((BoolExpr)args[0], (BoolExpr)args[1]);
             }
         }else if(ctx.intexpr()!=null){
             SygusParser.IntexprContext tmpctx = ctx.intexpr();

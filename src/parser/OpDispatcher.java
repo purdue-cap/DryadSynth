@@ -156,6 +156,15 @@ public class OpDispatcher {
         if (name.equals("bvslt")) {
             return z3ctx.mkBVSLT((BitVecExpr)args[0],(BitVecExpr)args[1]);
         }
+        if (name.equals("and")) {
+            return z3ctx.mkAnd((BoolExpr)args[0],(BoolExpr)args[1]);
+        }
+        if (name.equals("not")) {
+            return z3ctx.mkNot((BoolExpr)args[0]);
+        }
+        if (name.equals("xor")) {
+            return z3ctx.mkXor((BoolExpr)args[0],(BoolExpr)args[1]);
+        }
 
         DefinedFunc df = funcs.get(name);
         if (df != null) {

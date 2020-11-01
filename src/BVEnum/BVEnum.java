@@ -17,6 +17,7 @@ public class BVEnum extends Thread {
     private Map<String, List<String[]>> recRules = new LinkedHashMap<String, List<String[]>>();  // grammar rules with recursive production
     private Map<String, Map<Integer, List<Expr>>> storage = new LinkedHashMap<String, Map<Integer, List<Expr>>>();  // type -> <tree_height -> possible_formulae>
     private Map<Integer, Map<Integer, Set<Integer[]>>> permutations = new LinkedHashMap<Integer, Map<Integer, Set<Integer[]>>>(); // max_height -> <num_args -> possible_permutations>
+    private List<String> symbols = new ArrayList<String>();
 
     private Verifier verifier;
     public DefinedFunc[] results;
@@ -97,6 +98,8 @@ public class BVEnum extends Thread {
             return this.problem.vars.get(term);
         } else if (type == SygusProblem.SybType.LCLARG) {
             return cfg.localArgs.get(term);
+        } else if (type == SygusProblem.SybType.BOOL) {
+            return SygusExtractor.bool(term);
         } else {
             logger.severe("getSybExpr: Symbol type unseen before");
             return null;
@@ -179,7 +182,6 @@ public class BVEnum extends Thread {
             res.add(new ArrayList<Expr>(comb));
             return;
         }
-
         List<Expr> exprs = storage.get(rule[index + 1]).get(heightPrmt[index]);
         for (int i = 0; i < exprs.size(); i++) {
             comb.add(exprs.get(i));

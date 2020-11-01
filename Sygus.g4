@@ -73,6 +73,9 @@ boolexpr : boolconst
 		 | bvsge
 		 | bvsgt
 		 | bvsle
+		 | and
+		 | not
+		 | xor
 
 		 ;
 andexpr : '(' 'and' (term)+ ')';
@@ -92,6 +95,9 @@ bvslt  : '(' 'bvslt' term term ')';
 bvsge  : '(' 'bvsge' term term ')';
 bvsgt  : '(' 'bvsgt' term term ')';
 bvsle  : '(' 'bvsle' term term ')';
+and  : '(' 'and' term term ')';
+xor  : '(' 'xor' term term ')';
+not  : '(' 'not' term term ')';
 
 intexpr : numeral
 		| addexpr
@@ -177,6 +183,9 @@ bfboolexpr : bfandexpr
 		 | bfbvsge
 		 | bfbvsgt
 		 | bfbvsle
+		 | bfand
+		 | bfnot
+		 | bfxor
 		 ;
 bfandexpr : '(' 'and' (bfterm)+ ')';
 bforexpr : '(' 'or' (bfterm)+ ')';
@@ -195,6 +204,9 @@ bfbvslt  : '(' 'bfbvslt' term term ')';
 bfbvsge  : '(' 'bfbvsge' term term ')';
 bfbvsgt  : '(' 'bfbvsgt' term term ')';
 bfbvsle  : '(' 'bfbvsle' term term ')';
+bfand : '(' 'bfand' term term ')';
+bfxor : '(' 'bfxor' term term ')';
+bfnot : '(' 'bfnot' term term ')';
 
 bfintexpr : bfaddexpr
 		| bfminusexpr
