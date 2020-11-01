@@ -132,6 +132,30 @@ public class OpDispatcher {
         if (name.equals("bvxnor")) {
             return z3ctx.mkBVXNOR((BitVecExpr)args[0],(BitVecExpr)args[1]);
         }
+        if (name.equals("bvuge")) {
+            return z3ctx.mkBVUGE((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
+        if (name.equals("bvugt")) {
+            return z3ctx.mkBVUGT((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
+        if (name.equals("bvule")) {
+            return z3ctx.mkBVULE((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
+        if (name.equals("bvult")) {
+            return z3ctx.mkBVULT((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
+        if (name.equals("bvsge")) {
+            return z3ctx.mkBVSGE((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
+        if (name.equals("bvsgt")) {
+            return z3ctx.mkBVSGT((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
+        if (name.equals("bvsle")) {
+            return z3ctx.mkBVSLE((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
+        if (name.equals("bvslt")) {
+            return z3ctx.mkBVSLT((BitVecExpr)args[0],(BitVecExpr)args[1]);
+        }
 
         DefinedFunc df = funcs.get(name);
         if (df != null) {
