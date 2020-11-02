@@ -17,7 +17,6 @@ public class BVEnum extends Thread {
     private Map<String, List<String[]>> recRules = new LinkedHashMap<String, List<String[]>>();  // grammar rules with recursive production
     private Map<String, Map<Integer, List<Expr>>> storage = new LinkedHashMap<String, Map<Integer, List<Expr>>>();  // type -> <tree_height -> possible_formulae>
     private Map<Integer, Map<Integer, Set<Integer[]>>> permutations = new LinkedHashMap<Integer, Map<Integer, Set<Integer[]>>>(); // max_height -> <num_args -> possible_permutations>
-    private List<String> symbols = new ArrayList<String>();
 
     private Verifier verifier;
     public DefinedFunc[] results;
