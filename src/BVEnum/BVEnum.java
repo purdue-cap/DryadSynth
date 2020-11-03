@@ -97,6 +97,8 @@ public class BVEnum extends Thread {
             return this.problem.vars.get(term);
         } else if (type == SygusProblem.SybType.LCLARG) {
             return cfg.localArgs.get(term);
+        } else if (type == SygusProblem.SybType.BOOL) {
+            return SygusExtractor.bool(term);
         } else {
             logger.severe("getSybExpr: Symbol type unseen before");
             return null;
@@ -179,7 +181,6 @@ public class BVEnum extends Thread {
             res.add(new ArrayList<Expr>(comb));
             return;
         }
-
         List<Expr> exprs = storage.get(rule[index + 1]).get(heightPrmt[index]);
         for (int i = 0; i < exprs.size(); i++) {
             comb.add(exprs.get(i));

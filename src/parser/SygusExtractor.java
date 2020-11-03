@@ -711,7 +711,24 @@ public class SygusExtractor extends SygusBaseListener {
                     currentTerm = "<=";
                 }else if (tmpctx.bftoexpr()!=null) {
                     currentTerm = "=>";
-
+                }else if (tmpctx.bfbvuge()!=null) {
+                    currentTerm = "bvuge";
+                }else if (tmpctx.bfbvugt()!=null) {
+                    currentTerm = "bvugt";
+                }else if (tmpctx.bfbvule()!=null) {
+                    currentTerm = "bvule";
+                }else if (tmpctx.bfbvult()!=null) {
+                    currentTerm = "bvult";
+                }else if (tmpctx.bfbvsge()!=null) {
+                    currentTerm = "bvsge";
+                }else if (tmpctx.bfbvsgt()!=null) {
+                    currentTerm = "bvsgt";
+                }else if (tmpctx.bfbvsle()!=null) {
+                    currentTerm = "bvsle";
+                }else if (tmpctx.bfbvslt()!=null) {
+                    currentTerm = "bvslt";
+                }else if (tmpctx.bfxor()!=null) {
+                    currentTerm = "xor";
                 }
             }else if(ctx.idenbftermplus().bfintexpr()!=null){
                 SygusParser.BfintexprContext tmpctx = ctx.idenbftermplus().bfintexpr();
@@ -788,6 +805,8 @@ public class SygusExtractor extends SygusBaseListener {
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.HEX);
             } else if (ctx.literal().binconst() != null) {
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.BIN);
+            } else if (ctx.literal().boolconst() != null) {
+                glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.BOOL);
             } else {
                 // Set the type to LITERAL for debugging purpose
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.LITERAL);
@@ -810,11 +829,9 @@ public class SygusExtractor extends SygusBaseListener {
                 grammarArgs.clear();
                 inGrammarArgs = false;
             }
-            
-            
         } else{
             currentCFG.grammarRules.get(currentSymbol).add(new String[]{currentTerm});
-        }
+        } 
     }
     public void exitGroupedrulelist(SygusParser.GroupedrulelistContext ctx){
         currentCmd = CmdType.NONE;
@@ -969,6 +986,10 @@ public class SygusExtractor extends SygusBaseListener {
         return null;
     }
 
+    public static BoolExpr bool(String boolinput){
+        return boolinput.equals("true") ? z3ctx.mkTrue() : z3ctx.mkFalse();
+    }
+
     public static BitVecNum hex(String hexnum){
         int len = hexnum.length();
         long tmp = 0;
@@ -1051,6 +1072,33 @@ public class SygusExtractor extends SygusBaseListener {
             }else if (tmpctx.toexpr()!=null) {
                 assert args.length==2 : "Wrong args number";
                 expr = z3ctx.mkImplies((BoolExpr)args[0], (BoolExpr)args[1]);
+            }else if (tmpctx.bvuge()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkBVUGE((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.bvugt()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkBVUGT((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.bvule()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkBVULE((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.bvult()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkBVULT((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.bvsge()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkBVSGE((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.bvsgt()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkBVSGT((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.bvsle()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkBVSLE((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.bvslt()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkBVSLT((BitVecExpr)args[0], (BitVecExpr)args[1]);
+            }else if (tmpctx.xor()!=null) {
+                assert args.length==2 : "Wrong args number";
+                expr = z3ctx.mkXor((BoolExpr)args[0], (BoolExpr)args[1]);
             }
         }else if(ctx.intexpr()!=null){
             SygusParser.IntexprContext tmpctx = ctx.intexpr();

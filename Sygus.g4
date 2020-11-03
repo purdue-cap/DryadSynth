@@ -65,6 +65,16 @@ boolexpr : boolconst
 		 | ltexpr
 		 | leexpr
 		 | toexpr
+		 | bvuge
+		 | bvugt
+		 | bvule
+		 | bvult
+		 | bvslt
+		 | bvsge
+		 | bvsgt
+		 | bvsle
+		 | xor
+
 		 ;
 andexpr : '(' 'and' (term)+ ')';
 orexpr : '(' 'or' (term)+ ')';
@@ -75,6 +85,15 @@ geexpr : '(' '>=' term term ')';
 ltexpr : '(' '<' term term ')';
 leexpr : '(' '<=' term term ')';
 toexpr : '(' '=>' term term ')';
+bvuge  : '(' 'bvuge' term term ')';
+bvugt  : '(' 'bvugt' term term ')';
+bvule  : '(' 'bvule' term term ')';
+bvult  : '(' 'bvult' term term ')';
+bvslt  : '(' 'bvslt' term term ')';
+bvsge  : '(' 'bvsge' term term ')';
+bvsgt  : '(' 'bvsgt' term term ')';
+bvsle  : '(' 'bvsle' term term ')';
+xor  : '(' 'xor' term term ')';
 
 intexpr : numeral
 		| addexpr
@@ -152,6 +171,15 @@ bfboolexpr : bfandexpr
 		 | bfltexpr
 		 | bfleexpr
 		 | bftoexpr
+		 | bfbvuge
+		 | bfbvugt
+		 | bfbvule
+		 | bfbvult
+		 | bfbvslt
+		 | bfbvsge
+		 | bfbvsgt
+		 | bfbvsle
+		 | bfxor
 		 ;
 bfandexpr : '(' 'and' (bfterm)+ ')';
 bforexpr : '(' 'or' (bfterm)+ ')';
@@ -162,6 +190,15 @@ bfgeexpr : '(' '>=' bfterm bfterm ')';
 bfltexpr : '(' '<' bfterm bfterm ')';
 bfleexpr : '(' '<=' bfterm bfterm ')';
 bftoexpr : '(' '=>' bfterm bfterm ')';
+bfbvuge  : '(' 'bfbvuge' term term ')';
+bfbvugt  : '(' 'bfbvugt' term term ')';
+bfbvule  : '(' 'bfbvule' term term ')';
+bfbvult  : '(' 'bfbvult' term term ')';
+bfbvslt  : '(' 'bfbvslt' term term ')';
+bfbvsge  : '(' 'bfbvsge' term term ')';
+bfbvsgt  : '(' 'bfbvsgt' term term ')';
+bfbvsle  : '(' 'bfbvsle' term term ')';
+bfxor : '(' 'bfxor' term term ')';
 
 bfintexpr : bfaddexpr
 		| bfminusexpr

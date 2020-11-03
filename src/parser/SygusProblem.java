@@ -43,7 +43,7 @@ public class SygusProblem {
 
     // For grammar parsing
     public enum SybType {
-        LITERAL, NUMERAL, HEX, BIN, GLBVAR, FUNC, SYMBOL, LCLARG, CSTINT, CSTBOL, CSTBIT;
+        LITERAL, NUMERAL, HEX, BIN, GLBVAR, FUNC, SYMBOL, LCLARG, CSTINT, CSTBOL, CSTBIT, BOOL;
     }
     // Inner grammar class
     public static class CFG {
