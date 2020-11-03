@@ -29,6 +29,7 @@ public class SygusExtractor extends SygusBaseListener {
     List<Sort> currentSortList;
     Map<String, Expr> lettmp = new LinkedHashMap<String,Expr>();
     SygusProblem.ProbType problemType = null;
+    List<List<Expr>> ioexamples = new ArrayList<List<Expr>>();  // input-output examples, output should be the last element in the list, assume that there is one function to synthesize
 
     Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
     Map<String, Expr> regularVars = new LinkedHashMap<String, Expr>();
@@ -78,7 +79,10 @@ public class SygusExtractor extends SygusBaseListener {
         pblm.funcs = new LinkedHashMap<String, DefinedFunc>(this.funcs);
         pblm.opDis = new OpDispatcher(this.z3ctx, this.requests, this.funcs);
         pblm.varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(this.varsRelation);
-
+        pblm.ioexamples = new ArrayList<List<Expr>>(this.ioexamples);
+        // for (List<Expr> example : pblm.ioexamples) {
+        //     System.out.println("example: " + Arrays.deepToString(example.toArray()));
+        // }
         pblm.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(this.glbSybTypeTbl);
         // System.out.println("glbSybTypeTbl");
         // for (String key: pblm.glbSybTypeTbl.keySet()) {
@@ -1030,6 +1034,7 @@ public class SygusExtractor extends SygusBaseListener {
                 expr = z3ctx.mkNot((BoolExpr)args[0]);
             }else if (tmpctx.eqexpr()!=null) {
                 assert args.length==2 : "Wrong args number";
+                collectIOExample(args);
                 expr = z3ctx.mkEq(args[0],args[1]);
             }else if (tmpctx.gtexpr()!=null) {
                 assert args.length==2 : "Wrong args number";
@@ -1159,6 +1164,20 @@ public class SygusExtractor extends SygusBaseListener {
         }
     }
 
+    public void collectIOExample(Expr[] args) {
+        assert args.length==2 : "Wrong args number";
+        if (currentCmd == CmdType.CONSTRAINT) {
+            if (args[0].isApp() && names.get(0).equals(args[0].getFuncDecl().getName().toString()) && args[1].isNumeral()) {
+                List<Expr> ioexample = new ArrayList<Expr>(Arrays.asList(args[0].getArgs()));
+                ioexample.add(args[1]);
+                ioexamples.add(ioexample);
+            } else if (args[1].isApp() && names.get(0).equals(args[1].getFuncDecl().getName().toString()) && args[0].isNumeral()) {
+                List<Expr> ioexample = new ArrayList<Expr>(Arrays.asList(args[1].getArgs()));
+                ioexample.add(args[0]);
+                ioexamples.add(ioexample);
+            }
+        }
+    }
 
     public void enterConstraint(SygusParser.ConstraintContext ctx) {
         currentCmd = CmdType.CONSTRAINT;

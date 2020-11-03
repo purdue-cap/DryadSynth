@@ -11,6 +11,7 @@ public class SygusProblem {
     public Map<String, Expr[]> requestSyntaxUsedArgs = new LinkedHashMap<String, Expr[]>(); // Used arguments in Syntax, used in AT fragment
     public Map<String, FuncDecl> rdcdRequests = new LinkedHashMap<String, FuncDecl>(); // Reduced request using used arguments
     public Map<String, DefinedFunc> candidate = new LinkedHashMap<String, DefinedFunc>(); // possible solution candidates from the benchmark
+    public List<List<Expr>> ioexamples = new ArrayList<List<Expr>>();  // input-output examples, output should be the last element in the list, assume that there is one function to synthesize
 
     public int searchHeight;    // the search height tried in fixed-height-cegis
     public boolean changed = false;     // flag indicates that if a problem is the original problem
@@ -134,6 +135,7 @@ public class SygusProblem {
         this.funcs = new LinkedHashMap<String, DefinedFunc>(src.funcs);
         this.opDis = new OpDispatcher(this.ctx, this.requests, this.funcs);
         this.varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(src.varsRelation);
+        this.ioexamples = new ArrayList<List<Expr>>(src.ioexamples);
 
         this.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(src.glbSybTypeTbl);
         for (String key : src.cfgs.keySet()) {
@@ -231,6 +233,16 @@ public class SygusProblem {
                 relation.add(newset);
             }
             newProblem.varsRelation.put(key, relation);
+        }
+
+        // no need to translate ioexamples as there is no z3 data-structure in it
+        newProblem.ioexamples = new ArrayList<List<Expr>>();
+        for (List<Expr> example : this.ioexamples) {
+            List<Expr> ioexample = new ArrayList<Expr>();
+            for (Expr expr : example) {
+                ioexample.add(expr.translate(ctx));
+            }
+            newProblem.ioexamples.add(ioexample);
         }
 
         return newProblem;
