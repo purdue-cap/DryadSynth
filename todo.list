@@ -2,3 +2,6 @@
 2. v2中负整数表示成了(- number)，因此在标准定义中负常数不属于literal，而是term中的identermplus（或bfterm中的idenbftermplus）然后在之前的generalInterpret等函数中并没有考虑这种情况（试图修改失败）理论上也可以在parser这边直接把他们看成literal。。不过因为synthesis的输出会用到这些负数，于是可能在后端处理更好？
 （这个东西导致General_Track中inv_gen和unbdd_inv_gen会出问题）
 3. Grammardef中直接出现了非终结符（MPw*）在generalInterpret等函数中没考虑有可能是Symbol的情况
+
+TODO:
+Handle (Constant sort) in bitvec backend. (Affected btr* benchmarks in General track.)

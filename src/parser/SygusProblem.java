@@ -235,7 +235,6 @@ public class SygusProblem {
             newProblem.varsRelation.put(key, relation);
         }
 
-        // no need to translate ioexamples as there is no z3 data-structure in it
         newProblem.ioexamples = new ArrayList<List<Expr>>();
         for (List<Expr> example : this.ioexamples) {
             List<Expr> ioexample = new ArrayList<Expr>();
