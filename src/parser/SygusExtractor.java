@@ -1224,16 +1224,20 @@ public class SygusExtractor extends SygusBaseListener {
                         Boolean is_equal = true;
                         for(Expr variables : target.getArgs()){
                             variables = variables.simplify();
-                            if(currentArgList.contains( variables.getArgs()[0]) && !variables.isEq() || variables.isNot()){
-                                is_equal = false;
-                                ioexamples.clear();
+                            if(variables.isNot()){
+                                variables = variables.getArgs()[0];
+                            }
+                            if(currentArgList.contains( variables.getArgs()[0])){
+                                if((!variables.isEq()) || !(variables.getArgs()[0].isNumeral() || variables.getArgs()[1].isNumeral())){
+                                    is_equal = false;
+                                    ioexamples.clear();
+                                }
                             }
                         }
                         if(is_equal == true){
                             ioexample = new ArrayList<Expr>(Arrays.asList(args[0].getArgs()));
                             ioexample.add(args[1]);
                             ioexamples.add(ioexample);
-                            System.out.println("Check");
                         }
                     }
                 }
@@ -1241,7 +1245,6 @@ public class SygusExtractor extends SygusBaseListener {
                     ioexample = new ArrayList<Expr>(Arrays.asList(args[0].getArgs()));
                     ioexample.add(args[1]);
                     ioexamples.add(ioexample);
-                    System.out.println("Yes");
                 }
                 
             } else if (args[1].isApp() && names.get(0).equals(args[1].getFuncDecl().getName().toString()) && args[0].isNumeral()) {
@@ -1252,16 +1255,21 @@ public class SygusExtractor extends SygusBaseListener {
                     if((args[1].getNumArgs() != 1 && target.isAnd()) || args[1].getNumArgs() == 1){
                         Boolean is_equal = true;
                         for(Expr variables : target.getArgs()){
-                            if(currentArgList.contains( variables.getArgs()[0]) && !variables.isEq() || variables.isNot()){
-                                is_equal = false;
-                                ioexamples.clear();
+                            variables = variables.simplify();
+                            if(variables.isNot()){
+                                variables = variables.getArgs()[0];
+                            }
+                            if(currentArgList.contains( variables.getArgs()[0])){
+                                if((!variables.isEq()) || !(variables.getArgs()[0].isNumeral() || variables.getArgs()[1].isNumeral())){
+                                    is_equal = false;
+                                    ioexamples.clear();
+                                }
                             }
                         }
                         if(is_equal == true){
                             ioexample = new ArrayList<Expr>(Arrays.asList(args[1].getArgs()));
                             ioexample.add(args[0]);
                             ioexamples.add(ioexample);
-                            System.out.println("Yes");
                         }
                     }
                 }
@@ -1269,7 +1277,6 @@ public class SygusExtractor extends SygusBaseListener {
                     ioexample = new ArrayList<Expr>(Arrays.asList(args[1].getArgs()));
                     ioexample.add(args[0]);
                     ioexamples.add(ioexample);
-                    System.out.println("Yes");
                 }
             }
         }
