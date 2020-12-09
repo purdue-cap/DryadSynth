@@ -1216,13 +1216,68 @@ public class SygusExtractor extends SygusBaseListener {
         assert args.length==2 : "Wrong args number";
         if (currentCmd == CmdType.CONSTRAINT) {
             if (args[0].isApp() && names.get(0).equals(args[0].getFuncDecl().getName().toString()) && args[1].isNumeral()) {
-                List<Expr> ioexample = new ArrayList<Expr>(Arrays.asList(args[0].getArgs()));
-                ioexample.add(args[1]);
-                ioexamples.add(ioexample);
+                List<Expr> ioexample; 
+                if(!termStack.isEmpty()){ // examine every variable to see if they are being assigned to a fixed value
+                    Expr target = (Expr)termStack.get(termStack.size()-1);
+                    target = target.simplify();
+                    if((args[0].getNumArgs() != 1 && target.isAnd()) || args[0].getNumArgs() == 1){
+                        Boolean is_equal = true;
+                        for(Expr variables : target.getArgs()){
+                            variables = variables.simplify();
+                            if(variables.isNot()){
+                                variables = variables.getArgs()[0];
+                            }
+                            if(currentArgList.contains( variables.getArgs()[0])){
+                                if((!variables.isEq()) || !(variables.getArgs()[0].isNumeral() || variables.getArgs()[1].isNumeral())){
+                                    is_equal = false;
+                                    ioexamples.clear();
+                                }
+                            }
+                        }
+                        if(is_equal == true){
+                            ioexample = new ArrayList<Expr>(Arrays.asList(args[0].getArgs()));
+                            ioexample.add(args[1]);
+                            ioexamples.add(ioexample);
+                        }
+                    }
+                }
+                else{
+                    ioexample = new ArrayList<Expr>(Arrays.asList(args[0].getArgs()));
+                    ioexample.add(args[1]);
+                    ioexamples.add(ioexample);
+                }
+                
             } else if (args[1].isApp() && names.get(0).equals(args[1].getFuncDecl().getName().toString()) && args[0].isNumeral()) {
-                List<Expr> ioexample = new ArrayList<Expr>(Arrays.asList(args[1].getArgs()));
-                ioexample.add(args[0]);
-                ioexamples.add(ioexample);
+                List<Expr> ioexample;
+                if(!termStack.isEmpty()){ // examine every variable to see if they are being assigned to a fixed value
+                    Expr target = (Expr)termStack.get(termStack.size()-1);
+                    target = target.simplify();
+                    if((args[1].getNumArgs() != 1 && target.isAnd()) || args[1].getNumArgs() == 1){
+                        Boolean is_equal = true;
+                        for(Expr variables : target.getArgs()){
+                            variables = variables.simplify();
+                            if(variables.isNot()){
+                                variables = variables.getArgs()[0];
+                            }
+                            if(currentArgList.contains( variables.getArgs()[0])){
+                                if((!variables.isEq()) || !(variables.getArgs()[0].isNumeral() || variables.getArgs()[1].isNumeral())){
+                                    is_equal = false;
+                                    ioexamples.clear();
+                                }
+                            }
+                        }
+                        if(is_equal == true){
+                            ioexample = new ArrayList<Expr>(Arrays.asList(args[1].getArgs()));
+                            ioexample.add(args[0]);
+                            ioexamples.add(ioexample);
+                        }
+                    }
+                }
+                else{
+                    ioexample = new ArrayList<Expr>(Arrays.asList(args[1].getArgs()));
+                    ioexample.add(args[0]);
+                    ioexamples.add(ioexample);
+                }
             }
         }
     }
