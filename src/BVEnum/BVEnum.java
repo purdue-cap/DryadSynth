@@ -35,7 +35,6 @@ public class BVEnum extends Thread {
             logger.info("BV backend does not support multiple functions yet");
             System.exit(1);
         } else {
-            logger.info("BV backend not implemented yet");
             Expr result = generate();
             String name = problem.names.get(0);
             this.results[0] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), result);
