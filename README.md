@@ -2,7 +2,7 @@
 
 Dryad Synthesizer for SyGuS competition.
 
-For a complete description on methods, please see `doc/DryadSynth_published.pdf`.
+For a complete description on methods, please see `docs/pldi2020.pdf` or `docs/pldi2020.ppsx`.
 
 # Publications
 
