@@ -7,6 +7,7 @@ For a complete description on methods, please see `docs/pldi2020.pdf` or `docs/p
 # Publications
 
 - [Reconciling enumerative and deductive program synthesis.](https://dl.acm.org/doi/abs/10.1145/3385412.3386027) Kangjing Huang, Xiaokang Qiu, Peiyuan Shen, and Yanjun Wang. In Proceedings of the 41st ACM SIGPLAN Conference on Programming Language Design and Implementation, pp. 1159-1174. 2020.
+- Or you could access the [author version](https://github.com/purdue-cap/DryadSynth/blob/master/docs/pldi2020.pdf).
 
 # Installation and Running
 
