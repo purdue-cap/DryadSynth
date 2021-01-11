@@ -630,17 +630,18 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public void exitSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
-        Set<String> keys = currentCFG.grammarRules.keySet();
-        for(String key:keys){
-            parentTerminals.clear();
-            currentCFG.grammarRules.replace(key, replaceNonTerminal(key));
-        }
-        keys = currentCFG.grammarRules.keySet();
-        for(String key:keys){
-            if(currentCFG.grammarSybSort.get(key).toString().equals("Bool")){
+        if(currentCFG != null){
+            Set<String> keys = currentCFG.grammarRules.keySet();
+            for(String key:keys){
+                parentTerminals.clear();
+                currentCFG.grammarRules.replace(key, replaceNonTerminal(key));
+            }
+            keys = currentCFG.grammarRules.keySet();
+            Object[] keys_array = keys.toArray();
+            for(Object key_object:keys_array){
+                String key = key_object.toString();
                 for(int i = 0; i < currentCFG.grammarRules.get(key).size();i++){
-                    String object = currentCFG.grammarRules.get(key).get(i)[0];
-                    if(object.equals(">") || object.equals("<")||object.equals("=")){
+                    if(currentCFG.grammarRules.get(key).get(i).length > 1){
                         if(!currentCFG.grammarRules.keySet().contains(currentCFG.grammarRules.get(key).get(i)[1])){
                             String target = currentCFG.grammarRules.get(key).get(i)[1];
                             String[] target_array = new String[1];
