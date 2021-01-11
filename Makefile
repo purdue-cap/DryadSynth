@@ -1,7 +1,9 @@
-NAME := Sygus
-GRAMMAR_SCRIPT := $(NAME).g4
+NAME1 := Sygus
+GRAMMAR1_SCRIPT := $(NAME1).g4
+NAME2 := SygusV1
+GRAMMAR2_SCRIPT := $(NAME2).g4
 PARSER_CLASS_NAMES := BaseListener Lexer Listener Parser
-PARSER_SOURCE := $(foreach class,$(PARSER_CLASS_NAMES),build/$(NAME)$(class).java)
+PARSER_SOURCE := $(foreach class,$(PARSER_CLASS_NAMES),build/$(NAME1)$(class).java)
 PARSER_CLASSES := $(PARSER_SOURCE:build/%.java=classes/%.class)
 SUBDIRS := $(wildcard src/*/.)
 
@@ -27,7 +29,8 @@ $(PARSER_CLASSES): classes/%.class : build/%.java
 
 $(PARSER_SOURCE): $(GRAMMAR_SCRIPT)
 	mkdir -p build
-	java -cp $(LIB_ANTLR) org.antlr.v4.Tool -o build -visitor $(GRAMMAR_SCRIPT)
+	java -cp $(LIB_ANTLR) org.antlr.v4.Tool -o build -visitor $(GRAMMAR1_SCRIPT)
+	java -cp $(LIB_ANTLR) org.antlr.v4.Tool -o build -visitor $(GRAMMAR2_SCRIPT)
 
 subdir: $(SUBDIRS)
 

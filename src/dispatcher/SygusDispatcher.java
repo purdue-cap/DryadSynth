@@ -13,7 +13,11 @@ public class SygusDispatcher {
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
-    SygusExtractor extractor;
+    //SygusExtractor extractor;
+    Map<String, DefinedFunc[]> invConstraints = new LinkedHashMap<String, DefinedFunc[]>();
+    Map<String, Set<Set<Expr>>> varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>();
+    Map<String, Expr[]> requestArgs = new LinkedHashMap<String, Expr[]>(); // Request arguments with readable names
+    Map<String, Expr> vars = new LinkedHashMap<String, Expr>();
     SygusProblem problem;
 
     Logger logger;
@@ -61,7 +65,21 @@ public class SygusDispatcher {
 
     SygusDispatcher(Context z3ctx, SygusExtractor extractor) {
         this.z3ctx = z3ctx;
-        this.extractor = extractor;
+        this.invConstraints = extractor.invConstraints;
+        this.varsRelation = extractor.varsRelation;
+        this.requestArgs = extractor.requestArgs;
+        this.vars = extractor.vars;
+        this.problem = extractor.createProblem();
+        this.logger = Logger.getLogger("main");
+        this.numCore = Runtime.getRuntime().availableProcessors();
+        this.mainThread = Thread.currentThread();
+    }
+    SygusDispatcher(Context z3ctx, SygusExtractorV1 extractor) {
+        this.z3ctx = z3ctx;
+        this.invConstraints = extractor.invConstraints;
+        this.varsRelation = extractor.varsRelation;
+        this.requestArgs = extractor.requestArgs;
+        this.vars = extractor.vars;
         this.problem = extractor.createProblem();
         this.logger = Logger.getLogger("main");
         this.numCore = Runtime.getRuntime().availableProcessors();
@@ -980,9 +998,9 @@ public class SygusDispatcher {
     	// Check if every function 
     	// \exists x. post /\ \exists y. post => post
     	logger.info("Checking if the post conditions are squares.");
-    	for (String name : extractor.invConstraints.keySet()) {
+    	for (String name : invConstraints.keySet()) {
         	// actually there is only one invariant to synthesize
-            Set<Set<Expr>> relation = extractor.varsRelation.get(name);
+            Set<Set<Expr>> relation = varsRelation.get(name);
             logger.info("Num of classes: " + relation.size());
             if (relation.size() <= 1) {
                 // if (relation.size() == 1) {
@@ -991,12 +1009,12 @@ public class SygusDispatcher {
                 logger.info("Only 1 class, no need to do divide and conquer.");
                 return false;
             }
-            Expr trans = extractor.invConstraints.get(name)[1].getDef();
-            Expr post = extractor.invConstraints.get(name)[2].getDef();
+            Expr trans = invConstraints.get(name)[1].getDef();
+            Expr post = invConstraints.get(name)[2].getDef();
 
             for(Set<Expr> exprset : relation) {
                 Set<Expr> otherset = new HashSet<Expr>();
-                for (Expr e : extractor.requestArgs.get(name)) {
+                for (Expr e : requestArgs.get(name)) {
                     otherset.add(e);
                 }
                 otherset.removeAll(exprset);
@@ -1019,12 +1037,12 @@ public class SygusDispatcher {
                 Expr[] primedArgs = new Expr[args.length];
                 for (int i = 0; i < args.length; i++) {
                     String varname = args[i].toString() + "!";
-                    primedArgs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
+                    primedArgs[i] = vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
                 }
                 Expr[] primedOtherargs = new Expr[otherargs.length];
                 for (int i = 0; i < otherargs.length; i++) {
                     String varname = otherargs[i].toString() + "!";
-                    primedOtherargs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
+                    primedOtherargs[i] = vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
                 }
                 Expr[] argswprime = new Expr[args.length * 2];
                 System.arraycopy(args, 0, argswprime, 0, args.length);
@@ -1052,20 +1070,20 @@ public class SygusDispatcher {
     	// Check if every function 
     	// check if pre => \forall x. pre \/ \forall y. pre
     	logger.info("Checking if the pre conditions are crosses.");
-    	for (String name : extractor.invConstraints.keySet()) {
+    	for (String name : invConstraints.keySet()) {
         	// actually there is only one invariant to synthesize
-            Set<Set<Expr>> relation = extractor.varsRelation.get(name);
+            Set<Set<Expr>> relation = varsRelation.get(name);
             logger.info("Num of classes: " + relation.size());
             if (relation.size() <= 1) {
                 logger.info("Only 1 class, no need to do divide and conquer.");
                 return false;
             }
-            Expr pre = extractor.invConstraints.get(name)[0].getDef();
-            Expr trans = extractor.invConstraints.get(name)[1].getDef();
+            Expr pre = invConstraints.get(name)[0].getDef();
+            Expr trans = invConstraints.get(name)[1].getDef();
 
             for(Set<Expr> exprset : relation) {
                 Set<Expr> otherset = new HashSet<Expr>();
-                for (Expr e : extractor.requestArgs.get(name)) {
+                for (Expr e : requestArgs.get(name)) {
                     otherset.add(e);
                 }
                 otherset.removeAll(exprset);
@@ -1088,12 +1106,12 @@ public class SygusDispatcher {
                 Expr[] primedArgs = new Expr[args.length];
                 for (int i = 0; i < args.length; i++) {
                     String varname = args[i].toString() + "!";
-                    primedArgs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
+                    primedArgs[i] = vars.get(varname); // z3ctx.mkConst(varname + "!", args[i].getSort());
                 }
                 Expr[] primedOtherargs = new Expr[otherargs.length];
                 for (int i = 0; i < otherargs.length; i++) {
                     String varname = otherargs[i].toString() + "!";
-                    primedOtherargs[i] = extractor.vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
+                    primedOtherargs[i] = vars.get(varname); // z3ctx.mkConst(varname + "!", otherargs[i].getSort());
                 }
                 Expr[] argswprime = new Expr[args.length * 2];
                 System.arraycopy(args, 0, argswprime, 0, args.length);
@@ -1121,21 +1139,21 @@ public class SygusDispatcher {
         // Check if every function 
         // check if pre => \forall x. pre \/ \forall y. pre
         logger.info("Checking if the post is a rectangle and the pre is a cross and trans stays rectangle.");
-        for (String name : extractor.invConstraints.keySet()) {
+        for (String name : invConstraints.keySet()) {
             // actually there is only one invariant to synthesize
-            Set<Set<Expr>> relation = extractor.varsRelation.get(name);
+            Set<Set<Expr>> relation = varsRelation.get(name);
             logger.info("Num of classes: " + relation.size());
             if (relation.size() <= 1) {
                 logger.info("Only 1 class, no need to do divide and conquer.");
                 return false;
             }
-            Expr pre = extractor.invConstraints.get(name)[0].getDef();
-            Expr trans = extractor.invConstraints.get(name)[1].getDef();
-            Expr post = extractor.invConstraints.get(name)[2].getDef();
+            Expr pre = invConstraints.get(name)[0].getDef();
+            Expr trans = invConstraints.get(name)[1].getDef();
+            Expr post = invConstraints.get(name)[2].getDef();
 
             for(Set<Expr> exprset : relation) {
                 Set<Expr> otherset = new HashSet<Expr>();
-                for (Expr e : extractor.requestArgs.get(name)) {
+                for (Expr e : requestArgs.get(name)) {
                     otherset.add(e);
                 }
                 otherset.removeAll(exprset);
@@ -1177,7 +1195,7 @@ public class SygusDispatcher {
         if (problem.problemType != SygusProblem.ProbType.INV) {
             return false;
         }
-        if (extractor.invConstraints.size() > 1) {
+        if (invConstraints.size() > 1) {
             return false;
         }
         if (this.checkINVSquarePost()) {

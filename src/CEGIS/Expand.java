@@ -372,7 +372,7 @@ public class Expand {
 			SygusProblem.SybType termType = resolveSyb(funcIndex, termSyb);
 			Expr result;
 			lastInterpreted = start;
-			if (termType == SygusProblem.SybType.NUMERAL) {
+			if (termType == SygusProblem.SybType.LITERAL || termType == SygusProblem.SybType.NUMERAL) {
 				result = ctx.mkInt(Integer.parseInt(termSyb));
 			} else if (termType == SygusProblem.SybType.GLBVAR) {
 				result = problem.vars.get(termSyb);
@@ -455,7 +455,7 @@ public class Expand {
 		String termSyb = fullRule[0];
 		Expr result;
 		SygusProblem.SybType termType = resolveSyb(funcIndex, termSyb);
-		if (termType == SygusProblem.SybType.NUMERAL) {
+		if (termType == SygusProblem.SybType.LITERAL || termType == SygusProblem.SybType.NUMERAL) {
 			result = ctx.mkInt(Integer.parseInt(termSyb));
 		} else if (termType == SygusProblem.SybType.GLBVAR) {
 			result = problem.vars.get(termSyb);

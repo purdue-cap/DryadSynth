@@ -635,10 +635,45 @@ public class SygusExtractor extends SygusBaseListener {
         return copyTerminal;
     }
     public void exitSynthfun(SygusParser.SynthfunContext ctx) {
-        Set<String> keys = currentCFG.grammarRules.keySet();
-        for(String key:keys){
-            parentTerminals.clear();
-            currentCFG.grammarRules.replace(key, replaceNonTerminal(key));
+        if(currentCFG != null){
+            Set<String> keys = currentCFG.grammarRules.keySet();
+            for(String key:keys){
+                parentTerminals.clear();
+                currentCFG.grammarRules.replace(key, replaceNonTerminal(key));
+            }
+            keys = currentCFG.grammarRules.keySet();
+            Object[] keys_array = keys.toArray();
+            for(Object key_object:keys_array){
+                String key = key_object.toString();
+                for(int i = 0; i < currentCFG.grammarRules.get(key).size();i++){
+                    if(currentCFG.grammarRules.get(key).get(i).length > 1){
+                        if(!currentCFG.grammarRules.keySet().contains(currentCFG.grammarRules.get(key).get(i)[1])){
+                            String target = currentCFG.grammarRules.get(key).get(i)[1];
+                            String[] target_array = new String[1];
+                            List<String[]> target_arraylist = new ArrayList<String[]>();
+                            target_array[0] = target;
+                            target_arraylist.add(target_array);
+                            currentCFG.grammarRules.put(target,target_arraylist);
+                            currentCFG.grammarSybSort.put(target,z3ctx.getIntSort());
+                            if(!currentArgList.contains(target)){
+                                currentCFG.sybTypeTbl.put(target,SygusProblem.SybType.LITERAL);
+                            }
+                        }
+                        if(!currentCFG.grammarRules.keySet().contains(currentCFG.grammarRules.get(key).get(i)[2])){
+                            String target = currentCFG.grammarRules.get(key).get(i)[2];
+                            String[] target_array = new String[1];
+                            List<String[]> target_arraylist = new ArrayList<String[]>();
+                            target_array[0] = target;
+                            target_arraylist.add(target_array);
+                            currentCFG.grammarRules.put(target,target_arraylist);
+                            currentCFG.grammarSybSort.put(target,z3ctx.getIntSort());
+                            if(!currentArgList.contains(target)){
+                                currentCFG.sybTypeTbl.put(target,SygusProblem.SybType.LITERAL);
+                            }
+                        }
+                    }
+                }
+            }
         }
         String name = ctx.symbol().getText();
         Expr[] argList = currentArgList.toArray(new Expr[currentArgList.size()]);
