@@ -172,8 +172,59 @@ public class Cegis extends Thread{
 
 	}
 
+	// Subclasses for subprocedures
+	// Previously Verifier.java
+	public class Verifier {
+		public Solver s;
+
+		public Verifier() {
+			this.s = ctx.mkSolver();
+		}
+
+		public Status verify(Map<String, Expr> functions) {
+
+			Expr spec = problem.finalConstraint;
+
+			for (String name : problem.names) {
+				FuncDecl f = problem.rdcdRequests.get(name);
+				Expr[] args = problem.requestUsedArgs.get(name);
+				Expr def = functions.get(name);
+				DefinedFunc df = new DefinedFunc(ctx, args, def);
+				spec = df.rewrite(spec, f);
+			}
+
+			// int j = 0;
+			// for(Expr expr: problem.vars.values()) {
+			// 	spec = 	spec.substitute(expr, var[j]);
+			// 	j = j + 1;
+			// }
+
+			//System.out.println("Specification : ");
+			//System.out.println(ctx.mkNot((BoolExpr)spec));
+
+			//BoolExpr spec = max2Prop(functions);
+			//BoolExpr spec = max3Prop(functions);
+			
+			s.push();
+			s.add(ctx.mkNot((BoolExpr)spec));
+			// System.out.println("Verifying... Formula: ");
+			// System.out.println(s);
+
+			Status status = s.check();
+			s.pop();
+			return status;
+			//return Status.UNSATISFIABLE;
+
+		}
+
+		public Model getLastModel() {
+			return this.s.getModel();
+		}
+
+	}
+
 	protected Verifier createVerifier() {
-		return new Verifier(ctx, problem);
+		return new Verifier();
 	}
 
 	// Previously VerifierDecoder.java
@@ -898,9 +949,7 @@ public class Cegis extends Thread{
 				expand.setVectorBound(vectorBound);
 			}
 		}
-
 		while(running) {
-
 			iterCount = iterCount + 1;
 
             if (this.iterLimit > 0 && iterCount > this.iterLimit) {

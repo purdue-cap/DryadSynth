@@ -654,7 +654,7 @@ public class SygusExtractorV1 extends SygusV1BaseListener {
                                 currentCFG.sybTypeTbl.put(target,SygusProblem.SybType.LITERAL);
                             }
                         }
-                        if(!currentCFG.grammarRules.keySet().contains(currentCFG.grammarRules.get(key).get(i)[2])){
+                        if(currentCFG.grammarRules.get(key).get(i).length > 2 && !currentCFG.grammarRules.keySet().contains(currentCFG.grammarRules.get(key).get(i)[2])){
                             String target = currentCFG.grammarRules.get(key).get(i)[2];
                             String[] target_array = new String[1];
                             List<String[]> target_arraylist = new ArrayList<String[]>();

@@ -80,20 +80,20 @@ public class SygusExtractor extends SygusBaseListener {
         pblm.opDis = new OpDispatcher(this.z3ctx, this.requests, this.funcs);
         pblm.varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(this.varsRelation);
         pblm.ioexamples = new ArrayList<List<Expr>>(this.ioexamples);
-        // for (List<Expr> example : pblm.ioexamples) {
-        //     System.out.println("example: " + Arrays.deepToString(example.toArray()));
-        // }
+        //  for (List<Expr> example : pblm.ioexamples) {
+        //      System.out.println("example: " + Arrays.deepToString(example.toArray()));
+        //  }
         pblm.glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>(this.glbSybTypeTbl);
-        // System.out.println("glbSybTypeTbl");
-        // for (String key: pblm.glbSybTypeTbl.keySet()) {
-        //     System.out.println(key + ": " + pblm.glbSybTypeTbl.get(key));
-        // }
+        //  System.out.println("glbSybTypeTbl");
+        //  for (String key: pblm.glbSybTypeTbl.keySet()) {
+        //      System.out.println(key + ": " + pblm.glbSybTypeTbl.get(key));
+        //  }
         for (String key : this.cfgs.keySet()) {
             pblm.cfgs.put(key, new SygusProblem.CFG(this.cfgs.get(key)));
-            // System.out.println();
-            // System.out.println(key);
-            // System.out.println("cfg:");
-            // pblm.cfgs.get(key).printcfg();
+            //  System.out.println();
+            //  System.out.println(key);
+            //  System.out.println("cfg:");
+            //  pblm.cfgs.get(key).printcfg();
         }
         pblm.isGeneral = this.isGeneral;
         return pblm;
@@ -659,7 +659,7 @@ public class SygusExtractor extends SygusBaseListener {
                                 currentCFG.sybTypeTbl.put(target,SygusProblem.SybType.LITERAL);
                             }
                         }
-                        if(!currentCFG.grammarRules.keySet().contains(currentCFG.grammarRules.get(key).get(i)[2])){
+                        if(currentCFG.grammarRules.get(key).get(i).length > 2 && !currentCFG.grammarRules.keySet().contains(currentCFG.grammarRules.get(key).get(i)[2])){
                             String target = currentCFG.grammarRules.get(key).get(i)[2];
                             String[] target_array = new String[1];
                             List<String[]> target_arraylist = new ArrayList<String[]>();
@@ -800,7 +800,7 @@ public class SygusExtractor extends SygusBaseListener {
                     currentTerm = "-";
 
                 }else if (tmpctx.bfmulexpr()!=null) {
-                    currentTerm = "=*";
+                    currentTerm = "*";
 
                 }
             }else if(ctx.idenbftermplus().bfbitexpr()!=null){
@@ -859,6 +859,9 @@ public class SygusExtractor extends SygusBaseListener {
         }else if (ctx.literal()!=null) {
             currentTerm = ctx.literal().getText();
             if (ctx.literal().numeral() != null) {
+                if(currentTerm.contains("(-")){
+                    currentTerm = currentTerm.substring(1, currentTerm.length()-1);
+                }
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.NUMERAL);
             } else if (ctx.literal().hexconst() != null) {
                 glbSybTypeTbl.put(currentTerm, SygusProblem.SybType.HEX);
@@ -1025,7 +1028,11 @@ public class SygusExtractor extends SygusBaseListener {
     }
     Expr literalToExpr(SygusParser.LiteralContext ctx) {
         if (ctx.numeral()!= null) {
-            return z3ctx.mkInt(ctx.numeral().getText());
+            String text = ctx.numeral().getText();
+            if(text.contains("(-")){
+                text = text.substring(1,text.length()-1);
+            }
+            return z3ctx.mkInt(text);
         }
         if (ctx.decimal()!= null) {
             return z3ctx.mkReal(ctx.decimal().getText());
