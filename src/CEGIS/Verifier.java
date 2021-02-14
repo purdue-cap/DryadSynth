@@ -5,18 +5,15 @@ import java.util.logging.Logger;
 public class Verifier {
     protected Context ctx;
     public Solver s;
-	protected SygusProblem problem;
 
-    public Verifier(Context context, SygusProblem pblm) {
+    public Verifier(Context context) {
         this.ctx = context;
         this.s = ctx.mkSolver();
-        this.problem = pblm;
     }
 
-    public Status verify(Map<String, Expr> functions) {
+    public Status verify(Map<String, Expr> functions, SygusProblem problem) {
 
         Expr spec = problem.finalConstraint;
-
         for (String name : problem.names) {
             FuncDecl f = problem.rdcdRequests.get(name);
             Expr[] args = problem.requestUsedArgs.get(name);

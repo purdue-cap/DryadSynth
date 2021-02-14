@@ -10,8 +10,12 @@ literal : numeral
         | stringconst
         ;
 
+negativeNumber : '(' '-' NUMERAL ')'
+		;
+
 numeral : '0'
 		| NUMERAL
+		| negativeNumber
 		;
 
 decimal : (numeral '.' ('0')* numeral)

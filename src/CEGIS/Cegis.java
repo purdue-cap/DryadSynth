@@ -172,8 +172,56 @@ public class Cegis extends Thread{
 
 	}
 
+	// Subclasses for subprocedures
+	// Previously Verifier.java
+	// public class Verifier {
+	// 	public Solver s;
+
+	// 	public Verifier() {
+	// 		this.s = ctx.mkSolver();
+	// 	}
+
+	// 	public Status verify(Map<String, Expr> functions) {
+	// 		Expr spec = problem.finalConstraint;
+	// 		for (String name : problem.names) {
+	// 			FuncDecl f = problem.rdcdRequests.get(name);
+	// 			Expr[] args = problem.requestUsedArgs.get(name);
+	// 			Expr def = functions.get(name);
+	// 			DefinedFunc df = new DefinedFunc(ctx, args, def);
+	// 			spec = df.rewrite(spec, f);
+	// 		}
+
+	// 		// int j = 0;
+	// 		// for(Expr expr: problem.vars.values()) {
+	// 		// 	spec = 	spec.substitute(expr, var[j]);
+	// 		// 	j = j + 1;
+	// 		// }
+
+	// 		//System.out.println("Specification : ");
+	// 		//System.out.println(ctx.mkNot((BoolExpr)spec));
+
+	// 		//BoolExpr spec = max2Prop(functions);
+	// 		//BoolExpr spec = max3Prop(functions);
+			
+	// 		s.push();
+	// 		s.add(ctx.mkNot((BoolExpr)spec));
+	// 		// System.out.println("Verifying... Formula: ");
+	// 		// System.out.println(s);
+	// 		Status status = s.check();
+	// 		s.pop();
+	// 		return status;
+	// 		//return Status.UNSATISFIABLE;
+
+	// 	}
+
+	// 	public Model getLastModel() {
+	// 		return this.s.getModel();
+	// 	}
+
+	// }
+
 	protected Verifier createVerifier() {
-		return new Verifier(ctx, problem);
+		return new Verifier(ctx);
 	}
 
 	// Previously VerifierDecoder.java
@@ -752,7 +800,7 @@ public class Cegis extends Thread{
 								resultfunc.put(f.getName(), f.getDef());
 							}
 
-							Status v = testVerifier.verify(resultfunc);
+							Status v = testVerifier.verify(resultfunc,problem);
 							logger.info("Final check status: " + v);
 							if (v == Status.SATISFIABLE) {
 								// 	NO SOLUTION
@@ -898,9 +946,7 @@ public class Cegis extends Thread{
 				expand.setVectorBound(vectorBound);
 			}
 		}
-
 		while(running) {
-
 			iterCount = iterCount + 1;
 
             if (this.iterLimit > 0 && iterCount > this.iterLimit) {
@@ -971,7 +1017,7 @@ public class Cegis extends Thread{
 			}
 			logger.info("Start verifying");
 
-			Status v = testVerifier.verify(functions);
+			Status v = testVerifier.verify(functions,problem);
 
 			if (v == Status.UNSATISFIABLE) {
 				SynthDecoder synthDecoder = this.createSynthDecoder(testSynthesizer);
@@ -1175,7 +1221,7 @@ public class Cegis extends Thread{
 
 			logger.info("Start verifying");
 
-			Status v = testVerifier.verify(functions);
+			Status v = testVerifier.verify(functions,problem);
 
 			if (v == Status.UNSATISFIABLE) {
 				results = new DefinedFunc[problem.rdcdRequests.size()];
@@ -1377,7 +1423,7 @@ public class Cegis extends Thread{
 
 			logger.info("Start verifying");
 
-			Status v = testVerifier.verify(functions);
+			Status v = testVerifier.verify(functions,problem);
 
 			if (v == Status.UNSATISFIABLE) {
 				DefinedFunc[] func = new DefinedFunc[problem.rdcdRequests.size()];
@@ -1534,7 +1580,7 @@ public class Cegis extends Thread{
 			for (DefinedFunc f : combined) {
 				resultfunc.put(f.getName(), f.getDef());
 			}
-			Status v = testVerifier.verify(resultfunc);
+			Status v = testVerifier.verify(resultfunc,problem);
 			if (v == Status.SATISFIABLE) {
 				// 	NO SOLUTION
 				logger.info("There is no invariant for this benchmark.");

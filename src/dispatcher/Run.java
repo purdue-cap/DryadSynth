@@ -15,7 +15,7 @@ public class Run {
 
 		long startTime = System.currentTimeMillis();
         OptionParser oParser = new OptionParser();
-        oParser.acceptsAll(Arrays.asList("m", "maxSAT"), "Enable maxSAT");
+		oParser.acceptsAll(Arrays.asList("m", "maxSAT"), "Enable maxSAT");
         oParser.acceptsAll(Arrays.asList("h", "?", "help"), "Print help");
 		oParser.acceptsAll(Arrays.asList("H", "heightsOnly"), "Only outputs entered heights and result heights for CEGIS algorithms (Would output vector length bound values in CEGIS for General track)");
         oParser.acceptsAll(Arrays.asList("t", "threads"), "Numbers of parallel threads to use")
@@ -23,7 +23,9 @@ public class Run {
         oParser.acceptsAll(Arrays.asList("l", "iterLimit"), "Limit of iterations per thread for CEGIS algorithm (0 means no limit)")
             .withRequiredArg().ofType(Integer.class).defaultsTo(0);
         oParser.acceptsAll(Arrays.asList("f", "minFinite"), "Timeout of finite region search, in minutes")
-            .withRequiredArg().ofType(Integer.class).defaultsTo(20);
+			.withRequiredArg().ofType(Integer.class).defaultsTo(20);
+		oParser.acceptsAll(Arrays.asList("g", "grammarVersion"), "grammar version")
+            .withRequiredArg().ofType(Integer.class).defaultsTo(0);
         oParser.acceptsAll(Arrays.asList("i", "minInfinite"), "Timeout of infinite region search, in minutes")
             .withRequiredArg().ofType(Integer.class).defaultsTo(5);
         oParser.acceptsAll(Arrays.asList("b", "formattingBound"), "Bound of output size to used string formatting instead of parser formatting")
@@ -43,13 +45,13 @@ public class Run {
             oParser.printHelpOn(System.out);
             return;
         }
-
 		int numCore = (Integer)options.valuesOf("t").get(0);
 		int iterLimit = (Integer)options.valuesOf("l").get(0);
 		int minFinite = (Integer)options.valuesOf("f").get(0);
 		int minInfinite = (Integer)options.valuesOf("i").get(0);
 		int formattingBound = (Integer)options.valuesOf("b").get(0);
 		int eqBound = (Integer)options.valuesOf("eq").get(0);
+		int grammar_version = (Integer)options.valuesOf("g").get(0);
 		boolean maxsmtFlag = options.has("m");
 		String EUSolverPath = (String)options.valuesOf("E").get(0);
 
@@ -66,6 +68,8 @@ public class Run {
 		SygusLexer lexer = new SygusLexer(input);
 		CommonTokenStream tokens = new CommonTokenStream(lexer);
 		SygusParser parser = new SygusParser(tokens);
+
+		
 
 		Logger logger = Logger.getLogger("main");
         if (!options.has("v")) {
@@ -87,21 +91,67 @@ public class Run {
 		parser.setErrorHandler(es);
 
 		ParseTree tree;
-		try{
-			tree = parser.start();
-			logger.info("Accepted");
-		} catch(Exception ex) {
-			logger.info("Not Accepted");
-			return;
+		if(grammar_version == 2){
+			try{
+				tree = parser.start();
+				logger.info("Accepted");
+			} catch(Exception ex) {
+				logger.info("Not Accepted");
+				return;
+			}
 		}
-
+		else if(grammar_version == 1){
+			try{
+				ANTLRFileStream input_1 = new ANTLRFileStream(fn);
+				SygusV1Lexer lexer_1 = new SygusV1Lexer(input_1);
+				CommonTokenStream tokens_1 = new CommonTokenStream(lexer_1);
+				SygusV1Parser parser_1 = new SygusV1Parser(tokens_1);
+				grammar_version = 1;
+				tree = parser_1.start();
+				logger.info("Accepted, Please ignore the previous grammar error");
+			} catch(Exception ex_1){
+				logger.info("Not Accepted");
+				return;
+			}
+		}
+		else{
+			try{
+				tree = parser.start();
+				grammar_version = 2;
+				logger.info("Accepted");
+			} catch(Exception ex) {
+				try{
+					ANTLRFileStream input_1 = new ANTLRFileStream(fn);
+					SygusV1Lexer lexer_1 = new SygusV1Lexer(input_1);
+					CommonTokenStream tokens_1 = new CommonTokenStream(lexer_1);
+					SygusV1Parser parser_1 = new SygusV1Parser(tokens_1);
+					grammar_version = 1;
+					tree = parser_1.start();
+					logger.info("Accepted, Please ignore the previous grammar error");
+				} catch(Exception ex_1){
+					logger.info("Not Accepted");
+					return;
+				}
+			}
+		}
+		
 		ParseTreeWalker walker = new ParseTreeWalker();
-		SygusExtractor extractor = new SygusExtractor(ctx);
-		walker.walk(extractor, tree);
+		SygusExtractor extractorV2 = new SygusExtractor(ctx);;
+		SygusDispatcher dispatcher;
+		SygusExtractorV1 extractorV1 = new SygusExtractorV1(ctx);;
+		if(grammar_version == 2){
+			walker.walk(extractorV2, tree);
+			logger.info("Final Constraints:" + extractorV2.finalConstraint.toString());
+			dispatcher = new SygusDispatcher(ctx, extractorV2);
+		}
+		else{
+			walker.walk(extractorV1, tree);
+			logger.info("Final Constraints:" + extractorV1.finalConstraint.toString());
+			dispatcher = new SygusDispatcher(ctx, extractorV1);
+		}
+		
 
-		logger.info("Final Constraints:" + extractor.finalConstraint.toString());
-
-		SygusDispatcher dispatcher = new SygusDispatcher(ctx, extractor);
+		
 		dispatcher.setNumCore(numCore);
 		dispatcher.setIterLimit(iterLimit);
 		dispatcher.setMinFinite(minFinite);
@@ -160,7 +210,7 @@ public class Run {
 		SygusFormatter formatter = new SygusFormatter();
 		for (DefinedFunc df: results) {
 			String rawResult;
-			if (extractor.isGeneral) {
+			if (extractorV2.isGeneral||extractorV1.isGeneral) {
 				rawResult = df.toString();
 			} else {
 				rawResult = df.toString(true);
