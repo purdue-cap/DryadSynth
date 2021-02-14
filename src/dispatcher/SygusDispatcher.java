@@ -9,7 +9,7 @@ import com.microsoft.z3.*;
 
 public class SygusDispatcher {
     public enum SolveMethod {
-        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC, INVDNC, BV
+        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC, INVDNC, BV, PBE
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
@@ -211,6 +211,12 @@ public class SygusDispatcher {
         }
         boolean checkResult = this.checkGeneral();
         if (checkResult) {
+            checkResult = this.checkPBE();
+            if (checkResult) {
+                logger.info("PBE BitVec SyGuS problem detected, using PBE-BV-dedicated backend.");
+                this.method = SolveMethod.PBE;
+                return;
+            }
             checkResult = this.checkBV();
             if (checkResult) {
                 logger.info("BitVec SyGuS problem detected, using BV-dedicated backend.");
@@ -454,6 +460,14 @@ public class SygusDispatcher {
             return;
         }
 
+        if (this.method == SolveMethod.PBE) {
+            logger.info("Initializing PBE-BV-dedicated algorithms.");
+            // Support single thread only for now, ignoring numCore settings.
+            threads = new Thread[1];
+            threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
+            return;
+        }
+
     }
 
     public DefinedFunc[] runAlgorithm() throws Exception{
@@ -509,6 +523,12 @@ public class SygusDispatcher {
             logger.info("Starting BV algorithms.");
             threads[0].run();
             results = ((BVEnum)threads[0]).results;
+        }
+
+        if (this.method == SolveMethod.PBE) {
+            logger.info("Starting PBE-BV algorithms.");
+            threads[0].run();
+            results = ((PBEEnum)threads[0]).results;
         }
 
         if (this.method == SolveMethod.AT){
@@ -856,6 +876,10 @@ public class SygusDispatcher {
 
     boolean checkBV() {
         return problem.problemType == SygusProblem.ProbType.BV;
+    }
+
+    boolean checkPBE() {
+        return problem.problemType == SygusProblem.ProbType.BV && problem.ioexamples != null;
     }
 
     boolean validateCandidates() {
