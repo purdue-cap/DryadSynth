@@ -1,3 +1,4 @@
+import java.math.BigInteger;
 import java.util.*;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 import com.microsoft.z3.*;
@@ -9,16 +10,17 @@ public class PBEEnum extends Thread {
     private SygusProblem problem;
     private Logger logger;
     private int numCore;
+    private int size;
 
     // for now, we assume there is only one function to synthesize
     // TODO: support multiple functions
     // TODO: support BV constant
     private String start = null;  // start symbol of the grammar
     private Map<String, List<String[]>> recRules = new LinkedHashMap<String, List<String[]>>();  // grammar rules with recursive production
-    private Map<String, Map<Expr[], Set<Expr>>> storage = new LinkedHashMap<String, Map<Expr[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<expr>>
-    private Map<String, Map<Expr[], Set<Expr>>> prevNewStorage = new LinkedHashMap<String, Map<Expr[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<expr>>
-    private Map<String, Map<Expr[], Set<Expr>>> currNewStorage = new LinkedHashMap<String, Map<Expr[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<expr>>
-    private Expr[][] input; // [numExample][numInputArgs]
+    private Map<String, Map<bitVector[], Set<Expr>>> storage = new LinkedHashMap<String, Map<bitVector[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<bitVector>>
+    private Map<String, Map<bitVector[], Set<Expr>>> prevNewStorage = new LinkedHashMap<String, Map<bitVector[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<bitVector>>
+    private Map<String, Map<bitVector[], Set<Expr>>> currNewStorage = new LinkedHashMap<String, Map<bitVector[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<bitVector>>
+    private bitVector[][] input; // [numExample][numInputArgs]
     private String[] output;    // [numExample]
     private Set<Expr> definitions;  // the definitions of resulting function
 
@@ -30,6 +32,7 @@ public class PBEEnum extends Thread {
         this.logger = logger;
         this.numCore = numCore;
         this.results = new DefinedFunc[problem.names.size()];
+        this.size = 64; // for test
     }
 
     public void run() {
@@ -37,7 +40,7 @@ public class PBEEnum extends Thread {
             logger.info("BV backend does not support multiple functions yet");
             System.exit(1);
         } else {
-            // Expr result = generate();
+            // bitVector result = generate();
             generate();
             String name = problem.names.get(0);
             Expr result = null;
@@ -45,13 +48,25 @@ public class PBEEnum extends Thread {
                 result = e;
                 break;
             }
-            this.results[0] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), result);
+            this.results[0] = new DefinedFunc(ctx, name, problem.requestArgs.get(name),result);
         }
     }
 
-    class OutputComparator implements Comparator<Expr[]>{
+    public bitVector ExprToBitVector(Expr input){
+        bitVector result = new bitVector();
+        BigInteger value = new BigInteger(input.toString());
+        result.setData(value.longValue());
+        return result;
+    }
+
+    public Expr BitVectorToExpr(bitVector input){
+        Expr result = ctx.mkBV(input.signValue(size).longValue(),64);
+        return result;
+    }
+
+    class OutputComparator implements Comparator<bitVector[]>{
     	@Override
-    	public int compare(Expr[] output1,Expr[] output2){
+    	public int compare(bitVector[] output1,bitVector[] output2){
             if (output1.length > output2.length) {
                 return 1;
             } else if (output1.length < output2.length) {
@@ -84,11 +99,11 @@ public class PBEEnum extends Thread {
         // extract inputs and outputs
         List<List<Expr>> ioexamples = this.problem.ioexamples;
         this.output = new String[ioexamples.size()];
-        this.input = new Expr[ioexamples.size()][ioexamples.get(0).size() - 1];
+        this.input = new bitVector[ioexamples.size()][ioexamples.get(0).size() - 1];
         for (int i = 0; i < ioexamples.size(); i++) {
             List<Expr> example = ioexamples.get(i);
             for (int j = 0; j < example.size() - 1; j++) {
-                this.input[i][j] = example.get(j);
+                this.input[i][j] = ExprToBitVector(example.get(j));
             }
             this.output[i] = example.get(example.size() - 1).toString();
             logger.info("Example " + i + " input: " + Arrays.toString(this.input[i]) + ", output: " + this.output[i]);
@@ -97,25 +112,32 @@ public class PBEEnum extends Thread {
         // initialize storage and recRules
         for (String symbol : cfg.grammarRules.keySet()) {
             List<String[]> recs = new ArrayList<String[]>();
-            // Map<Integer, List<Expr>> exprByHeight = new LinkedHashMap<Integer, List<Expr>>();
-            Map<Expr[], Set<Expr>> outputStorage = new TreeMap<Expr[], Set<Expr>>(new OutputComparator());
+            // Map<Integer, List<bitVector>> bitVectorByHeight = new LinkedHashMap<Integer, List<bitVector>>();
+            Map<bitVector[], Set<Expr>> outputStorage = new TreeMap<bitVector[], Set<Expr>>(new OutputComparator());
 
             List<String[]> rules = cfg.grammarRules.get(symbol);
             for (String[] rule : rules) {
                 if (rule.length == 1) {
-                    // convert rule[0] to expr
+                    // convert rule[0] to bitVector
                     String term = rule[0];
                     SygusProblem.SybType termType = getSybType(cfg, term);
+                    // todo: change back to Expr
                     Expr terminal = getSybExpr(cfg, term, termType);
                     logger.info("terminal: " + terminal.toString());
                     // compute output of the terminal
                     Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
                     DefinedFunc df = new DefinedFunc(ctx, funcArgs, terminal);
-                    Expr[] outputs = new Expr[this.output.length];
+                    bitVector[] outputs = new bitVector[this.output.length];
                     for (int i = 0; i < this.input.length; i++) {
                         // System.out.println(Arrays.toString(this.input[i]));
-                        outputs[i] = df.apply(this.input[i]);
+                        Expr[] ExprArgs = new Expr[this.input[i].length];
+                        for(int j = 0;j<this.input[i].length;j++){
+                            ExprArgs[j] = BitVectorToExpr(this.input[i][j]);
+                        }
+                        outputs[i] = ExprToBitVector(df.apply(ExprArgs));
                     }
+                    System.out.println("Outputs[0]:");
+                    System.out.println(outputs[0].toString());
                     logger.info("Initial outputs: " + Arrays.toString(outputs));
                     // add generated outputs to outputStorage
                     if (outputStorage.containsKey(outputs)) {
@@ -131,12 +153,8 @@ public class PBEEnum extends Thread {
             }
             this.recRules.put(symbol, recs);
             this.prevNewStorage.put(symbol, outputStorage);
-
             // initialize this.storage
-            this.storage.put(symbol, new TreeMap<Expr[], Set<Expr>>(new OutputComparator()));
-
-            // printStorage(this.prevNewStorage);
-            // printStorage(this.storage);
+            this.storage.put(symbol, new TreeMap<bitVector[], Set<Expr>>(new OutputComparator()));
         }
     }
 
@@ -222,7 +240,6 @@ public class PBEEnum extends Thread {
         }
 
         Set<Expr> subexpressions = subexprs.get(index);
-
         if (subexpressions == null || subexpressions.isEmpty()) {
             return;
         }
@@ -237,20 +254,20 @@ public class PBEEnum extends Thread {
         }
     }
 
-    void genOutputCombs(String[] oldNewPrmt, String[] rule, Map<Expr[], Set<Expr>> currNew) {
+    void genOutputCombs(String[] oldNewPrmt, String[] rule, Map<bitVector[], Set<Expr>> currNew) {
         if (oldNewPrmt.length + 1 != rule.length) {
             logger.severe("oldNewPrmt and rule: Length mismatch!");
         }
 
-        List<Expr[]> comb = new ArrayList<Expr[]>();
+        List<bitVector[]> comb = new ArrayList<bitVector[]>();
         List<Set<Expr>> subexprs = new ArrayList<Set<Expr>>();
         this.genOutputCombsHelper(oldNewPrmt, rule, 0, comb, subexprs, currNew);
     }
 
-    void genOutputCombsHelper(String[] oldNewPrmt, String[] rule, int index, List<Expr[]> comb, List<Set<Expr>> subexprs, Map<Expr[], Set<Expr>> currNew) {
+    void genOutputCombsHelper(String[] oldNewPrmt, String[] rule, int index, List<bitVector[]> comb, List<Set<Expr>> subexprs, Map<bitVector[], Set<Expr>> currNew) {
         if (index == oldNewPrmt.length) {
             // for each combination, compute the output[]
-            Expr[] outputs = this.compute(rule, comb);
+            bitVector[] outputs = this.compute(rule, comb);
             // generate every possible expressions
             // long timeend = System.nanoTime();
             // System.out.println("Timestamp end: " + timeend);
@@ -278,14 +295,13 @@ public class PBEEnum extends Thread {
             return;
         }
 
-        Map<Expr[], Set<Expr>> storagePointer = null;
+        Map<bitVector[], Set<Expr>> storagePointer = null;
         if (oldNewPrmt[index] == "1") {
             storagePointer = this.prevNewStorage.get(rule[index + 1]);
         } else {
             storagePointer = this.storage.get(rule[index + 1]);
         }
-
-        List<Expr[]> inputs = new ArrayList<Expr[]>(storagePointer.keySet());
+        List<bitVector[]> inputs = new ArrayList<bitVector[]>(storagePointer.keySet());
         for (int i = 0; i < inputs.size(); i++) {
             comb.add(inputs.get(i));
             subexprs.add(storagePointer.get(inputs.get(i)));
@@ -295,14 +311,14 @@ public class PBEEnum extends Thread {
         }
     }
 
-    Expr[][] transpose(List<Expr[]> comb) {
+    bitVector[][] transpose(List<bitVector[]> comb) {
         int n = comb.size();
         int m = comb.get(0).length;
-        Expr[][] args = new Expr[n][m];
+        bitVector[][] args = new bitVector[n][m];
         for (int i = 0; i < comb.size(); i++) {
             args[i] = comb.get(i);
         }
-        Expr[][] trans = new Expr[m][n];
+        bitVector[][] trans = new bitVector[m][n];
         for (int i = 0; i < trans.length; i++) {
             for (int j = 0; j < trans[0].length; j++) {
                 trans[i][j] = args[j][i];
@@ -311,21 +327,21 @@ public class PBEEnum extends Thread {
         return trans;
     }
 
-    Expr[] compute(String[] rule, List<Expr[]> comb) {
+    bitVector[] compute(String[] rule, List<bitVector[]> comb) {
         if (comb.size() != rule.length - 1) {
             logger.severe("Outputs Length mismatch!");
         }
 
-        Expr[][] args = this.transpose(comb);
-        Expr[] outputs = new Expr[args.length];
+        bitVector[][] args = this.transpose(comb);
+        bitVector[] outputs = new bitVector[args.length];
         for (int i = 0; i < args.length; i++) {
-            outputs[i] = this.problem.opDis.dispatch(rule[0], args[i], true, false).simplify();
+            outputs[i] = this.problem.opDis.pbeDispatch(rule[0], args[i], true, false, size);
         }
 
         return outputs;
     }
 
-    boolean verifyOutput(Expr[] outputs) {
+    boolean verifyOutput(bitVector[] outputs) {
         long start = System.nanoTime();
         if (outputs.length != this.output.length) {
             logger.severe("Outputs Length mismatch!");
@@ -347,8 +363,8 @@ public class PBEEnum extends Thread {
         init();
 
         // check those initial outputs
-        Map<Expr[], Set<Expr>> initStorage = this.prevNewStorage.get(this.start);
-        for (Expr[] out : initStorage.keySet()) {
+        Map<bitVector[], Set<Expr>> initStorage = this.prevNewStorage.get(this.start);
+        for (bitVector[] out : initStorage.keySet()) {
             if (this.verifyOutput(out)) {
                 this.definitions = initStorage.get(out);
                 return;
@@ -374,8 +390,7 @@ public class PBEEnum extends Thread {
 
             // for each non-terminal
             for (String nonTerminal : this.storage.keySet()) {
-                Map<Expr[], Set<Expr>> currNew = new TreeMap<Expr[], Set<Expr>>(new OutputComparator());
-
+                Map<bitVector[], Set<Expr>> currNew = new TreeMap<bitVector[], Set<Expr>>(new OutputComparator());
                 // for every operator
                 for (String[] rule : this.recRules.get(nonTerminal)) {
                     System.out.println("rule: " + Arrays.toString(rule));
@@ -385,6 +400,7 @@ public class PBEEnum extends Thread {
                     Set<String[]> prmts = genPrmt(rule.length - 1);
                     for (String[] prmt : prmts) {
                         System.out.println("prmt: " + Arrays.toString(prmt));
+                        printCurrNew(currNew);
                         genOutputCombs(prmt, rule, currNew);
                         if (this.definitions != null) {
                             return;
@@ -400,12 +416,12 @@ public class PBEEnum extends Thread {
 
             // update storage & prevNewStorage
             for (String nonTerminal : this.storage.keySet()) {
-                Map<Expr[], Set<Expr>> currStrg = this.storage.get(nonTerminal);
-                Map<Expr[], Set<Expr>> prevNewStrg = this.prevNewStorage.get(nonTerminal);
-                Map<Expr[], Set<Expr>> currNewStrg = this.currNewStorage.get(nonTerminal);
+                Map<bitVector[], Set<Expr>> currStrg = this.storage.get(nonTerminal);
+                Map<bitVector[], Set<Expr>> prevNewStrg = this.prevNewStorage.get(nonTerminal);
+                Map<bitVector[], Set<Expr>> currNewStrg = this.currNewStorage.get(nonTerminal);
 
                 // put pairs in prevNewStorage to storage one by one
-                for (Expr[] outputs : prevNewStrg.keySet()) {
+                for (bitVector[] outputs : prevNewStrg.keySet()) {
                     if (currStrg.containsKey(outputs)) {
                         currStrg.get(outputs).addAll(prevNewStrg.get(outputs));
                     } else {
@@ -414,14 +430,15 @@ public class PBEEnum extends Thread {
                 }
 
                 // remove pairs (in currNew) of which key exists in storage
-                List<Expr[]> toRm = new ArrayList<Expr[]>();
-                for (Expr[] outputs : currNewStrg.keySet()) {
+                List<bitVector[]> toRm = new ArrayList<bitVector[]>();
+                for (bitVector[] outputs : currNewStrg.keySet()) {
                     if (currStrg.containsKey(outputs)) {
+                        System.out.println(Arrays.toString(outputs));
                         currStrg.get(outputs).addAll(currNewStrg.get(outputs));
                         toRm.add(outputs);
                     }
                 }
-                for (Expr[] outputs : toRm) {
+                for (bitVector[] outputs : toRm) {
                     currNewStrg.remove(outputs);
                 }
 
@@ -446,16 +463,24 @@ public class PBEEnum extends Thread {
         }
     }
 
-    void printStorage(Map<String, Map<Expr[], Set<Expr>>> storage) {
+    void printStorage(Map<String, Map<bitVector[], Set<Expr>>> storage) {
         System.out.println("Print storage:");
         for (String nonTerminal : storage.keySet()) {
             System.out.println(nonTerminal);
-            Map<Expr[], Set<Expr>> map = storage.get(nonTerminal);
-            for (Expr[] subexpr : map.keySet()) {
-                System.out.println("subexpr: " + Arrays.toString(subexpr));
+            Map<bitVector[], Set<Expr>> map = storage.get(nonTerminal);
+            for (bitVector[] subbitVector : map.keySet()) {
+                System.out.println("subBitVector: " + Arrays.toString(subbitVector));
             }
             System.out.println();
         }
     }
 
+    void printCurrNew(Map<bitVector[], Set<Expr>> storage) {
+        System.out.println("Print storage:");
+            Map<bitVector[], Set<Expr>> map = storage;
+            for (bitVector[] subbitVector : map.keySet()) {
+                System.out.println("subBitVector: " + Arrays.toString(subbitVector));
+            }
+            System.out.println();
+    }
 }
