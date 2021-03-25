@@ -244,10 +244,11 @@ public class PBEEnum extends Thread {
 
         List<Expr[]> comb = new ArrayList<Expr[]>();
         List<Set<Expr>> subexprs = new ArrayList<Set<Expr>>();
-        this.genOutputCombsHelper(oldNewPrmt, rule, 0, comb, subexprs, currNew);
+        List<List<Set<Expr>>> previousSubExprs = new ArrayList<List<Set<Expr>>>();
+        this.genOutputCombsHelper(oldNewPrmt, rule, 0, comb, subexprs, currNew,previousSubExprs);
     }
 
-    void genOutputCombsHelper(String[] oldNewPrmt, String[] rule, int index, List<Expr[]> comb, List<Set<Expr>> subexprs, Map<Expr[], Set<Expr>> currNew) {
+    void genOutputCombsHelper(String[] oldNewPrmt, String[] rule, int index, List<Expr[]> comb, List<Set<Expr>> subexprs, Map<Expr[], Set<Expr>> currNew,List<List<Set<Expr>>> previousSubExprs) {
         if (index == oldNewPrmt.length) {
             // for each combination, compute the output[]
             Expr[] outputs = this.compute(rule, comb);
@@ -289,7 +290,23 @@ public class PBEEnum extends Thread {
         for (int i = 0; i < inputs.size(); i++) {
             comb.add(inputs.get(i));
             subexprs.add(storagePointer.get(inputs.get(i)));
-            this.genOutputCombsHelper(oldNewPrmt, rule, index + 1, comb, subexprs, currNew);
+            if(subexprs.size() != 2){
+                this.genOutputCombsHelper(oldNewPrmt, rule, index + 1, comb, subexprs, currNew,previousSubExprs);
+            }
+            else if(subexprs.size() == 2){ 
+                if(rule[0].equals("bvadd")||rule[0].equals("bvmul")||rule[0].equals("bvor")||rule[0].equals("bvand")||rule[0].equals("bvnand")||rule[0].equals("bvxor")||rule[0].equals("bvnor")||rule[0].equals("bvxnor")){
+                    List<Set<Expr>> inverseSubExprs =  new ArrayList<Set<Expr>>();
+                    inverseSubExprs.add(subexprs.get(1));
+                    inverseSubExprs.add(subexprs.get(0));
+                    if(!previousSubExprs.contains(subexprs)){
+                        previousSubExprs.add(inverseSubExprs);
+                        this.genOutputCombsHelper(oldNewPrmt, rule, index + 1, comb, subexprs, currNew,previousSubExprs);
+                    }
+                }
+                else{
+                    this.genOutputCombsHelper(oldNewPrmt, rule, index + 1, comb, subexprs, currNew,previousSubExprs);
+                }
+            }
             comb.remove(comb.size() - 1);
             subexprs.remove(subexprs.size() - 1);
         }
