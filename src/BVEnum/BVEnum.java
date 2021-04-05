@@ -27,7 +27,7 @@ public class BVEnum extends Thread {
         this.logger = logger;
         this.numCore = numCore;
         this.results = new DefinedFunc[problem.names.size()];
-        this.verifier = new Verifier(this.ctx, this.problem);
+        this.verifier = new Verifier(this.ctx);
     }
 
     public void run() {
@@ -196,7 +196,7 @@ public class BVEnum extends Thread {
         for (Expr expr : exprsHeightOne) {
             Map<String, Expr> functions = new HashMap<String, Expr>();
             functions.put(this.problem.names.get(0), expr);
-            Status status = verifier.verify(functions);
+            Status status = verifier.verify(functions, this.problem);
             if (status == Status.UNSATISFIABLE) {
                 return expr;
             }
@@ -233,7 +233,7 @@ public class BVEnum extends Thread {
                                 logger.info("Verifying candidate: " + candidate.toString());
                                 Map<String, Expr> functions = new HashMap<String, Expr>();
                                 functions.put(this.problem.names.get(0), candidate);
-                                Status status = verifier.verify(functions);
+                                Status status = verifier.verify(functions, this.problem);
                                 if (status == Status.UNSATISFIABLE) {
                                     return candidate;
                                 }
