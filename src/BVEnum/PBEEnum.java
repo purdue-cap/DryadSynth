@@ -15,12 +15,13 @@ public class PBEEnum extends Thread {
     // TODO: support BV constant
     private String start = null;  // start symbol of the grammar
     private Map<String, List<String[]>> recRules = new LinkedHashMap<String, List<String[]>>();  // grammar rules with recursive production
-    private Map<String, Map<Expr[], Set<Expr>>> storage = new LinkedHashMap<String, Map<Expr[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<expr>>
-    private Map<String, Map<Expr[], Set<Expr>>> prevNewStorage = new LinkedHashMap<String, Map<Expr[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<expr>>
-    private Map<String, Map<Expr[], Set<Expr>>> currNewStorage = new LinkedHashMap<String, Map<Expr[], Set<Expr>>>();  // nonTerminal -> <output[] -> Set<expr>>
+    private Map<String, Map<List<String>, Expr>> storage = new LinkedHashMap<String, Map<List<String>, Expr>>();  // nonTerminal -> <output[] -> expr>
+    private Map<String, Map<List<String>, Expr>> prevNewStorage = new LinkedHashMap<String, Map<List<String>, Expr>>();  // nonTerminal -> <output[] -> expr>
+    private Map<String, Map<List<String>, Expr>> currNewStorage = new LinkedHashMap<String, Map<List<String>, Expr>>();  // nonTerminal -> <output[] -> expr>
     private Expr[][] input; // [numExample][numInputArgs]
     private String[] output;    // [numExample]
-    private Set<Expr> definitions;  // the definitions of resulting function
+    private int bvSize;     // size of bitvec expressions in benchmark
+    private Expr definition;  // the definition of resulting function
 
     public DefinedFunc[] results;
 
@@ -37,42 +38,11 @@ public class PBEEnum extends Thread {
             logger.info("BV backend does not support multiple functions yet");
             System.exit(1);
         } else {
-            // Expr result = generate();
             generate();
             String name = problem.names.get(0);
-            Expr result = null;
-            for (Expr e : this.definitions) {
-                result = e;
-                break;
-            }
+            Expr result = this.definition;
             this.results[0] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), result);
         }
-    }
-
-    class OutputComparator implements Comparator<Expr[]>{
-    	@Override
-    	public int compare(Expr[] output1,Expr[] output2){
-            if (output1.length > output2.length) {
-                return 1;
-            } else if (output1.length < output2.length) {
-                return -1;
-            } else {
-                int diff = 0;
-                for (int i = 0; i < output1.length; i++) {
-                    String output1Str = output1[i].toString();
-                    String output2Str = output2[i].toString();
-                    diff += output1Str.compareTo(output2Str);
-                }
-                return diff;
-            }
-    	}
-    }
-
-    class ExprComparator implements Comparator<Expr>{
-    	@Override
-    	public int compare(Expr e1,Expr e2){
-            return e1.toString().compareTo(e2.toString());
-    	}
     }
 
     void init() {
@@ -93,12 +63,12 @@ public class PBEEnum extends Thread {
             this.output[i] = example.get(example.size() - 1).toString();
             logger.info("Example " + i + " input: " + Arrays.toString(this.input[i]) + ", output: " + this.output[i]);
         }
+        this.bvSize = ((BitVecExpr)this.input[0][0]).getSortSize();
 
         // initialize storage and recRules
         for (String symbol : cfg.grammarRules.keySet()) {
             List<String[]> recs = new ArrayList<String[]>();
-            // Map<Integer, List<Expr>> exprByHeight = new LinkedHashMap<Integer, List<Expr>>();
-            Map<Expr[], Set<Expr>> outputStorage = new TreeMap<Expr[], Set<Expr>>(new OutputComparator());
+            Map<List<String>, Expr> outputStorage = new HashMap<List<String>, Expr>();
 
             List<String[]> rules = cfg.grammarRules.get(symbol);
             for (String[] rule : rules) {
@@ -111,20 +81,14 @@ public class PBEEnum extends Thread {
                     // compute output of the terminal
                     Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
                     DefinedFunc df = new DefinedFunc(ctx, funcArgs, terminal);
-                    Expr[] outputs = new Expr[this.output.length];
+                    List<String> outputs = new ArrayList<String>();
                     for (int i = 0; i < this.input.length; i++) {
                         // System.out.println(Arrays.toString(this.input[i]));
-                        outputs[i] = df.apply(this.input[i]);
+                        outputs.add(df.apply(this.input[i]).toString());
                     }
-                    logger.info("Initial outputs: " + Arrays.toString(outputs));
+                    logger.info("Initial outputs: " + Arrays.toString(outputs.toArray()));
                     // add generated outputs to outputStorage
-                    if (outputStorage.containsKey(outputs)) {
-                        outputStorage.get(outputs).add(terminal);
-                    } else {
-                        Set<Expr> initset = new TreeSet<Expr>(new ExprComparator());
-                        initset.add(terminal);
-                        outputStorage.put(outputs, initset);
-                    }
+                    outputStorage.putIfAbsent(outputs, terminal);
                 } else {
                     recs.add(rule);
                 }
@@ -133,7 +97,7 @@ public class PBEEnum extends Thread {
             this.prevNewStorage.put(symbol, outputStorage);
 
             // initialize this.storage
-            this.storage.put(symbol, new TreeMap<Expr[], Set<Expr>>(new OutputComparator()));
+            this.storage.put(symbol, new HashMap<List<String>, Expr>());
 
             // printStorage(this.prevNewStorage);
             // printStorage(this.storage);
@@ -167,125 +131,72 @@ public class PBEEnum extends Thread {
         }
     }
 
-    Set<String[]> genPrmt(int length) {
+    Set<List<String>> genPrmt(int length) {
         // assume "1" represents "new", "0" represents "old"
-        Set<String[]> prmt = new HashSet<String[]>();
-        String[] working = new String[length];
-        genOldNewPrmt(new String[]{"1", "0"}, working, 0, prmt);
-        // Arrays.fill(working, "0");
-        // prmt.remove(working);
+        Set<List<String>> prmt = new HashSet<List<String>>();
+        List<String> working = new ArrayList<String>();
+        genOldNewPrmt(new String[]{"1", "0"}, length, working, 0, prmt);
+        // if (length == 2) {
+        //     List<String> rm = new ArrayList<String>();
+        //     rm.add("1");
+        //     rm.add("0");
+        //     prmt.remove(rm);
+        // }
         return prmt;
     }
 
-    void genOldNewPrmt(String[] inputSet, String[] working, int index, Set<String[]> prmt) {
-        if (index == working.length) {
-            for (int i = 0; i < working.length; i++) {
-                if (working[i] == "1") {
-                    String[] copy = new String[working.length];
-                    System.arraycopy(working, 0, copy, 0, working.length);
-                    prmt.add(copy);
-                    return;
-                }
+    void genOldNewPrmt(String[] inputSet, int length, List<String> working, int index, Set<List<String>> prmt) {
+        if (index == length) {
+            if (working.contains("1")) {
+                List<String> copy = new ArrayList<String>(working);
+                prmt.add(copy);
             }
-            // String[] copy = new String[working.length];
-            // System.arraycopy(working, 0, copy, 0, working.length);
-            // prmt.add(copy);
             return;
         }    
 
         for (int i = 0; i < inputSet.length; i++) {
-            working[index] = inputSet[i];
-            genOldNewPrmt(inputSet, working, index + 1, prmt);
+            working.add(inputSet[i]);
+            genOldNewPrmt(inputSet, length, working, index + 1, prmt);
+            working.remove(working.size() - 1);
         }
     }
 
-    Set<Expr> genExprs(String[] rule, List<Set<Expr>> subexprs) {
-        if (subexprs.size() + 1 != rule.length) {
-            logger.severe("subexprs and rule: Length mismatch!");
-        }
-
-        Set<Expr> exprs = new TreeSet<Expr>(new ExprComparator());
-        Expr[] args = new Expr[subexprs.size()];
-        this.genExprsHelper(subexprs, rule, 0, args, exprs);
-        return exprs;
-    }
-
-    void genExprsHelper(List<Set<Expr>> subexprs, String[] rule, int index, Expr[] args, Set<Expr> exprs) {
-        // if (!exprs.isEmpty()) {
-        //     return;
-        // }
-
-        if (index == subexprs.size()) {
-            Expr expr = this.problem.opDis.dispatch(rule[0], args, true, false);
-            exprs.add(expr);
-            return;
-        }
-
-        Set<Expr> subexpressions = subexprs.get(index);
-
-        if (subexpressions == null || subexpressions.isEmpty()) {
-            return;
-        }
-
-        for (Expr e : subexpressions) {
-            // if (!exprs.isEmpty()) {
-            //     return;
-            // }
-            args[index] = e;
-            this.genExprsHelper(subexprs, rule, index + 1, args, exprs);
-            args[index] = null;
-        }
-    }
-
-    void genOutputCombs(String[] oldNewPrmt, String[] rule, Map<Expr[], Set<Expr>> currNew) {
-        if (oldNewPrmt.length + 1 != rule.length) {
+    void genOutputCombs(List<String> oldNewPrmt, String[] rule, Map<List<String>, Expr> currNew) {
+        if (oldNewPrmt.size() + 1 != rule.length) {
             logger.severe("oldNewPrmt and rule: Length mismatch!");
         }
 
-        List<Expr[]> comb = new ArrayList<Expr[]>();
-        List<Set<Expr>> subexprs = new ArrayList<Set<Expr>>();
+        List<List<String>> comb = new ArrayList<List<String>>();
+        List<Expr> subexprs = new ArrayList<Expr>();
         this.genOutputCombsHelper(oldNewPrmt, rule, 0, comb, subexprs, currNew);
     }
 
-    void genOutputCombsHelper(String[] oldNewPrmt, String[] rule, int index, List<Expr[]> comb, List<Set<Expr>> subexprs, Map<Expr[], Set<Expr>> currNew) {
-        if (index == oldNewPrmt.length) {
+    void genOutputCombsHelper(List<String> oldNewPrmt, String[] rule, int index, List<List<String>> comb, List<Expr> subexprs, Map<List<String>, Expr> currNew) {
+        if (index == oldNewPrmt.size()) {
             // for each combination, compute the output[]
-            Expr[] outputs = this.compute(rule, comb);
-            // generate every possible expressions
-            // long timeend = System.nanoTime();
-            // System.out.println("Timestamp end: " + timeend);
-            long start = System.nanoTime();
-            Set<Expr> newExprs = genExprs(rule, subexprs);
-            long usedTime = System.nanoTime() - start;
-            // System.out.println("Time genExprs: " + usedTime);
-            // long timestart = System.nanoTime();
-            // System.out.println("Timestamp start: " + timestart);
+            List<String> outputs = this.compute(rule, comb);
+            // generate new expression
+            Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
+            Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, false);
             // check if the output[] are expected
             if (this.verifyOutput(outputs)) {
-                // if so, assign those possible expressions to this.results
-                this.definitions = newExprs;
+                // if so, assign those possible expressions to this.definition
+                this.definition = newExpr;
             } else {
                 // add output[]&expressions to currNew
-                // check if output[] exists in currNew
-                if (currNew.containsKey(outputs)) {
-                    // add generated possible expressions to coressponding value in currNew
-                    currNew.get(outputs).addAll(newExprs);
-                } else {
-                    // create new pair in currNew
-                    currNew.put(outputs, newExprs);
-                }
+                currNew.putIfAbsent(outputs, newExpr);
             }
             return;
         }
 
-        Map<Expr[], Set<Expr>> storagePointer = null;
-        if (oldNewPrmt[index] == "1") {
+        Map<List<String>, Expr> storagePointer = null;
+        if (oldNewPrmt.get(index) == "1") {
             storagePointer = this.prevNewStorage.get(rule[index + 1]);
         } else {
             storagePointer = this.storage.get(rule[index + 1]);
         }
 
-        List<Expr[]> inputs = new ArrayList<Expr[]>(storagePointer.keySet());
+        List<List<String>> inputs = new ArrayList<List<String>>(storagePointer.keySet());
         for (int i = 0; i < inputs.size(); i++) {
             comb.add(inputs.get(i));
             subexprs.add(storagePointer.get(inputs.get(i)));
@@ -295,12 +206,15 @@ public class PBEEnum extends Thread {
         }
     }
 
-    Expr[][] transpose(List<Expr[]> comb) {
+    Expr[][] transpose(List<List<String>> comb) {
         int n = comb.size();
-        int m = comb.get(0).length;
+        int m = comb.get(0).size();
         Expr[][] args = new Expr[n][m];
         for (int i = 0; i < comb.size(); i++) {
-            args[i] = comb.get(i);
+            for (int j = 0; j < comb.get(i).size(); j++) {
+                String str = comb.get(i).get(j);
+                args[i][j] = ctx.mkBV(str, this.bvSize);
+            }
         }
         Expr[][] trans = new Expr[m][n];
         for (int i = 0; i < trans.length; i++) {
@@ -311,28 +225,28 @@ public class PBEEnum extends Thread {
         return trans;
     }
 
-    Expr[] compute(String[] rule, List<Expr[]> comb) {
+    List<String> compute(String[] rule, List<List<String>> comb) {
         if (comb.size() != rule.length - 1) {
             logger.severe("Outputs Length mismatch!");
         }
 
         Expr[][] args = this.transpose(comb);
-        Expr[] outputs = new Expr[args.length];
+        List<String> outputs = new ArrayList<String>();
         for (int i = 0; i < args.length; i++) {
-            outputs[i] = this.problem.opDis.dispatch(rule[0], args[i], true, false).simplify();
+            outputs.add(this.problem.opDis.dispatch(rule[0], args[i], true, false).simplify().toString());
         }
 
         return outputs;
     }
 
-    boolean verifyOutput(Expr[] outputs) {
+    boolean verifyOutput(List<String> outputs) {
         long start = System.nanoTime();
-        if (outputs.length != this.output.length) {
+        if (outputs.size() != this.output.length) {
             logger.severe("Outputs Length mismatch!");
         }
 
-        for (int i = 0; i < outputs.length; i++) {
-            if (!this.output[i].equals(outputs[i].toString())) {
+        for (int i = 0; i < outputs.size(); i++) {
+            if (!this.output[i].equals(outputs.get(i))) {
                 return false;
             }
         }
@@ -347,10 +261,10 @@ public class PBEEnum extends Thread {
         init();
 
         // check those initial outputs
-        Map<Expr[], Set<Expr>> initStorage = this.prevNewStorage.get(this.start);
-        for (Expr[] out : initStorage.keySet()) {
+        Map<List<String>, Expr> initStorage = this.prevNewStorage.get(this.start);
+        for (List<String> out : initStorage.keySet()) {
             if (this.verifyOutput(out)) {
-                this.definitions = initStorage.get(out);
+                this.definition = initStorage.get(out);
                 return;
             }
         }
@@ -361,32 +275,35 @@ public class PBEEnum extends Thread {
             logger.info("Interation: " + iter);
             iter++;
             
-            System.out.println("storage");
-            printStorage(this.storage);
-            System.out.println("prevNewStorage");
-            printStorage(this.prevNewStorage);
+            // System.out.println("storage");
+            // printStorage(this.storage);
+            // System.out.println("prevNewStorage");
+            // printStorage(this.prevNewStorage);
             // System.out.println("currNewStorage");
             // printStorage(this.currNewStorage);
             
-            if (iter > 5) {
-                System.exit(0);
-            }
+            // if (iter > 4) {
+            //     System.exit(0);
+            // }
 
             // for each non-terminal
             for (String nonTerminal : this.storage.keySet()) {
-                Map<Expr[], Set<Expr>> currNew = new TreeMap<Expr[], Set<Expr>>(new OutputComparator());
+                Map<List<String>, Expr> currNew = new HashMap<List<String>, Expr>();
 
                 // for every operator
                 for (String[] rule : this.recRules.get(nonTerminal)) {
+                    if (rule[0].equals("im")) {
+                        continue;
+                    }
                     System.out.println("rule: " + Arrays.toString(rule));
                     // generate all possible permutations of "old" and "new"
                     // for example, if there are two arguments for this operator
                     // possible permutations are [new, new] [old, new] [new, old]
-                    Set<String[]> prmts = genPrmt(rule.length - 1);
-                    for (String[] prmt : prmts) {
-                        System.out.println("prmt: " + Arrays.toString(prmt));
+                    Set<List<String>> prmts = genPrmt(rule.length - 1);
+                    for (List<String> prmt : prmts) {
+                        System.out.println("prmt: " + Arrays.toString(prmt.toArray()));
                         genOutputCombs(prmt, rule, currNew);
-                        if (this.definitions != null) {
+                        if (this.definition != null) {
                             return;
                         }
                     }
@@ -395,33 +312,28 @@ public class PBEEnum extends Thread {
                 currNewStorage.put(nonTerminal, currNew);
             }
 
-            System.out.println("currNewStorage: before adding to prevNewStorage");
-            printStorage(this.currNewStorage);
+            // System.out.println("currNewStorage: before adding to prevNewStorage");
+            // printStorage(this.currNewStorage);
 
             // update storage & prevNewStorage
             for (String nonTerminal : this.storage.keySet()) {
-                Map<Expr[], Set<Expr>> currStrg = this.storage.get(nonTerminal);
-                Map<Expr[], Set<Expr>> prevNewStrg = this.prevNewStorage.get(nonTerminal);
-                Map<Expr[], Set<Expr>> currNewStrg = this.currNewStorage.get(nonTerminal);
+                Map<List<String>, Expr> currStrg = this.storage.get(nonTerminal);
+                Map<List<String>, Expr> prevNewStrg = this.prevNewStorage.get(nonTerminal);
+                Map<List<String>, Expr> currNewStrg = this.currNewStorage.get(nonTerminal);
 
                 // put pairs in prevNewStorage to storage one by one
-                for (Expr[] outputs : prevNewStrg.keySet()) {
-                    if (currStrg.containsKey(outputs)) {
-                        currStrg.get(outputs).addAll(prevNewStrg.get(outputs));
-                    } else {
-                        currStrg.put(outputs, prevNewStrg.get(outputs));
-                    }
+                for (List<String> outputs : prevNewStrg.keySet()) {
+                    currStrg.putIfAbsent(outputs, prevNewStrg.get(outputs));
                 }
 
                 // remove pairs (in currNew) of which key exists in storage
-                List<Expr[]> toRm = new ArrayList<Expr[]>();
-                for (Expr[] outputs : currNewStrg.keySet()) {
+                List<List<String>> toRm = new ArrayList<List<String>>();
+                for (List<String> outputs : currNewStrg.keySet()) {
                     if (currStrg.containsKey(outputs)) {
-                        currStrg.get(outputs).addAll(currNewStrg.get(outputs));
                         toRm.add(outputs);
                     }
                 }
-                for (Expr[] outputs : toRm) {
+                for (List<String> outputs : toRm) {
                     currNewStrg.remove(outputs);
                 }
 
@@ -446,13 +358,14 @@ public class PBEEnum extends Thread {
         }
     }
 
-    void printStorage(Map<String, Map<Expr[], Set<Expr>>> storage) {
+    void printStorage(Map<String, Map<List<String>, Expr>> storage) {
         System.out.println("Print storage:");
         for (String nonTerminal : storage.keySet()) {
             System.out.println(nonTerminal);
-            Map<Expr[], Set<Expr>> map = storage.get(nonTerminal);
-            for (Expr[] subexpr : map.keySet()) {
-                System.out.println("subexpr: " + Arrays.toString(subexpr));
+            Map<List<String>, Expr> map = storage.get(nonTerminal);
+            for (List<String> subexpr : map.keySet()) {
+                System.out.println("outputs: " + Arrays.toString(subexpr.toArray()));
+                System.out.println("expr: " + map.get(subexpr).toString());
             }
             System.out.println();
         }
