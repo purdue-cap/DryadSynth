@@ -186,7 +186,7 @@ public class PBEEnum extends Thread {
             }
             // generate new expression
             Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
-            Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, false);
+            Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
             // check if the output[] are expected
             if (this.verifyOutput(outputs)) {
                 // if so, assign those possible expressions to this.definition
