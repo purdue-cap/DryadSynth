@@ -1076,26 +1076,6 @@ public class SygusExtractor extends SygusBaseListener {
         return z3ctx.mkBV(tmp,(len-2)*4);
     }
 
-    public static void PBEhex(String hexnum,bitVector result){
-        int len = hexnum.length();
-        long tmp = 0;
-        for(char c:hexnum.toCharArray()){
-            if(c>='0'&&c<='9'){
-                tmp*=16;
-                tmp+=c-'0';
-            }
-            if(c>='a'&&c<='f'){
-                tmp*=16;
-                tmp+=c-'a'+10;
-            }
-            if(c>='A'&&c<='F'){
-                tmp*=16;
-                tmp+=c-'A'+10;
-            }
-        }
-        result.setData(tmp);
-    }
-
     public static BitVecNum hex(int i){
         return z3ctx.mkBV(i,32);
     }
@@ -1112,20 +1092,6 @@ public class SygusExtractor extends SygusBaseListener {
             }
         }
         return z3ctx.mkBV(tmp,(len-2));
-    }
-
-    public static void PBEbin(String binnum,bitVector result){
-        int len = binnum.length();
-        long tmp = 0;
-        for(char c:binnum.toCharArray()){
-            if(c=='0')
-                tmp*=2;
-            if(c=='1'){
-                tmp*=2;
-                tmp+=1;
-            }
-        }
-        result.setData(tmp);
     }
 
     public void identermplustostack(SygusParser.IdentermplusContext ctx,SygusParser.TermContext topctx){
