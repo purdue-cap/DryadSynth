@@ -136,12 +136,16 @@ public class PBEEnum extends Thread {
         Set<List<String>> prmt = new HashSet<List<String>>();
         List<String> working = new ArrayList<String>();
         genOldNewPrmt(new String[]{"1", "0"}, length, working, 0, prmt);
-        // if (length == 2) {
-        //     List<String> rm = new ArrayList<String>();
-        //     rm.add("1");
-        //     rm.add("0");
-        //     prmt.remove(rm);
-        // }
+        if (length == 2) {
+            List<String> rm = new ArrayList<String>();
+            rm.add("1");
+            rm.add("0");
+            prmt.remove(rm);
+            // rm = new ArrayList<String>();
+            // rm.add("1");
+            // rm.add("1");
+            // prmt.remove(rm);
+        }
         return prmt;
     }
 
@@ -161,20 +165,25 @@ public class PBEEnum extends Thread {
         }
     }
 
-    void genOutputCombs(List<String> oldNewPrmt, String[] rule, Map<List<String>, Expr> currNew) {
+    void genOutputCombs(List<String> oldNewPrmt, String[] rule, Map<List<String>, Expr> currNew, String nonTerminal) {
         if (oldNewPrmt.size() + 1 != rule.length) {
             logger.severe("oldNewPrmt and rule: Length mismatch!");
         }
 
         List<List<String>> comb = new ArrayList<List<String>>();
         List<Expr> subexprs = new ArrayList<Expr>();
-        this.genOutputCombsHelper(oldNewPrmt, rule, 0, comb, subexprs, currNew);
+        this.genOutputCombsHelper(oldNewPrmt, rule, 0, comb, subexprs, currNew, nonTerminal);
     }
 
-    void genOutputCombsHelper(List<String> oldNewPrmt, String[] rule, int index, List<List<String>> comb, List<Expr> subexprs, Map<List<String>, Expr> currNew) {
+    void genOutputCombsHelper(List<String> oldNewPrmt, String[] rule, int index, List<List<String>> comb, List<Expr> subexprs, Map<List<String>, Expr> currNew, String nonTerminal) {
         if (index == oldNewPrmt.size()) {
             // for each combination, compute the output[]
             List<String> outputs = this.compute(rule, comb);
+            // check if newly-generated outputs have already existed in storage
+            if (currNew.containsKey(outputs) || (this.storage.containsKey(nonTerminal) && this.storage.get(nonTerminal).containsKey(outputs)) || (this.prevNewStorage.containsKey(nonTerminal) && this.prevNewStorage.get(nonTerminal).containsKey(outputs))) {
+                // if exist, return
+                return;
+            }
             // generate new expression
             Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
             Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, false);
@@ -200,7 +209,7 @@ public class PBEEnum extends Thread {
         for (int i = 0; i < inputs.size(); i++) {
             comb.add(inputs.get(i));
             subexprs.add(storagePointer.get(inputs.get(i)));
-            this.genOutputCombsHelper(oldNewPrmt, rule, index + 1, comb, subexprs, currNew);
+            this.genOutputCombsHelper(oldNewPrmt, rule, index + 1, comb, subexprs, currNew, nonTerminal);
             comb.remove(comb.size() - 1);
             subexprs.remove(subexprs.size() - 1);
         }
@@ -275,12 +284,13 @@ public class PBEEnum extends Thread {
             logger.info("Interation: " + iter);
             iter++;
             
-            // System.out.println("storage");
+            logger.info("storage");
             // printStorage(this.storage);
-            // System.out.println("prevNewStorage");
+            printStorageSize(this.storage);
+
+            logger.info("prevNewStorage");
             // printStorage(this.prevNewStorage);
-            // System.out.println("currNewStorage");
-            // printStorage(this.currNewStorage);
+            printStorageSize(this.prevNewStorage);
             
             // if (iter > 4) {
             //     System.exit(0);
@@ -292,9 +302,9 @@ public class PBEEnum extends Thread {
 
                 // for every operator
                 for (String[] rule : this.recRules.get(nonTerminal)) {
-                    if (rule[0].equals("im")) {
-                        continue;
-                    }
+                    // if (rule[0].equals("im")) {
+                    //     continue;
+                    // }
                     System.out.println("rule: " + Arrays.toString(rule));
                     // generate all possible permutations of "old" and "new"
                     // for example, if there are two arguments for this operator
@@ -302,7 +312,7 @@ public class PBEEnum extends Thread {
                     Set<List<String>> prmts = genPrmt(rule.length - 1);
                     for (List<String> prmt : prmts) {
                         System.out.println("prmt: " + Arrays.toString(prmt.toArray()));
-                        genOutputCombs(prmt, rule, currNew);
+                        genOutputCombs(prmt, rule, currNew, nonTerminal);
                         if (this.definition != null) {
                             return;
                         }
@@ -368,6 +378,14 @@ public class PBEEnum extends Thread {
                 System.out.println("expr: " + map.get(subexpr).toString());
             }
             System.out.println();
+        }
+    }
+
+    void printStorageSize(Map<String, Map<List<String>, Expr>> storage) {
+        for (String nonTerminal : storage.keySet()) {
+            if (storage.containsKey(nonTerminal)) {
+                logger.info(nonTerminal + " in storage: " + storage.get(nonTerminal).size());
+            }
         }
     }
 
