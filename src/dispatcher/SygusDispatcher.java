@@ -33,6 +33,7 @@ public class SygusDispatcher {
     boolean enableITCEGIS = false;
     boolean heightsOnly = false;
     boolean methodOnly = false;
+    boolean sizeBasedEnum = false;
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
@@ -140,6 +141,10 @@ public class SygusDispatcher {
 
     public void setMethodOnly(boolean checkmethod) {
         this.methodOnly = checkmethod;
+    }
+
+    public void setSizeBasedEnum(boolean sizebased) {
+        this.sizeBasedEnum = sizebased;
     }
 
     public void prescreenGeneral() {
@@ -482,7 +487,11 @@ public class SygusDispatcher {
             logger.info("Initializing PBE-BV-dedicated algorithms.");
             // Support single thread only for now, ignoring numCore settings.
             threads = new Thread[1];
-            threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
+            if (this.sizeBasedEnum) {
+                threads[0] = new PBEEnumSize(z3ctx, problem, logger, numCore);
+            } else {
+                threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
+            }
             return;
         }
 
@@ -546,7 +555,11 @@ public class SygusDispatcher {
         if (this.method == SolveMethod.PBE) {
             logger.info("Starting PBE-BV algorithms.");
             threads[0].run();
-            results = ((PBEEnum)threads[0]).results;
+            if (this.sizeBasedEnum) {
+                results = ((PBEEnumSize)threads[0]).results;
+            } else {
+                results = ((PBEEnum)threads[0]).results;
+            }
         }
 
         if (this.method == SolveMethod.AT){
