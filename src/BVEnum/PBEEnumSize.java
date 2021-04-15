@@ -25,6 +25,8 @@ public class PBEEnumSize extends Thread {
 
     public DefinedFunc[] results;
 
+    private String[] symmetricOp = {"bvand", "bvor", "bvadd", "bvxor"};
+
     public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore) {
         this.ctx = ctx;
         this.problem = problem;
@@ -135,14 +137,14 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    List<Integer[]> genPrmt(int budget, int length) {
+    List<Integer[]> genPrmt(int budget, int length, String[] rule) {
         List<Integer[]> prmt = new ArrayList<Integer[]>();
         Integer[] working = new Integer[length];
-        genPrmtHelper(budget, length, working, 0, prmt);
+        genPrmtHelper(budget, length, working, 0, prmt, rule);
         return prmt;
     }
 
-    void genPrmtHelper(int budget, int length, Integer[] working, int index, List<Integer[]> prmt) {
+    void genPrmtHelper(int budget, int length, Integer[] working, int index, List<Integer[]> prmt, String[] rule) {
         if (index == length) {
             if (budget == 0) {
                 Integer[] copy = new Integer[working.length];
@@ -156,9 +158,13 @@ public class PBEEnumSize extends Thread {
             return;
         }
 
+        if (Arrays.asList(this.symmetricOp).contains(rule[0]) && index >= 1 && budget < working[index - 1]) {
+            return;
+        }
+
         for (int i = 1; i <= budget; i++) {
             working[index] = i;
-            genPrmtHelper(budget - i, length, working, index + 1, prmt);
+            genPrmtHelper(budget - i, length, working, index + 1, prmt, rule);
         }
     }
 
@@ -286,7 +292,7 @@ public class PBEEnumSize extends Thread {
                     // }
                     System.out.println("rule: " + Arrays.toString(rule));
                     // generate all possible sums that add up to the given size
-                    List<Integer[]> prmts = genPrmt(iter - 1, rule.length - 1);
+                    List<Integer[]> prmts = genPrmt(iter - 1, rule.length - 1, rule);
                     for (Integer[] prmt : prmts) {
                         System.out.println("prmt: " + Arrays.toString(prmt));
                         genOutputCombs(prmt, rule, newOutputs, nonTerminal);
