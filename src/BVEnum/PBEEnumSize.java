@@ -26,6 +26,8 @@ public class PBEEnumSize extends Thread {
     public DefinedFunc[] results;
 
     private String[] symmetricOp = {"bvand", "bvor", "bvadd", "bvxor"};
+    private Map<Integer, Expr> covered = new HashMap<Integer, Expr>();
+    private boolean dncEnabled = false;     // disabled for now, since dnc implementation has not been completed
 
     public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore) {
         this.ctx = ctx;
@@ -191,7 +193,7 @@ public class PBEEnumSize extends Thread {
             Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
             Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
             // check if the output[] are expected
-            if (this.verifyOutput(outputs)) {
+            if (this.verifyOutput(outputs, newExpr)) {
                 // if so, assign those possible expressions to this.definition
                 this.definition = newExpr;
             } else {
@@ -245,21 +247,24 @@ public class PBEEnumSize extends Thread {
         return outputs;
     }
 
-    boolean verifyOutput(List<String> outputs) {
-        long start = System.nanoTime();
+    boolean verifyOutput(List<String> outputs, Expr expr) {
+        // long start = System.nanoTime();
         if (outputs.size() != this.output.length) {
             logger.severe("Outputs Length mismatch!");
         }
 
+        boolean result = true;
         for (int i = 0; i < outputs.size(); i++) {
             if (!this.output[i].equals(outputs.get(i))) {
-                return false;
+                result = false;
+            } else {
+                this.covered.putIfAbsent(i, expr);
             }
         }
-        long usedTime = System.nanoTime() - start;
-        System.out.println("Time verifyOutput: " + usedTime);
+        // long usedTime = System.nanoTime() - start;
+        // System.out.println("Time verifyOutput: " + usedTime);
 
-        return true;
+        return result;
     }
 
     void generate() {
@@ -269,7 +274,7 @@ public class PBEEnumSize extends Thread {
         // check those initial outputs
         Map<List<String>, Expr> initStorage = this.exprStorage.get(this.start);
         for (List<String> out : initStorage.keySet()) {
-            if (this.verifyOutput(out)) {
+            if (this.verifyOutput(out, initStorage.get(out))) {
                 this.definition = initStorage.get(out);
                 return;
             }
@@ -298,6 +303,10 @@ public class PBEEnumSize extends Thread {
                         genOutputCombs(prmt, rule, newOutputs, nonTerminal);
                         if (this.definition != null) {
                             return;
+                        }
+                        if (this.dncEnabled && this.covered.size() == this.output.length) {
+                            printCovered(this.covered);
+                            System.exit(0);
                         }
                     }
                 }
@@ -352,6 +361,12 @@ public class PBEEnumSize extends Thread {
             if (storage.containsKey(nonTerminal)) {
                 logger.info(nonTerminal + " in storage: " + storage.get(nonTerminal).size());
             }
+        }
+    }
+
+    void printCovered(Map<Integer, Expr> covered) {
+        for (Integer i : covered.keySet()) {
+            System.out.println("Example " + i + ": " + covered.get(i).toString());
         }
     }
 
