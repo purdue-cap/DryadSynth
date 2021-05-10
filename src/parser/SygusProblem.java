@@ -41,7 +41,7 @@ public class SygusProblem {
     public OpDispatcher opDis;
     public Map<String, Set<Set<Expr>>> varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(); // vars relationship map, used for INV DnC
     public String iteName = "";
-    public int iteArray[] = new int[3];
+    public int[] iteArray = new int[3];
 
     // For grammar parsing
     public enum SybType {
@@ -148,6 +148,9 @@ public class SygusProblem {
         this.searchHeight = src.searchHeight;
         this.changed = src.changed;
         this.coeffRange = src.coeffRange;
+
+        this.iteName = src.iteName;
+        this.iteArray = src.iteArray;
     }
 
     public SygusProblem translate(Context ctx) {
@@ -245,6 +248,9 @@ public class SygusProblem {
             }
             newProblem.ioexamples.add(ioexample);
         }
+
+        newProblem.iteName = this.iteName;
+        newProblem.iteArray = this.iteArray;
 
         return newProblem;
     }

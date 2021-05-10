@@ -54,7 +54,7 @@ public class SygusExtractor extends SygusBaseListener {
     SygusProblem.CFG currentCFG = null;
     boolean isGeneral;
     String iteName = "";
-    int iteArray[] = new int[3];
+    int[] iteArray = new int[3];
     Expr[] iteExprs = new Expr[3];
 
     // CLIA grammar extension to enforce CLIA algorithm on general track benchmarks
@@ -1115,9 +1115,7 @@ public class SygusExtractor extends SygusBaseListener {
         if(ctx.iteexpr()!=null){
             assert args.length==3 : "Wrong args number";
             expr = z3ctx.mkITE((BoolExpr)args[0],args[1],args[2]);
-            iteExprs[0] = args[0];
-            iteExprs[1] = args[1];
-            iteExprs[2] = args[2];
+            iteExprs = Arrays.copyOf(args, 3);
         }else if(ctx.boolexpr()!=null){
             SygusParser.BoolexprContext tmpctx = ctx.boolexpr();
             if(tmpctx.andexpr()!=null){
@@ -1425,7 +1423,7 @@ public class SygusExtractor extends SygusBaseListener {
         funcs.put(name, func);
         glbSybTypeTbl.put(name, SygusProblem.SybType.FUNC);
         currentCmd = CmdType.NONE;
-        if(def.toString().contains("ite")){
+        if((problemType == SygusProblem.ProbType.BV) && def.toString().contains("ite")){
             iteName = name;
             String[] iteExprName = new String[]{"iteEval","iteBranch1","iteBranch2"};
             Expr[] iteArgList = new Expr[1];
@@ -1438,7 +1436,6 @@ public class SygusExtractor extends SygusBaseListener {
                         DefinedFunc itefunc = new DefinedFunc(z3ctx, name, iteArgList, iteExprs[i]);
                         funcs.put(name, itefunc);
                         glbSybTypeTbl.put(name, SygusProblem.SybType.FUNC);
-                        currentCmd = CmdType.NONE;
                         iteArray[j] = i;
                     }
                 }
