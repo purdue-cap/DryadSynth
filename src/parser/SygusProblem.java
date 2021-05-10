@@ -40,6 +40,8 @@ public class SygusProblem {
     public Map<String, DefinedFunc> funcs = new LinkedHashMap<String, DefinedFunc>();
     public OpDispatcher opDis;
     public Map<String, Set<Set<Expr>>> varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>(); // vars relationship map, used for INV DnC
+    public String iteName = "";
+    public int iteArray[] = new int[3];
 
     // For grammar parsing
     public enum SybType {
