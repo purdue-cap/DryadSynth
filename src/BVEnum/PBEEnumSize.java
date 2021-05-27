@@ -1,3 +1,4 @@
+import java.math.BigInteger;
 import java.util.*;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 import com.microsoft.z3.*;
@@ -26,8 +27,13 @@ public class PBEEnumSize extends Thread {
     public DefinedFunc[] results;
 
     private String[] symmetricOp = {"bvand", "bvor", "bvadd", "bvxor"};
-    private Map<Integer, Expr> covered = new HashMap<Integer, Expr>();
-    private boolean dncEnabled = false;     // disabled for now, since dnc implementation has not been completed
+    private Map<Integer, List<Integer>> covered = new HashMap<Integer, List<Integer>>();
+    private List<Expr> coveredExpr = new LinkedList<Expr>();
+    private Map<Integer, Expr> iteExprs = new HashMap<Integer, Expr>();
+    private Map<Integer, Boolean> iteExprsTF = new HashMap<Integer, Boolean>();
+    private List<Integer> coveredExample = new LinkedList<Integer>();
+    private boolean secondEnumeration = false; 
+    private boolean dncEnabled = true;     // disabled for now, since dnc implementation has not been completed
 
     public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore) {
         this.ctx = ctx;
@@ -42,6 +48,8 @@ public class PBEEnumSize extends Thread {
             logger.info("BV backend does not support multiple functions yet");
             System.exit(1);
         } else {
+            generate();
+            secondEnumeration = true;
             generate();
             String name = problem.names.get(0);
             Expr result = this.definition;
@@ -106,6 +114,8 @@ public class PBEEnumSize extends Thread {
             this.recRules.put(symbol, recs);
 
             // initialize global storages
+            this.exprStorage.clear();
+            this.outputStorage.clear();
             this.exprStorage.put(symbol, exprStrg);
             this.outputStorage.put(symbol, outputStrg);
 
@@ -189,11 +199,26 @@ public class PBEEnumSize extends Thread {
                 // if exist, return
                 return;
             }
+
+            if(secondEnumeration){
+                String[] rule2 = {"iteEval","Start"};
+                List<List<String>> outputs2 = new LinkedList<List<String>>();
+                outputs2.add(outputs);
+                List<String> iteoutputs = this.compute(rule2,outputs2);
+                Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
+                Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
+                this.secondVerifyOutput(iteoutputs,newExpr);
+                currNew.add(outputs);
+                this.exprStorage.get(nonTerminal).put(outputs, newExpr);
+                return;
+            }
+                // check if newly-generated outputs have already existed in storage
+            
             // generate new expression
             Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
             Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
             // check if the output[] are expected
-            if (this.verifyOutput(outputs, newExpr)) {
+            if (!secondEnumeration && this.verifyOutput(outputs, newExpr)) {
                 // if so, assign those possible expressions to this.definition
                 this.definition = newExpr;
             } else {
@@ -203,7 +228,6 @@ public class PBEEnumSize extends Thread {
             }
             return;
         }
-
         Set<List<String>> inputs = this.outputStorage.get(rule[index + 1]).get(prmt[index]);
         for (List<String> input : inputs) {
             comb.add(input);
@@ -247,6 +271,36 @@ public class PBEEnumSize extends Thread {
         return outputs;
     }
 
+    void secondVerifyOutput(List<String> outputs, Expr expr){
+        
+        List<Integer> trueOutputs = new LinkedList<Integer>();
+        List<Integer> falseOutputs = new LinkedList<Integer>();
+        for (int i = 0; i < outputs.size(); i++) {
+            if(outputs.get(i).equals("true")){
+                trueOutputs.add(i);
+            }
+            else{
+                falseOutputs.add(i);
+            }
+        }
+        if(covered.values().contains(trueOutputs)){
+            for(int target:covered.keySet()){
+                if(covered.get(target).equals(trueOutputs)){
+                    iteExprs.put(target,expr);
+                    iteExprsTF.put(target,true);
+                }
+            }
+        }
+        if(covered.values().contains(falseOutputs)){
+            for(int target:covered.keySet()){
+                if(covered.get(target).equals(falseOutputs)){
+                    iteExprs.put(target,expr);
+                    iteExprsTF.put(target,false);
+                }
+            }
+        }
+    }
+
     boolean verifyOutput(List<String> outputs, Expr expr) {
         // long start = System.nanoTime();
         if (outputs.size() != this.output.length) {
@@ -254,12 +308,34 @@ public class PBEEnumSize extends Thread {
         }
 
         boolean result = true;
+        List<Integer> coveredOutputs = new LinkedList<Integer>();
         for (int i = 0; i < outputs.size(); i++) {
             if (!this.output[i].equals(outputs.get(i))) {
                 result = false;
             } else {
-                this.covered.putIfAbsent(i, expr);
+                coveredOutputs.add(i);
+                if(!coveredExample.contains(i)){
+                    coveredExample.add(i);
+                }
             }
+        }
+        if(coveredOutputs.size() != 0){
+            List<List<Integer>> removedTargets = new LinkedList<List<Integer>>();
+            for(List<Integer> target: covered.values()){
+                if(target.containsAll(coveredOutputs)){
+                    return result;
+                }
+                if(coveredOutputs.containsAll(target)){
+                    System.out.println(target);
+                    System.out.println(coveredOutputs);
+                    removedTargets.add(target);
+                }
+            }
+            for(List<Integer> target: removedTargets){
+                covered.values().remove(target);
+            }
+            coveredExpr.add(expr);
+            covered.put(coveredExpr.indexOf(expr),coveredOutputs);
         }
         // long usedTime = System.nanoTime() - start;
         // System.out.println("Time verifyOutput: " + usedTime);
@@ -279,9 +355,7 @@ public class PBEEnumSize extends Thread {
                 return;
             }
         }
-
         int iter = 1;
-
         while (true) {
             iter++;
             logger.info("Size: " + iter);
@@ -304,17 +378,19 @@ public class PBEEnumSize extends Thread {
                         if (this.definition != null) {
                             return;
                         }
-                        if (this.dncEnabled && this.covered.size() == this.output.length) {
+                        if (this.dncEnabled && this.coveredExample.size() == this.output.length && !this.secondEnumeration) {
                             printCovered(this.covered);
-                            System.exit(0);
+                            return;
+                        }
+                        if(this.secondEnumeration && (this.iteExprs.size() == this.covered.size())){
+                            printIteExprs(this.iteExprs);
+                            System.exit(1);
                         }
                     }
                 }
-                
                 logger.info("Store: " + nonTerminal + " size: " + iter + " #exprs: " + newOutputs.size());
                 this.outputStorage.get(nonTerminal).put(iter, newOutputs);
             }
-
         }
 
     }
@@ -364,10 +440,16 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    void printCovered(Map<Integer, Expr> covered) {
+    void printCovered(Map<Integer, List<Integer>> covered) {
         for (Integer i : covered.keySet()) {
-            System.out.println("Example " + i + ": " + covered.get(i).toString());
+            System.out.println("Expr " + coveredExpr.get(i) + ": " + covered.get(i).toString());
         }
     }
 
+    void printIteExprs(Map<Integer, Expr> iteExprs) {
+        for (Integer i : iteExprs.keySet()) {
+            System.out.println("Expr " + coveredExpr.get(i) + ": " );
+            System.out.println(iteExprs.get(i).toString());
+        }
+    }
 }

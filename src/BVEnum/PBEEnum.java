@@ -22,7 +22,7 @@ public class PBEEnum extends Thread {
     private String[] output;    // [numExample]
     private int bvSize;     // size of bitvec expressions in benchmark
     private Expr definition;  // the definition of resulting function
-
+    private List<String> changeableOperations = new ArrayList<String>();
     public DefinedFunc[] results;
 
     public PBEEnum (Context ctx, SygusProblem problem, Logger logger, int numCore) {
@@ -64,7 +64,14 @@ public class PBEEnum extends Thread {
             logger.info("Example " + i + " input: " + Arrays.toString(this.input[i]) + ", output: " + this.output[i]);
         }
         this.bvSize = ((BitVecExpr)this.input[0][0]).getSortSize();
-
+        changeableOperations.add("bvadd");
+        changeableOperations.add("bvmul");
+        changeableOperations.add("bvor");
+        changeableOperations.add("bvand");
+        changeableOperations.add("bvnand");
+        changeableOperations.add("bvxor");
+        changeableOperations.add("bvnor");
+        changeableOperations.add("bvxnor");
         // initialize storage and recRules
         for (String symbol : cfg.grammarRules.keySet()) {
             List<String[]> recs = new ArrayList<String[]>();
@@ -172,10 +179,11 @@ public class PBEEnum extends Thread {
 
         List<List<String>> comb = new ArrayList<List<String>>();
         List<Expr> subexprs = new ArrayList<Expr>();
-        this.genOutputCombsHelper(oldNewPrmt, rule, 0, comb, subexprs, currNew, nonTerminal);
+        List<List<String>> combList = new ArrayList<List<String>>();
+        this.genOutputCombsHelper(oldNewPrmt, rule, 0, comb, subexprs, currNew, nonTerminal,combList);
     }
 
-    void genOutputCombsHelper(List<String> oldNewPrmt, String[] rule, int index, List<List<String>> comb, List<Expr> subexprs, Map<List<String>, Expr> currNew, String nonTerminal) {
+    void genOutputCombsHelper(List<String> oldNewPrmt, String[] rule, int index, List<List<String>> comb, List<Expr> subexprs, Map<List<String>, Expr> currNew, String nonTerminal,List<List<String>> combList) {
         if (index == oldNewPrmt.size()) {
             // for each combination, compute the output[]
             List<String> outputs = this.compute(rule, comb);
@@ -209,7 +217,43 @@ public class PBEEnum extends Thread {
         for (int i = 0; i < inputs.size(); i++) {
             comb.add(inputs.get(i));
             subexprs.add(storagePointer.get(inputs.get(i)));
-            this.genOutputCombsHelper(oldNewPrmt, rule, index + 1, comb, subexprs, currNew, nonTerminal);
+            List<String> combCopy = new ArrayList<String>();
+            boolean is_contain = false;
+            
+            if(changeableOperations.contains(rule[0]) && (comb.size() == 2)){
+                for(String result:comb.get(0)){
+                    combCopy.add(result);
+                }
+                for(String result:comb.get(1)){
+                    combCopy.add(result);
+                }
+                for(List<String> combElement:combList){
+                    if(combElement.containsAll(combCopy)){
+                        int exampleSize = comb.get(0).size();
+                        List<String> firstOperandList = combElement.subList(0, exampleSize);
+                        List<String> secondOperandList = combElement.subList(exampleSize, exampleSize*2);
+                        int count = 0;
+                        for(int j = 0; j < exampleSize;j++){
+                            String firstOperand = comb.get(0).get(j);
+                            String secondOperand = comb.get(1).get(j);
+                            if(firstOperandList.get(j).equals(firstOperand) && secondOperandList.get(j).equals(secondOperand)){
+                                count++;
+                            }
+                            if(firstOperandList.get(j).equals(secondOperand) && secondOperandList.get(j).equals(firstOperand)){
+                                count++;
+                            }
+                        }
+                        if(count == exampleSize){
+                            is_contain = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if(is_contain == false){
+                combList.add(combCopy);
+                this.genOutputCombsHelper(oldNewPrmt, rule, index + 1, comb, subexprs, currNew,nonTerminal,combList);
+            }
             comb.remove(comb.size() - 1);
             subexprs.remove(subexprs.size() - 1);
         }

@@ -1426,12 +1426,12 @@ public class SygusExtractor extends SygusBaseListener {
         if((problemType == SygusProblem.ProbType.BV) && def.toString().contains("ite")){
             iteName = name;
             String[] iteExprName = new String[]{"iteEval","iteBranch1","iteBranch2"};
-            Expr[] iteArgList = new Expr[1];
             for(int i = 0; i < 3;i++){
                 String target = " " + iteExprs[i].toString();
                 for(int j = 0; j < 3;j++){
                     if(target.indexOf(" "+argList[j].toString()) != -1){
                         name = iteExprName[i];
+                        Expr[] iteArgList = new Expr[1];
                         iteArgList[0] = argList[j];
                         DefinedFunc itefunc = new DefinedFunc(z3ctx, name, iteArgList, iteExprs[i]);
                         funcs.put(name, itefunc);
