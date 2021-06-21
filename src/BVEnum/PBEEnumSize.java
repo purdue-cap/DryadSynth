@@ -29,9 +29,15 @@ public class PBEEnumSize extends Thread {
     private String[] symmetricOp = {"bvand", "bvor", "bvadd", "bvxor"};
     private Map<Integer, List<Integer>> covered = new HashMap<Integer, List<Integer>>();
     private List<Expr> coveredExpr = new LinkedList<Expr>();
-    private Map<Integer, Expr> iteExprs = new HashMap<Integer, Expr>();
-    private Map<Integer, Boolean> iteExprsTF = new HashMap<Integer, Boolean>();
+    private Map<Integer, Integer> classToExpr = new HashMap<Integer, Integer>();
+    private Map<Integer, Integer> conditionToclass = new HashMap<Integer, Integer>();
+    private Map<Integer, Boolean> classTF = new HashMap<Integer, Boolean>();
     private List<Integer> coveredExample = new LinkedList<Integer>();
+    private List<Expr> conditionExpr = new LinkedList<Expr>();
+    private List<Integer> outsider = new LinkedList<Integer>();
+    private List<List<Integer>> EquivClass = new LinkedList<List<Integer>>();
+    private Integer elseexpr;
+
     private boolean secondEnumeration = false; 
     private boolean dncEnabled = true;     // disabled for now, since dnc implementation has not been completed
 
@@ -49,8 +55,13 @@ public class PBEEnumSize extends Thread {
             System.exit(1);
         } else {
             generate();
-            secondEnumeration = true;
-            generate();
+            if(this.definition == null){
+                secondEnumeration = true;
+                generate();
+            }
+            if(this.definition == null){
+                generateResult();
+            }
             String name = problem.names.get(0);
             Expr result = this.definition;
             this.results[0] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), result);
@@ -69,6 +80,9 @@ public class PBEEnumSize extends Thread {
         this.input = new Expr[ioexamples.size()][ioexamples.get(0).size() - 1];
         for (int i = 0; i < ioexamples.size(); i++) {
             List<Expr> example = ioexamples.get(i);
+            if(secondEnumeration){
+                outsider.add(i);
+            }
             for (int j = 0; j < example.size() - 1; j++) {
                 this.input[i][j] = example.get(j);
             }
@@ -275,7 +289,7 @@ public class PBEEnumSize extends Thread {
         
         List<Integer> trueOutputs = new LinkedList<Integer>();
         List<Integer> falseOutputs = new LinkedList<Integer>();
-        for (int i = 0; i < outputs.size(); i++) {
+        for (int i: outsider) {
             if(outputs.get(i).equals("true")){
                 trueOutputs.add(i);
             }
@@ -283,20 +297,35 @@ public class PBEEnumSize extends Thread {
                 falseOutputs.add(i);
             }
         }
-        if(covered.values().contains(trueOutputs)){
-            for(int target:covered.keySet()){
-                if(covered.get(target).equals(trueOutputs)){
-                    iteExprs.put(target,expr);
-                    iteExprsTF.put(target,true);
-                }
-            }
+        if(trueOutputs.size() == 0 || falseOutputs.size() ==0){
+            return;
         }
-        if(covered.values().contains(falseOutputs)){
-            for(int target:covered.keySet()){
-                if(covered.get(target).equals(falseOutputs)){
-                    iteExprs.put(target,expr);
-                    iteExprsTF.put(target,false);
+        for(int key:covered.keySet()){
+            if(covered.get(key).containsAll(trueOutputs)){
+                EquivClass.add(trueOutputs);
+                outsider.removeAll(trueOutputs);
+                if(outsider.size() == 0){
+                    elseexpr = key;
                 }
+                if(!conditionExpr.contains(expr)){
+                    conditionExpr.add(expr);
+                    conditionToclass.put(conditionExpr.indexOf(expr),EquivClass.indexOf(trueOutputs));
+                }
+                classToExpr.put(EquivClass.indexOf(trueOutputs),key);
+                classTF.put(EquivClass.indexOf(trueOutputs),true);
+            }
+            if(covered.get(key).containsAll(falseOutputs)){
+                EquivClass.add(falseOutputs);
+                outsider.removeAll(falseOutputs);
+                if(outsider.size() == 0){
+                    elseexpr = key;
+                }
+                if(!conditionExpr.contains(expr)){
+                    conditionExpr.add(expr);
+                    conditionToclass.put(conditionExpr.indexOf(expr),EquivClass.indexOf(falseOutputs));
+                }
+                classToExpr.put(EquivClass.indexOf(falseOutputs),key);
+                classTF.put(EquivClass.indexOf(falseOutputs),false);
             }
         }
     }
@@ -382,9 +411,10 @@ public class PBEEnumSize extends Thread {
                             printCovered(this.covered);
                             return;
                         }
-                        if(this.secondEnumeration && (this.iteExprs.size() == this.covered.size())){
-                            printIteExprs(this.iteExprs);
-                            System.exit(1);
+                        if(this.secondEnumeration && (this.outsider.size() == 0)){
+                            printCovered(this.covered);
+                            printEquivClass(this.EquivClass);
+                            return;
                         }
                     }
                 }
@@ -393,6 +423,27 @@ public class PBEEnumSize extends Thread {
             }
         }
 
+    }
+
+    void generateResult(){
+        Expr result = coveredExpr.get(elseexpr);
+        for(int i = conditionExpr.size() - 1; i >= 0;i--){
+            Expr[] operands = new Expr[3];
+            operands[0] = conditionExpr.get(i);
+            int equivClassIndex = conditionToclass.get(i);
+            if(classTF.get(equivClassIndex)){
+                operands[1] = coveredExpr.get(classToExpr.get(equivClassIndex));
+                operands[2] = result;
+                result = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
+            }
+            else{
+                operands[1] = result;
+                operands[2] = coveredExpr.get(classToExpr.get(equivClassIndex));
+                result = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
+            }
+        }
+        this.definition = result;
+        // todo: problem with some examples,PRE_18_10, PRE_58_10, PRE_70_10,PRE_74_10
     }
 
     void printRecRules() {
@@ -446,10 +497,27 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    void printIteExprs(Map<Integer, Expr> iteExprs) {
-        for (Integer i : iteExprs.keySet()) {
-            System.out.println("Expr " + coveredExpr.get(i) + ": " );
-            System.out.println(iteExprs.get(i).toString());
+    void printEquivClass(List<List<Integer>> EquivClass) {
+        System.out.println("");
+        System.out.println(conditionExpr);
+        for(int i = 0; i < conditionExpr.size();i++){
+            System.out.println("condition Expr:" + conditionExpr.get(i));
+            int equivClassIndex = conditionToclass.get(i);
+            System.out.println("Branch: "+classTF.get(equivClassIndex));
+            System.out.println("Equivalence Class: "+EquivClass.get(equivClassIndex));
+            System.out.println("Corresponding covered expr: "+coveredExpr.get(classToExpr.get(equivClassIndex)));
+            System.out.println("");
         }
+
+        System.out.println("else expr: "+coveredExpr.get(elseexpr));
+        int elseIndex = 0;
+        for(int i: classToExpr.keySet()){
+            if(classToExpr.get(i).equals(elseexpr)){
+                elseIndex = i;
+                continue;
+            }
+        }
+        System.out.println("Branch: "+classTF.get(elseIndex));
+        System.out.println("Equivalence Class: "+EquivClass.get(elseIndex));
     }
 }
