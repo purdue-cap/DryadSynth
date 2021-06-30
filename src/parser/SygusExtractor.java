@@ -49,7 +49,6 @@ public class SygusExtractor extends SygusBaseListener {
     boolean inGrammarArgs = false;
     boolean inLetTerms = false;
     List<String> grammarArgs = new ArrayList<String>();
-    List<String> parentTerminals = new ArrayList<String>();
 
     Map<String, SygusProblem.SybType> glbSybTypeTbl = new LinkedHashMap<String, SygusProblem.SybType>();
     Map<String, SygusProblem.CFG> cfgs = new LinkedHashMap<String, SygusProblem.CFG>();
@@ -609,31 +608,20 @@ public class SygusExtractor extends SygusBaseListener {
     }
 
     public List<String[]> replaceNonTerminal(String nonTerminalName){
-        if(parentTerminals.contains(nonTerminalName)){
-            return (new ArrayList<String[]>());
-        }
-        List<String[]> copyTerminal = new ArrayList<String[]>();
-        copyTerminal.addAll(currentCFG.grammarRules.get(nonTerminalName));
-        parentTerminals.add(nonTerminalName);
-        for(int i = 0; i < copyTerminal.size();i++){
-            if(copyTerminal.get(i).length == 1 && currentCFG.grammarRules.containsKey(copyTerminal.get(i)[0])){
-                List<String[]> returnList = replaceNonTerminal(copyTerminal.get(i)[0]);
-                copyTerminal.remove(i);
+        for(int i = 0; i < currentCFG.grammarRules.get(nonTerminalName).size();i++){
+            if(currentCFG.grammarRules.get(nonTerminalName).get(i).length == 1 && currentCFG.grammarRules.containsKey(currentCFG.grammarRules.get(nonTerminalName).get(i)[0])){
+                List<String[]> returnList = replaceNonTerminal(currentCFG.grammarRules.get(nonTerminalName).get(i)[0]);
+                currentCFG.grammarRules.get(nonTerminalName).remove(i);
                 for(int j = 0; j < returnList.size();j++){
-                    copyTerminal.add(i, returnList.get(j));
+                    currentCFG.grammarRules.get(nonTerminalName).add(i, returnList.get(j));
                 }
             }
         }
-        parentTerminals.remove(nonTerminalName);
-        return copyTerminal;
+        return currentCFG.grammarRules.get(nonTerminalName);
     }
 
     public void exitSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
-        Set<String> keys = currentCFG.grammarRules.keySet();
-        for(String key:keys){
-            parentTerminals.clear();
-            currentCFG.grammarRules.replace(key, replaceNonTerminal(key));
-        }
+        currentCFG.grammarRules.replace("Start", replaceNonTerminal("Start"));
         String name = ctx.symbol().getText();
         Expr[] argList = currentArgList.toArray(new Expr[currentArgList.size()]);
         Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
