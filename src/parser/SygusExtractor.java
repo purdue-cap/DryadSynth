@@ -607,21 +607,7 @@ public class SygusExtractor extends SygusBaseListener {
         currentSortList = new ArrayList<Sort>();
     }
 
-    public List<String[]> replaceNonTerminal(String nonTerminalName){
-        for(int i = 0; i < currentCFG.grammarRules.get(nonTerminalName).size();i++){
-            if(currentCFG.grammarRules.get(nonTerminalName).get(i).length == 1 && currentCFG.grammarRules.containsKey(currentCFG.grammarRules.get(nonTerminalName).get(i)[0])){
-                List<String[]> returnList = replaceNonTerminal(currentCFG.grammarRules.get(nonTerminalName).get(i)[0]);
-                currentCFG.grammarRules.get(nonTerminalName).remove(i);
-                for(int j = 0; j < returnList.size();j++){
-                    currentCFG.grammarRules.get(nonTerminalName).add(i, returnList.get(j));
-                }
-            }
-        }
-        return currentCFG.grammarRules.get(nonTerminalName);
-    }
-
     public void exitSynthFunCmd(SygusParser.SynthFunCmdContext ctx) {
-        currentCFG.grammarRules.replace("Start", replaceNonTerminal("Start"));
         String name = ctx.symbol().getText();
         Expr[] argList = currentArgList.toArray(new Expr[currentArgList.size()]);
         Sort[] typeList = currentSortList.toArray(new Sort[currentSortList.size()]);
