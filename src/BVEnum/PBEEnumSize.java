@@ -37,8 +37,7 @@ public class PBEEnumSize extends Thread {
     private List<List<Integer>> equivClass = new LinkedList<List<Integer>>();
     private Integer elseExpr;
 
-    private boolean secondEnumeration = false; 
-    private boolean dncEnabled = true;
+    private boolean coverFound = false;
 
     public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore) {
         this.ctx = ctx;
@@ -55,8 +54,6 @@ public class PBEEnumSize extends Thread {
         } else {
             generate();
             if (this.definition == null) {
-                secondEnumeration = true;
-                generate();
                 generateResult();
             }
             String name = problem.names.get(0);
@@ -76,10 +73,8 @@ public class PBEEnumSize extends Thread {
         this.output = new String[ioexamples.size()];
         this.input = new Expr[ioexamples.size()][ioexamples.get(0).size() - 1];
         for (int i = 0; i < ioexamples.size(); i++) {
+            outsider.add(i);
             List<Expr> example = ioexamples.get(i);
-            if (secondEnumeration) {
-                outsider.add(i);
-            }
             for (int j = 0; j < example.size() - 1; j++) {
                 this.input[i][j] = example.get(j);
             }
@@ -87,9 +82,6 @@ public class PBEEnumSize extends Thread {
             logger.info("Example " + i + " input: " + Arrays.toString(this.input[i]) + ", output: " + this.output[i]);
         }
         this.bvSize = ((BitVecExpr)this.input[0][0]).getSortSize();
-
-        this.exprStorage.clear();
-        this.outputStorage.clear();
 
         // initialize storage and recRules
         for (String symbol : cfg.grammarRules.keySet()) {
@@ -210,35 +202,28 @@ public class PBEEnumSize extends Thread {
                 // if exist, return
                 return;
             }
-
-            if (secondEnumeration) {
-                // generate new expression
-                Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
-                Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
-                currNew.add(outputs);
-                this.exprStorage.get(nonTerminal).put(outputs, newExpr);
-
-                // evaluate the examples on ite conditions
-                String[] iteRule = {"iteEval", "Start"};
-                List<List<String>> outputs2 = new LinkedList<List<String>>();
-                outputs2.add(outputs);
-                List<String> iteoutputs = this.checkThenCompute(iteRule, outputs2);
-                this.secondVerifyOutput(iteoutputs, newExpr);
-                return;
-            }
             
             // generate new expression
             Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
             Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
             // check if the output[] are expected
-            if (!secondEnumeration && this.verifyOutput(outputs, newExpr)) {
+            if (this.coveredExample.size() != this.output.length && this.verifyOutput(outputs, newExpr)) {
                 // if so, assign those possible expressions to this.definition
                 this.definition = newExpr;
+                return;
             } else {
                 // add output[]&expressions to storages
                 currNew.add(outputs);
                 this.exprStorage.get(nonTerminal).put(outputs, newExpr);
             }
+
+            // evaluate the examples on ite conditions
+            String[] iteRule = {"iteEval", "Start"};
+            List<List<String>> outputs2 = new LinkedList<List<String>>();
+            outputs2.add(outputs);
+            List<String> iteoutputs = this.checkThenCompute(iteRule, outputs2);
+            this.secondVerifyOutput(iteoutputs, newExpr);
+
             return;
         }
 
@@ -444,14 +429,16 @@ public class PBEEnumSize extends Thread {
                         if (this.definition != null) {
                             return;
                         }
-                        if (this.dncEnabled && this.coveredExample.size() == this.output.length && !this.secondEnumeration) {
-                            printCovered(this.covered);
-                            return;
-                        }
-                        if (this.secondEnumeration && (this.outsider.size() == 0)) {
-                            printCovered(this.covered);
-                            printEquivClass(this.equivClass);
-                            return;
+                        if (this.coveredExample.size() == this.output.length) {
+                            if (!coverFound) {
+                                printCovered(this.covered);
+                                coverFound = true;
+                            }
+                            if (this.outsider.size() == 0) {
+                                printCovered(this.covered);
+                                printEquivClass(this.equivClass);
+                                return;
+                            }
                         }
                     }
                 }
