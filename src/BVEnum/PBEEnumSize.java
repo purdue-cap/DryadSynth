@@ -212,16 +212,18 @@ public class PBEEnumSize extends Thread {
             }
 
             if (secondEnumeration) {
-                String[] rule2 = {"iteEval","Start"};
-                List<List<String>> outputs2 = new LinkedList<List<String>>();
-                outputs2.add(outputs);
-                List<String> iteoutputs = this.compute(rule2,outputs2);
+                // generate new expression
                 Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
-
                 Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
-                this.secondVerifyOutput(iteoutputs,newExpr);
                 currNew.add(outputs);
                 this.exprStorage.get(nonTerminal).put(outputs, newExpr);
+
+                // evaluate the examples on ite conditions
+                String[] iteRule = {"iteEval", "Start"};
+                List<List<String>> outputs2 = new LinkedList<List<String>>();
+                outputs2.add(outputs);
+                List<String> iteoutputs = this.checkThenCompute(iteRule, outputs2);
+                this.secondVerifyOutput(iteoutputs, newExpr);
                 return;
             }
             
@@ -283,7 +285,42 @@ public class PBEEnumSize extends Thread {
         return outputs;
     }
 
+    List<String> checkThenCompute(String[] rule, List<List<String>> comb) {
+        if (comb.size() != rule.length - 1) {
+            logger.severe("Outputs Length mismatch!");
+        }
+
+        Expr[][] args = this.transpose(comb);
+        List<Expr> condExprs = new ArrayList<Expr>();
+        for (int i = 0; i < args.length; i++) {
+            condExprs.add(this.problem.opDis.dispatch(rule[0], args[i], true, false));
+        }
+
+        BoolExpr sameEvalResults = ctx.mkTrue();
+        for (int i = 1; i < condExprs.size(); i++) {
+            sameEvalResults = ctx.mkAnd(
+                sameEvalResults, 
+                ctx.mkEq(condExprs.get(i - 1), condExprs.get(i))
+            );
+        }
+
+        String sameEvalResultsStr = sameEvalResults.simplify().toString();
+        if (sameEvalResultsStr.equals("true")) {
+            return null;
+        }
+
+        List<String> outputs = new ArrayList<String>();
+        for (int i = 0; i < condExprs.size(); i++) {
+            outputs.add(condExprs.get(i).simplify().toString());
+        }
+
+        return outputs;
+    }
+
     void secondVerifyOutput(List<String> outputs, Expr expr){
+        if (outputs == null) {
+            return;
+        }
         
         List<Integer> trueOutputs = new LinkedList<Integer>();
         List<Integer> falseOutputs = new LinkedList<Integer>();
@@ -296,6 +333,7 @@ public class PBEEnumSize extends Thread {
             }
         }
         if (trueOutputs.size() == 0 || falseOutputs.size() ==0) {
+            System.out.println("ALL TRUE or ALL FALSE");
             return;
         }
         for (int key: covered.keySet()) {
