@@ -59,6 +59,7 @@ public class PBEEnumSize extends Thread {
             String name = problem.names.get(0);
             Expr result = this.definition;
             this.results[0] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), result);
+            // System.out.println("this.results[0]: " + this.results[0].toString());
         }
     }
 
@@ -206,16 +207,19 @@ public class PBEEnumSize extends Thread {
             // generate new expression
             Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
             Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
-            // check if the output[] are expected
-            if (this.coveredExample.size() != this.output.length && this.verifyOutput(outputs, newExpr)) {
+
+            if (this.coveredExample.size() != this.output.length) {
+                // check if the output[] are expected
                 // if so, assign those possible expressions to this.definition
-                this.definition = newExpr;
-                return;
-            } else {
-                // add output[]&expressions to storages
-                currNew.add(outputs);
-                this.exprStorage.get(nonTerminal).put(outputs, newExpr);
+                if (this.verifyOutput(outputs, newExpr)) {
+                    this.definition = newExpr;
+                    return;
+                }
             }
+
+            // add output[]&expressions to storages
+            currNew.add(outputs);
+            this.exprStorage.get(nonTerminal).put(outputs, newExpr);
 
             // evaluate the examples on ite conditions
             String[] iteRule = {"iteEval", "Start"};
@@ -252,7 +256,7 @@ public class PBEEnumSize extends Thread {
             for (int j = 0; j < trans[0].length; j++) {
                 trans[i][j] = args[j][i];
             }
-        }       
+        }
         return trans;
     }
 
@@ -282,10 +286,10 @@ public class PBEEnumSize extends Thread {
         }
 
         BoolExpr sameEvalResults = ctx.mkTrue();
-        for (int i = 1; i < condExprs.size(); i++) {
+        for (int i: outsider) {
             sameEvalResults = ctx.mkAnd(
                 sameEvalResults, 
-                ctx.mkEq(condExprs.get(i - 1), condExprs.get(i))
+                ctx.mkEq(condExprs.get(0), condExprs.get(i))
             );
         }
 
@@ -467,6 +471,7 @@ public class PBEEnumSize extends Thread {
             }
         }
         this.definition = result;
+        // System.out.println("this.definition: " + this.definition.toString());
         // todo: problem with some examples,PRE_18_10, PRE_58_10, PRE_70_10,PRE_74_10
     }
 
