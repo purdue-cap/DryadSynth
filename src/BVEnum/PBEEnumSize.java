@@ -1,4 +1,5 @@
 import java.util.*;
+import java.math.BigInteger;
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
@@ -15,8 +16,8 @@ public class PBEEnumSize extends Thread {
     // TODO: support BV constant
     private String start = null;  // start symbol of the grammar
     private Map<String, List<String[]>> recRules = new LinkedHashMap<String, List<String[]>>();  // grammar rules with recursive production
-    private Map<String, Map<List<String>, Expr>> exprStorage = new LinkedHashMap<String, Map<List<String>, Expr>>();  // nonTerminal -> <output[] -> expr>
-    private Map<String, Map<Integer, Set<List<String>>>> outputStorage = new LinkedHashMap<String, Map<Integer, Set<List<String>>>>();  // nonTerminal -> <size -> Set<output[]>>
+    private Map<String, Map<List<Long>, Expr>> exprStorage = new LinkedHashMap<String, Map<List<Long>, Expr>>();  // nonTerminal -> <output[] -> expr>
+    private Map<String, Map<Integer, Set<List<Long>>>> outputStorage = new LinkedHashMap<String, Map<Integer, Set<List<Long>>>>();  // nonTerminal -> <size -> Set<output[]>>
 
     private Expr[][] input; // [numExample][numInputArgs]
     private String[] output;    // [numExample]
@@ -45,6 +46,11 @@ public class PBEEnumSize extends Thread {
         this.logger = logger;
         this.numCore = numCore;
         this.results = new DefinedFunc[problem.names.size()];
+
+        for (String funcname: this.problem.funcs.keySet()) {
+            System.out.println("Func: " + funcname);
+            System.out.println("Def: " + this.problem.funcs.get(funcname).getDef().toString());
+        }
     }
 
     public void run() {
@@ -87,9 +93,9 @@ public class PBEEnumSize extends Thread {
         // initialize storage and recRules
         for (String symbol : cfg.grammarRules.keySet()) {
             List<String[]> recs = new ArrayList<String[]>();
-            Map<List<String>, Expr> exprStrg = new HashMap<List<String>, Expr>();
-            Map<Integer, Set<List<String>>> outputStrg = new HashMap<Integer, Set<List<String>>>();
-            Set<List<String>> outputSet = new HashSet<List<String>>();
+            Map<List<Long>, Expr> exprStrg = new HashMap<List<Long>, Expr>();
+            Map<Integer, Set<List<Long>>> outputStrg = new HashMap<Integer, Set<List<Long>>>();
+            Set<List<Long>> outputSet = new HashSet<List<Long>>();
             outputStrg.put(1, outputSet);
 
             List<String[]> rules = cfg.grammarRules.get(symbol);
@@ -103,10 +109,10 @@ public class PBEEnumSize extends Thread {
                     // compute output of the terminal
                     Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
                     DefinedFunc df = new DefinedFunc(ctx, funcArgs, terminal);
-                    List<String> outputs = new ArrayList<String>();
+                    List<Long> outputs = new ArrayList<Long>();
                     for (int i = 0; i < this.input.length; i++) {
                         // System.out.println(Arrays.toString(this.input[i]));
-                        outputs.add(df.apply(this.input[i]).toString());
+                        outputs.add(OpDispatcher.exprToBitVector(df.apply(this.input[i])));
                     }
                     logger.info("Initial outputs: " + Arrays.toString(outputs.toArray()));
                     // add generated outputs to storages
@@ -184,20 +190,20 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    void genOutputCombs(Integer[] prmt, String[] rule, Set<List<String>> currNew, String nonTerminal) {
+    void genOutputCombs(Integer[] prmt, String[] rule, Set<List<Long>> currNew, String nonTerminal) {
         if (prmt.length + 1 != rule.length) {
             logger.severe("prmt and rule: Length mismatch!");
         }
 
-        List<List<String>> comb = new ArrayList<List<String>>();
+        List<List<Long>> comb = new ArrayList<List<Long>>();
         List<Expr> subexprs = new ArrayList<Expr>();
         this.genOutputCombsHelper(prmt, rule, 0, comb, subexprs, currNew, nonTerminal);
     }
 
-    void genOutputCombsHelper(Integer[] prmt, String[] rule, int index, List<List<String>> comb, List<Expr> subexprs, Set<List<String>> currNew, String nonTerminal) {
+    void genOutputCombsHelper(Integer[] prmt, String[] rule, int index, List<List<Long>> comb, List<Expr> subexprs, Set<List<Long>> currNew, String nonTerminal) {
         if (index == prmt.length) {
             // for each combination, compute the output[]
-            List<String> outputs = this.compute(rule, comb);
+            List<Long> outputs = this.compute(rule, comb);
             // check if newly-generated outputs have already existed in storage
             if (this.exprStorage.get(nonTerminal).containsKey(outputs)) {
                 // if exist, return
@@ -223,16 +229,16 @@ public class PBEEnumSize extends Thread {
 
             // evaluate the examples on ite conditions
             String[] iteRule = {"iteEval", "Start"};
-            List<List<String>> outputs2 = new LinkedList<List<String>>();
+            List<List<Long>> outputs2 = new LinkedList<List<Long>>();
             outputs2.add(outputs);
-            List<String> iteoutputs = this.checkThenCompute(iteRule, outputs2);
+            List<Long> iteoutputs = this.compute(iteRule, outputs2);
             this.secondVerifyOutput(iteoutputs, newExpr);
 
             return;
         }
 
-        Set<List<String>> inputs = this.outputStorage.get(rule[index + 1]).get(prmt[index]);
-        for (List<String> input : inputs) {
+        Set<List<Long>> inputs = this.outputStorage.get(rule[index + 1]).get(prmt[index]);
+        for (List<Long> input : inputs) {
             comb.add(input);
             subexprs.add(this.exprStorage.get(rule[index + 1]).get(input));
             this.genOutputCombsHelper(prmt, rule, index + 1, comb, subexprs, currNew, nonTerminal);
@@ -241,17 +247,16 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    Expr[][] transpose(List<List<String>> comb) {
+    long[][] transpose(List<List<Long>> comb) {
         int n = comb.size();
         int m = comb.get(0).size();
-        Expr[][] args = new Expr[n][m];
+        long[][] args = new long[n][m];
         for (int i = 0; i < comb.size(); i++) {
             for (int j = 0; j < comb.get(i).size(); j++) {
-                String str = comb.get(i).get(j);
-                args[i][j] = ctx.mkBV(str, this.bvSize);
+                args[i][j] = comb.get(i).get(j);
             }
         }
-        Expr[][] trans = new Expr[m][n];
+        long[][] trans = new long[m][n];
         for (int i = 0; i < trans.length; i++) {
             for (int j = 0; j < trans[0].length; j++) {
                 trans[i][j] = args[j][i];
@@ -260,53 +265,21 @@ public class PBEEnumSize extends Thread {
         return trans;
     }
 
-    List<String> compute(String[] rule, List<List<String>> comb) {
+    List<Long> compute(String[] rule, List<List<Long>> comb) {
         if (comb.size() != rule.length - 1) {
             logger.severe("Outputs Length mismatch!");
         }
 
-        Expr[][] args = this.transpose(comb);
-        List<String> outputs = new ArrayList<String>();
+        long[][] args = this.transpose(comb);
+        List<Long> outputs = new ArrayList<Long>();
         for (int i = 0; i < args.length; i++) {
-            outputs.add(this.problem.opDis.dispatch(rule[0], args[i], true, false).simplify().toString());
+            outputs.add(this.problem.opDis.pbeDispatch(rule[0], args[i], false, this.bvSize));
         }
 
         return outputs;
     }
 
-    List<String> checkThenCompute(String[] rule, List<List<String>> comb) {
-        if (comb.size() != rule.length - 1) {
-            logger.severe("Outputs Length mismatch!");
-        }
-
-        Expr[][] args = this.transpose(comb);
-        List<Expr> condExprs = new ArrayList<Expr>();
-        for (int i = 0; i < args.length; i++) {
-            condExprs.add(this.problem.opDis.dispatch(rule[0], args[i], true, false));
-        }
-
-        BoolExpr sameEvalResults = ctx.mkTrue();
-        for (int i: outsider) {
-            sameEvalResults = ctx.mkAnd(
-                sameEvalResults, 
-                ctx.mkEq(condExprs.get(0), condExprs.get(i))
-            );
-        }
-
-        String sameEvalResultsStr = sameEvalResults.simplify().toString();
-        if (sameEvalResultsStr.equals("true")) {
-            return null;
-        }
-
-        List<String> outputs = new ArrayList<String>();
-        for (int i = 0; i < condExprs.size(); i++) {
-            outputs.add(condExprs.get(i).simplify().toString());
-        }
-
-        return outputs;
-    }
-
-    void secondVerifyOutput(List<String> outputs, Expr expr){
+    void secondVerifyOutput(List<Long> outputs, Expr expr){
         if (outputs == null) {
             return;
         }
@@ -314,7 +287,7 @@ public class PBEEnumSize extends Thread {
         List<Integer> trueOutputs = new LinkedList<Integer>();
         List<Integer> falseOutputs = new LinkedList<Integer>();
         for (int i: outsider) {
-            if (outputs.get(i).equals("true")) {
+            if (outputs.get(i) == 1) {
                 trueOutputs.add(i);
             }
             else {
@@ -322,7 +295,7 @@ public class PBEEnumSize extends Thread {
             }
         }
         if (trueOutputs.size() == 0 || falseOutputs.size() ==0) {
-            System.out.println("ALL TRUE or ALL FALSE");
+            // System.out.println("ALL TRUE or ALL FALSE");
             return;
         }
         for (int key: covered.keySet()) {
@@ -355,7 +328,7 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    boolean verifyOutput(List<String> outputs, Expr expr) {
+    boolean verifyOutput(List<Long> outputs, Expr expr) {
         // long start = System.nanoTime();
         if (outputs.size() != this.output.length) {
             logger.severe("Outputs Length mismatch!");
@@ -364,7 +337,7 @@ public class PBEEnumSize extends Thread {
         boolean result = true;
         List<Integer> coveredOutputs = new LinkedList<Integer>();
         for (int i = 0; i < outputs.size(); i++) {
-            if (!this.output[i].equals(outputs.get(i))) {
+            if (!this.output[i].equals(Long.toUnsignedString(outputs.get(i)))) {
                 result = false;
             } else {
                 coveredOutputs.add(i);
@@ -403,8 +376,8 @@ public class PBEEnumSize extends Thread {
         init();
 
         // check those initial outputs
-        Map<List<String>, Expr> initStorage = this.exprStorage.get(this.start);
-        for (List<String> out : initStorage.keySet()) {
+        Map<List<Long>, Expr> initStorage = this.exprStorage.get(this.start);
+        for (List<Long> out : initStorage.keySet()) {
             if (this.verifyOutput(out, initStorage.get(out))) {
                 this.definition = initStorage.get(out);
                 return;
@@ -417,13 +390,13 @@ public class PBEEnumSize extends Thread {
 
             // for each non-terminal
             for (String nonTerminal : this.outputStorage.keySet()) {
-                Set<List<String>> newOutputs = new HashSet<List<String>>();
+                Set<List<Long>> newOutputs = new HashSet<List<Long>>();
 
                 // for every operator
                 for (String[] rule : this.recRules.get(nonTerminal)) {
-                    // if (rule[0].equals("im")) {
-                    //     continue;
-                    // }
+                    if (rule[0].equals("im")) {
+                        continue;
+                    }
                     System.out.println("rule: " + Arrays.toString(rule));
                     // generate all possible sums that add up to the given size
                     List<Integer[]> prmts = genPrmt(iter - 1, rule.length - 1, rule);
@@ -486,12 +459,12 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    void printExprStorage(Map<String, Map<List<String>, Expr>> exprStorage) {
+    void printExprStorage(Map<String, Map<List<Long>, Expr>> exprStorage) {
         System.out.println("Print storage:");
         for (String nonTerminal : exprStorage.keySet()) {
             System.out.println(nonTerminal);
-            Map<List<String>, Expr> map = exprStorage.get(nonTerminal);
-            for (List<String> subexpr : map.keySet()) {
+            Map<List<Long>, Expr> map = exprStorage.get(nonTerminal);
+            for (List<Long> subexpr : map.keySet()) {
                 System.out.println("outputs: " + Arrays.toString(subexpr.toArray()));
                 System.out.println("expr: " + map.get(subexpr).toString());
             }
@@ -499,11 +472,11 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    void printOutputStorage(Map<String, Map<Integer, Set<List<String>>>> outputStorage) {
+    void printOutputStorage(Map<String, Map<Integer, Set<List<Long>>>> outputStorage) {
         System.out.println("Print storage:");
         for (String nonTerminal : outputStorage.keySet()) {
             System.out.println(nonTerminal);
-            Map<Integer, Set<List<String>>> map = outputStorage.get(nonTerminal);
+            Map<Integer, Set<List<Long>>> map = outputStorage.get(nonTerminal);
             for (Integer size : map.keySet()) {
                 System.out.println("Size: " + size);
                 System.out.println("#expr: " + map.get(size).size());
@@ -512,7 +485,7 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    void printStorageSize(Map<String, Map<List<String>, Expr>> storage) {
+    void printStorageSize(Map<String, Map<List<Long>, Expr>> storage) {
         for (String nonTerminal : storage.keySet()) {
             if (storage.containsKey(nonTerminal)) {
                 logger.info(nonTerminal + " in storage: " + storage.get(nonTerminal).size());
