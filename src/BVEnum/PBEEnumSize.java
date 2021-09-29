@@ -22,6 +22,7 @@ public class PBEEnumSize extends Thread {
     private Expr[][] input; // [numExample][numInputArgs]
     private String[] output;    // [numExample]
     private int bvSize;     // size of bitvec expressions in benchmark
+    private Set<String> varNames = new HashSet<String>(); // variable names appear in grammar
     private Expr definition;  // the definition of resulting function
 
     public DefinedFunc[] results;
@@ -46,11 +47,10 @@ public class PBEEnumSize extends Thread {
         this.logger = logger;
         this.numCore = numCore;
         this.results = new DefinedFunc[problem.names.size()];
-
-        for (String funcname: this.problem.funcs.keySet()) {
-            System.out.println("Func: " + funcname);
-            System.out.println("Def: " + this.problem.funcs.get(funcname).getDef().toString());
-        }
+        // for (String funcname: this.problem.funcs.keySet()) {
+        //     System.out.println("Func: " + funcname);
+        //     System.out.println("Def: " + this.problem.funcs.get(funcname).getDef().toString());
+        // }
     }
 
     public void run() {
@@ -106,6 +106,10 @@ public class PBEEnumSize extends Thread {
                     SygusProblem.SybType termType = getSybType(cfg, term);
                     Expr terminal = getSybExpr(cfg, term, termType);
                     logger.info("terminal: " + terminal.toString());
+                    // collect variables in grammar
+                    if (terminal.isConst()) {
+                        this.varNames.add(terminal.toString());
+                    }
                     // compute output of the terminal
                     Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
                     DefinedFunc df = new DefinedFunc(ctx, funcArgs, terminal);
@@ -202,17 +206,22 @@ public class PBEEnumSize extends Thread {
 
     void genOutputCombsHelper(Integer[] prmt, String[] rule, int index, List<List<Long>> comb, List<Expr> subexprs, Set<List<Long>> currNew, String nonTerminal) {
         if (index == prmt.length) {
+            // generate new expression
+            Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
+            Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
+
+            boolean containsVar = false;
+            if (containsVar(newExpr, this.varNames)) {
+                containsVar = true;
+            }
+
             // for each combination, compute the output[]
-            List<Long> outputs = this.compute(rule, comb);
+            List<Long> outputs = this.compute(rule, comb, containsVar);
             // check if newly-generated outputs have already existed in storage
             if (this.exprStorage.get(nonTerminal).containsKey(outputs)) {
                 // if exist, return
                 return;
             }
-            
-            // generate new expression
-            Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
-            Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
 
             if (this.coveredExample.size() != this.output.length) {
                 // check if the output[] are expected
@@ -228,11 +237,13 @@ public class PBEEnumSize extends Thread {
             this.exprStorage.get(nonTerminal).put(outputs, newExpr);
 
             // evaluate the examples on ite conditions
-            String[] iteRule = {"iteEval", "Start"};
-            List<List<Long>> outputs2 = new LinkedList<List<Long>>();
-            outputs2.add(outputs);
-            List<Long> iteoutputs = this.compute(iteRule, outputs2);
-            this.secondVerifyOutput(iteoutputs, newExpr);
+            if (containsVar) {
+                String[] iteRule = {"iteEval", "Start"};
+                List<List<Long>> outputs2 = new LinkedList<List<Long>>();
+                outputs2.add(outputs);
+                List<Long> iteoutputs = this.compute(iteRule, outputs2, true);
+                this.secondVerifyOutput(iteoutputs, newExpr);
+            }
 
             return;
         }
@@ -245,6 +256,24 @@ public class PBEEnumSize extends Thread {
             comb.remove(comb.size() - 1);
             subexprs.remove(subexprs.size() - 1);
         }
+    }
+
+    boolean containsVar(Expr expr, Set<String> vars) {
+        if (expr.isConst()) {
+            return vars.contains(expr.toString());
+        }
+        if (expr.isNumeral()) {
+            return false;
+        }
+        if (expr.isApp()) {
+            Expr[] args = expr.getArgs();
+            for (int i = 0; i < args.length; i++) {
+                if (containsVar(args[i], vars)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     long[][] transpose(List<List<Long>> comb) {
@@ -265,12 +294,20 @@ public class PBEEnumSize extends Thread {
         return trans;
     }
 
-    List<Long> compute(String[] rule, List<List<Long>> comb) {
+    List<Long> compute(String[] rule, List<List<Long>> comb, boolean containsVar) {
         if (comb.size() != rule.length - 1) {
             logger.severe("Outputs Length mismatch!");
         }
 
         long[][] args = this.transpose(comb);
+
+        if (!containsVar) {
+            return Collections.nCopies(
+                args.length, 
+                this.problem.opDis.pbeDispatch(rule[0], args[0], false, this.bvSize)
+            );
+        }
+
         List<Long> outputs = new ArrayList<Long>();
         for (int i = 0; i < args.length; i++) {
             outputs.add(this.problem.opDis.pbeDispatch(rule[0], args[i], false, this.bvSize));
