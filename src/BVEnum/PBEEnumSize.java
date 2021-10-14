@@ -261,7 +261,7 @@ public class PBEEnumSize extends Thread {
                 List<List<Long>> outputs2 = new LinkedList<List<Long>>();
                 outputs2.add(outputs);
                 List<Long> iteoutputs = this.compute(iteRule, outputs2, true);
-                this.secondVerifyOutput(iteoutputs, newExpr);
+                this.updateECs(iteoutputs, newExpr);
             }
 
             return;
@@ -335,7 +335,7 @@ public class PBEEnumSize extends Thread {
         return outputs;
     }
 
-    void secondVerifyOutput(List<Long> outputs, Expr cond){
+    void updateECs(List<Long> outputs, Expr cond){
         if (outputs == null) {
             return;
         }
@@ -389,41 +389,45 @@ public class PBEEnumSize extends Thread {
                     this.uncoveredEquivClasses.remove(ecIndex);
                     this.uncoveredECConds.remove(ecIndex);
                 }
-                // check if an EC can be covered by a single expression
-                boolean newECCovered = false;
-                boolean updatedECCovered = false;
-                for (int exprIndex: covered.keySet()) {
-                    if (!newECCovered && covered.get(exprIndex).containsAll(newEC)) {
-                        this.outsider.removeAll(newEC);
-                        // store covered EC
-                        this.coveredEquivClasses.add(newEC);
-                        System.out.println("Added newEC: " + Arrays.toString(newEC.toArray()));
-                        System.out.println(exprIndex + " Expr: " + coveredExpr.get(exprIndex).toString());
-                        this.coveredECConds.put(this.coveredEquivClasses.size() - 1, newECConds);
-                        this.ecConds2Expr.put(newECConds, coveredExpr.get(exprIndex));
-                        // remove covered EC from uncovered map
-                        this.uncoveredEquivClasses.remove(this.ecCounter);
-                        this.uncoveredECConds.remove(this.ecCounter);
-                        newECCovered = true;
-                    }
-                    if (!updatedECCovered && !updatedEC.isEmpty() && covered.get(exprIndex).containsAll(updatedEC)) {
-                        this.outsider.removeAll(updatedEC);
-                        // store covered EC
-                        this.coveredEquivClasses.add(updatedEC);
-                        System.out.println("Added updatedEC: " + Arrays.toString(updatedEC.toArray()));
-                        System.out.println(exprIndex + " Expr: " + coveredExpr.get(exprIndex).toString());
-                        this.coveredECConds.put(this.coveredEquivClasses.size() - 1, this.uncoveredECConds.get(ecIndex));
-                        this.ecConds2Expr.put(this.uncoveredECConds.get(ecIndex), coveredExpr.get(exprIndex));
-                        // remove covered EC from uncovered map
-                        this.uncoveredEquivClasses.remove(ecIndex);
-                        this.uncoveredECConds.remove(ecIndex);
-                        updatedECCovered = true;
-                    }
-                }
                 this.ecCounter++;
             } else {
                 this.uncoveredECConds.get(ecIndex).add(condTrueIndex + 1);
             }
+        }
+        // check if an uncovered EC can be covered by a single expression
+        this.updateCoveredECs();
+    }
+
+    void updateCoveredECs() {
+        // check if an uncovered EC can be covered by a single expression
+        // and then update accordingly
+        List<Integer> toRm = new ArrayList<Integer>();
+
+        for (int ecIndex : this.uncoveredEquivClasses.keySet()) {
+            List<Integer> ec = this.uncoveredEquivClasses.get(ecIndex);
+            boolean isCovered = false;
+            for (int exprIndex: covered.keySet()) {
+                if (!isCovered && covered.get(exprIndex).containsAll(ec)) {
+                    isCovered = true;
+                    // remove newly-covered EC from outsider
+                    this.outsider.removeAll(ec);
+                    // store covered EC
+                    this.coveredEquivClasses.add(ec);
+                    logger.info("Added newly-covered EC: " + Arrays.toString(ec.toArray()));
+                    logger.info(exprIndex + " Expr: " + coveredExpr.get(exprIndex).toString());
+                    List<Integer> newECConds = new LinkedList<Integer>(this.uncoveredECConds.get(ecIndex));
+                    this.coveredECConds.put(this.coveredEquivClasses.size() - 1, newECConds);
+                    this.ecConds2Expr.put(newECConds, coveredExpr.get(exprIndex));
+                    // remove covered EC from uncovered map
+                    toRm.add(ecIndex);
+                }
+            }
+        }
+
+        // Remove covered EC from uncovered map
+        for (int index: toRm) {
+            this.uncoveredEquivClasses.remove(index);
+            this.uncoveredECConds.remove(index);
         }
     }
 
@@ -508,15 +512,18 @@ public class PBEEnumSize extends Thread {
                         if (this.coveredExample.size() == this.output.length) {
                             if (!coverFound) {
                                 printCovered(this.covered);
+                                // printUncoveredEC();
+                                // printCoveredEC();
                                 coverFound = true;
+                                // check if an uncovered EC can be covered by a single expression
+                                this.updateCoveredECs();
                             }
                             if (this.outsider.size() == 0) {
-                                printCovered(this.covered);
-                                // printCoveredEC();
+                                // printCovered(this.covered);
+                                printCoveredEC();
                                 return;
                             }
                         }
-                        // printCoveredEC();
                     }
                 }
                 logger.info("Store: " + nonTerminal + " size: " + iter + " #exprs: " + newOutputs.size());
@@ -539,9 +546,9 @@ public class PBEEnumSize extends Thread {
         operands[2] = this.construct(1, cond12expr); // false branch
         this.definition = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
 
-        System.out.println("");
-        System.out.println("this.definition: " + this.definition.toString());
-        System.out.println("");
+        // System.out.println("");
+        // System.out.println("this.definition: " + this.definition.toString());
+        // System.out.println("");
         // todo: problem with some examples,PRE_18_10, PRE_58_10, PRE_70_10,PRE_74_10
     }
 
@@ -639,6 +646,7 @@ public class PBEEnumSize extends Thread {
 
     void printCoveredEC() {
         System.out.println("");
+        System.out.println("CoveredEC:");
         for (int i = 0; i < this.coveredEquivClasses.size(); i++) {
             System.out.println("Covered EC: " + Arrays.toString(this.coveredEquivClasses.get(i).toArray()));
             List<Integer> conds = this.coveredECConds.get(i);
@@ -648,6 +656,7 @@ public class PBEEnumSize extends Thread {
 
     void printUncoveredEC() {
         System.out.println("");
+        System.out.println("UncoveredEC:");
         for (int i: this.uncoveredEquivClasses.keySet()) {
             System.out.println("Uncovered EC: " + Arrays.toString(this.uncoveredEquivClasses.get(i).toArray()));
         }
