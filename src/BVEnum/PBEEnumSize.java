@@ -28,6 +28,8 @@ public class PBEEnumSize extends Thread {
     public DefinedFunc[] results;
 
     private String[] symmetricOp = {"bvand", "bvor", "bvadd", "bvxor"};
+    private String[] noopOn0Op = {"bvand", "bvor", "bvadd", "bvxor"};
+    private List<Long> zeros;
     private Map<Integer, List<Integer>> covered = new HashMap<Integer, List<Integer>>();
     private List<Expr> coveredExpr = new LinkedList<Expr>();
     private List<Integer> coveredExample = new LinkedList<Integer>();
@@ -89,9 +91,10 @@ public class PBEEnumSize extends Thread {
         logger.info("Start symbol: " + start);
         // extract inputs and outputs
         List<List<Expr>> ioexamples = this.problem.ioexamples;
-        this.output = new String[ioexamples.size()];
-        this.input = new Expr[ioexamples.size()][ioexamples.get(0).size() - 1];
-        for (int i = 0; i < ioexamples.size(); i++) {
+        int numExamples = ioexamples.size();
+        this.output = new String[numExamples];
+        this.input = new Expr[numExamples][ioexamples.get(0).size() - 1];
+        for (int i = 0; i < numExamples; i++) {
             this.outsider.add(i);
             List<Expr> example = ioexamples.get(i);
             for (int j = 0; j < example.size() - 1; j++) {
@@ -104,6 +107,10 @@ public class PBEEnumSize extends Thread {
         this.uncoveredEquivClasses.put(this.ecCounter, new LinkedList<Integer>(this.outsider));
         this.uncoveredECConds.put(this.ecCounter, new LinkedList<Integer>());
         this.ecCounter++;
+        Long[] zeroArray = new Long[numExamples];
+        long zero = 0;
+        Arrays.fill(zeroArray, zero);
+        this.zeros = Arrays.asList(zeroArray);
 
         // initialize storage and recRules
         for (String symbol : cfg.grammarRules.keySet()) {
@@ -269,6 +276,10 @@ public class PBEEnumSize extends Thread {
 
         Set<List<Long>> inputs = this.outputStorage.get(rule[index + 1]).get(prmt[index]);
         for (List<Long> input : inputs) {
+            if (Arrays.asList(this.noopOn0Op).contains(rule[0]) && input.equals(this.zeros)) {
+                // System.out.println("all zeros");
+                continue;
+            }
             comb.add(input);
             subexprs.add(this.exprStorage.get(rule[index + 1]).get(input));
             this.genOutputCombsHelper(prmt, rule, index + 1, comb, subexprs, currNew, nonTerminal);
