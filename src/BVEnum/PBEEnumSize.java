@@ -457,8 +457,8 @@ public class PBEEnumSize extends Thread {
                     return result;
                 }
                 if (coveredOutputs.containsAll(target)) {
-                    System.out.println(target);
-                    System.out.println(coveredOutputs);
+                    // System.out.println(target);
+                    // System.out.println(coveredOutputs);
                     removedTargets.add(target);
                 }
             }
@@ -500,11 +500,11 @@ public class PBEEnumSize extends Thread {
                     if (rule[0].equals("im")) {
                         continue;
                     }
-                    System.out.println("rule: " + Arrays.toString(rule));
+                    logger.info("rule: " + Arrays.toString(rule));
                     // generate all possible sums that add up to the given size
                     List<Integer[]> prmts = genPrmt(iter - 1, rule.length - 1, rule);
                     for (Integer[] prmt : prmts) {
-                        System.out.println("prmt: " + Arrays.toString(prmt));
+                        logger.info("prmt: " + Arrays.toString(prmt));
                         genOutputCombs(prmt, rule, newOutputs, nonTerminal);
                         if (this.definition != null) {
                             return;
@@ -512,14 +512,12 @@ public class PBEEnumSize extends Thread {
                         if (this.coveredExample.size() == this.output.length) {
                             if (!coverFound) {
                                 printCovered(this.covered);
-                                // printUncoveredEC();
-                                // printCoveredEC();
                                 coverFound = true;
                                 // check if an uncovered EC can be covered by a single expression
                                 this.updateCoveredECs();
                             }
                             if (this.outsider.size() == 0) {
-                                // printCovered(this.covered);
+                                printCovered(this.covered);
                                 printCoveredEC();
                                 return;
                             }
@@ -637,20 +635,18 @@ public class PBEEnumSize extends Thread {
     }
 
     void printCovered(Map<Integer, List<Integer>> covered) {
-        System.out.println("Covered: ");
+        logger.info("Covered: ");
         for (Integer i : covered.keySet()) {
-            System.out.println("Expr " + coveredExpr.get(i) + ": " + covered.get(i).toString());
+            logger.info("Expr " + coveredExpr.get(i) + ": " + covered.get(i).toString());
         }
-        System.out.println("");
     }
 
     void printCoveredEC() {
-        System.out.println("");
-        System.out.println("CoveredEC:");
+        logger.info("CoveredEC:");
         for (int i = 0; i < this.coveredEquivClasses.size(); i++) {
-            System.out.println("Covered EC: " + Arrays.toString(this.coveredEquivClasses.get(i).toArray()));
+            logger.info("Covered EC: " + Arrays.toString(this.coveredEquivClasses.get(i).toArray()));
             List<Integer> conds = this.coveredECConds.get(i);
-            System.out.println("Conds: " + Arrays.toString(conds.toArray()));
+            logger.info("Conds: " + Arrays.toString(conds.toArray()));
         }
     }
 
