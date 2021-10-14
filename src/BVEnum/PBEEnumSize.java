@@ -30,14 +30,15 @@ public class PBEEnumSize extends Thread {
     private String[] symmetricOp = {"bvand", "bvor", "bvadd", "bvxor"};
     private Map<Integer, List<Integer>> covered = new HashMap<Integer, List<Integer>>();
     private List<Expr> coveredExpr = new LinkedList<Expr>();
-    private Map<Integer, Integer> classToExpr = new HashMap<Integer, Integer>();
-    private Map<Integer, Integer> conditionToclass = new HashMap<Integer, Integer>();
-    private Map<Integer, Boolean> classTF = new HashMap<Integer, Boolean>();
     private List<Integer> coveredExample = new LinkedList<Integer>();
-    private List<Expr> conditionExpr = new LinkedList<Expr>();
-    private List<Integer> outsider = new LinkedList<Integer>();
-    private List<List<Integer>> equivClass = new LinkedList<List<Integer>>();
-    private Integer elseExpr;
+    private List<Integer> outsider = new LinkedList<Integer>(); // ioexamples in uncovered equivalence classes
+    private Map<Integer, List<Integer>> uncoveredEquivClasses = new HashMap<Integer, List<Integer>>(); // equivalence classes that can not be fully covered by a single expression
+    private int ecCounter = 0; // index of an EC, should increment every time creating a new EC
+    private List<List<Integer>> coveredEquivClasses = new LinkedList<List<Integer>>(); // equivalence classes that can be covered by a expression
+    private List<Expr> conditions = new LinkedList<Expr>(); // conditional expressions, each expression is stored twice, even index indicates true branch, odd index indicates false branch
+    private Map<Integer, List<Integer>> uncoveredECConds = new LinkedHashMap<Integer, List<Integer>>();
+    private Map<Integer, List<Integer>> coveredECConds = new LinkedHashMap<Integer, List<Integer>>();
+    private Map<List<Integer>, Expr> ecConds2Expr = new LinkedHashMap<List<Integer>, Expr>(); // Map ec conditions to the expression that covers the ec
 
     private boolean coverFound = false;
 
@@ -66,6 +67,17 @@ public class PBEEnumSize extends Thread {
             Expr result = this.definition;
             this.results[0] = new DefinedFunc(ctx, name, problem.requestArgs.get(name), result);
             // System.out.println("this.results[0]: " + this.results[0].toString());
+            // Expr inlined = result;
+            // for (String funcname : this.problem.funcs.keySet()) {
+            //     FuncDecl f = this.problem.funcs.get(funcname).getDecl();
+            //     DefinedFunc df = this.problem.funcs.get(funcname);
+            //     inlined = df.rewrite(inlined, f);
+            // }
+            // Map<String, Expr> resultfunc = new LinkedHashMap<String, Expr>();
+            // resultfunc.put(this.results[0].getName(), inlined);
+            // Verifier verifier = new Verifier(ctx);
+            // Status v = verifier.verify(resultfunc, this.problem);
+            // System.out.println("Final check status: " + v);
         }
     }
 
@@ -80,7 +92,7 @@ public class PBEEnumSize extends Thread {
         this.output = new String[ioexamples.size()];
         this.input = new Expr[ioexamples.size()][ioexamples.get(0).size() - 1];
         for (int i = 0; i < ioexamples.size(); i++) {
-            outsider.add(i);
+            this.outsider.add(i);
             List<Expr> example = ioexamples.get(i);
             for (int j = 0; j < example.size() - 1; j++) {
                 this.input[i][j] = example.get(j);
@@ -89,6 +101,9 @@ public class PBEEnumSize extends Thread {
             logger.info("Example " + i + " input: " + Arrays.toString(this.input[i]) + ", output: " + this.output[i]);
         }
         this.bvSize = ((BitVecExpr)this.input[0][0]).getSortSize();
+        this.uncoveredEquivClasses.put(this.ecCounter, new LinkedList<Integer>(this.outsider));
+        this.uncoveredECConds.put(this.ecCounter, new LinkedList<Integer>());
+        this.ecCounter++;
 
         // initialize storage and recRules
         for (String symbol : cfg.grammarRules.keySet()) {
@@ -205,6 +220,10 @@ public class PBEEnumSize extends Thread {
     }
 
     void genOutputCombsHelper(Integer[] prmt, String[] rule, int index, List<List<Long>> comb, List<Expr> subexprs, Set<List<Long>> currNew, String nonTerminal) {
+        if (this.outsider.isEmpty()) {
+            return;
+        }
+
         if (index == prmt.length) {
             // generate new expression
             Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
@@ -316,51 +335,94 @@ public class PBEEnumSize extends Thread {
         return outputs;
     }
 
-    void secondVerifyOutput(List<Long> outputs, Expr expr){
+    void secondVerifyOutput(List<Long> outputs, Expr cond){
         if (outputs == null) {
             return;
         }
         
         List<Integer> trueOutputs = new LinkedList<Integer>();
-        List<Integer> falseOutputs = new LinkedList<Integer>();
-        for (int i: outsider) {
+        for (int i: this.outsider) {
             if (outputs.get(i) == 1) {
                 trueOutputs.add(i);
             }
-            else {
-                falseOutputs.add(i);
-            }
         }
-        if (trueOutputs.size() == 0 || falseOutputs.size() ==0) {
+
+        if (trueOutputs.size() == 0 || trueOutputs.size() == this.outsider.size()) {
             // System.out.println("ALL TRUE or ALL FALSE");
             return;
         }
-        for (int key: covered.keySet()) {
-            if (covered.get(key).containsAll(trueOutputs)) {
-                equivClass.add(trueOutputs);
-                outsider.removeAll(trueOutputs);
-                if (outsider.size() == 0) {
-                    elseExpr = key;
-                }
-                if (!conditionExpr.contains(expr)) {
-                    conditionExpr.add(expr);
-                    conditionToclass.put(conditionExpr.indexOf(expr), equivClass.indexOf(trueOutputs));
-                }
-                classToExpr.put(equivClass.indexOf(trueOutputs), key);
-                classTF.put(equivClass.indexOf(trueOutputs), true);
+
+        // for every uncovered equivalence class,
+        // check if trueOutputs are included in an equivalnce class
+        for (List<Integer> uncoveredEC : this.uncoveredEquivClasses.values()) {
+            if (uncoveredEC.equals(trueOutputs)) {
+                // if the trueOutputs is exactly the same as an equivalence class,
+                // which means it is not helping us split examples,
+                // it will be no-opt on current equivalence classes
+                return;
             }
-            if (covered.get(key).containsAll(falseOutputs)) {
-                equivClass.add(falseOutputs);
-                outsider.removeAll(falseOutputs);
-                if (outsider.size() == 0) {
-                    elseExpr = key;
+        }
+
+        // at this point, cond can be used to split ECs,
+        // hence store it twice in conditions
+        int condTrueIndex = this.conditions.size();
+        this.conditions.add(cond);
+        this.conditions.add(cond);
+
+        Map<Integer, List<Integer>> uncoveredECs = new HashMap<Integer, List<Integer>>(this.uncoveredEquivClasses);
+        for (int ecIndex : uncoveredECs.keySet()) {
+            List<Integer> uncoveredEC = uncoveredECs.get(ecIndex);
+            List<Integer> newEC = new LinkedList<Integer>(uncoveredEC);
+            newEC.retainAll(trueOutputs);
+            if (!newEC.isEmpty()) {
+                // add/update new ECs to current EC list
+                this.uncoveredEquivClasses.get(ecIndex).removeAll(trueOutputs);
+                List<Integer> updatedEC = new LinkedList<Integer>(this.uncoveredEquivClasses.get(ecIndex));
+                this.uncoveredEquivClasses.put(this.ecCounter, newEC);
+                // update the conditions correspond to the EC
+                List<Integer> newECConds = new LinkedList<Integer>(this.uncoveredECConds.get(ecIndex));
+                newECConds.add(condTrueIndex);
+                this.uncoveredECConds.put(this.ecCounter, newECConds);
+                this.uncoveredECConds.get(ecIndex).add(condTrueIndex + 1);
+                // remove empty EC
+                if (updatedEC.isEmpty()) {
+                    this.uncoveredEquivClasses.remove(ecIndex);
+                    this.uncoveredECConds.remove(ecIndex);
                 }
-                if (!conditionExpr.contains(expr)) {
-                    conditionExpr.add(expr);
-                    conditionToclass.put(conditionExpr.indexOf(expr), equivClass.indexOf(falseOutputs));
+                // check if an EC can be covered by a single expression
+                boolean newECCovered = false;
+                boolean updatedECCovered = false;
+                for (int exprIndex: covered.keySet()) {
+                    if (!newECCovered && covered.get(exprIndex).containsAll(newEC)) {
+                        this.outsider.removeAll(newEC);
+                        // store covered EC
+                        this.coveredEquivClasses.add(newEC);
+                        System.out.println("Added newEC: " + Arrays.toString(newEC.toArray()));
+                        System.out.println(exprIndex + " Expr: " + coveredExpr.get(exprIndex).toString());
+                        this.coveredECConds.put(this.coveredEquivClasses.size() - 1, newECConds);
+                        this.ecConds2Expr.put(newECConds, coveredExpr.get(exprIndex));
+                        // remove covered EC from uncovered map
+                        this.uncoveredEquivClasses.remove(this.ecCounter);
+                        this.uncoveredECConds.remove(this.ecCounter);
+                        newECCovered = true;
+                    }
+                    if (!updatedECCovered && !updatedEC.isEmpty() && covered.get(exprIndex).containsAll(updatedEC)) {
+                        this.outsider.removeAll(updatedEC);
+                        // store covered EC
+                        this.coveredEquivClasses.add(updatedEC);
+                        System.out.println("Added updatedEC: " + Arrays.toString(updatedEC.toArray()));
+                        System.out.println(exprIndex + " Expr: " + coveredExpr.get(exprIndex).toString());
+                        this.coveredECConds.put(this.coveredEquivClasses.size() - 1, this.uncoveredECConds.get(ecIndex));
+                        this.ecConds2Expr.put(this.uncoveredECConds.get(ecIndex), coveredExpr.get(exprIndex));
+                        // remove covered EC from uncovered map
+                        this.uncoveredEquivClasses.remove(ecIndex);
+                        this.uncoveredECConds.remove(ecIndex);
+                        updatedECCovered = true;
+                    }
                 }
-                classToExpr.put(equivClass.indexOf(falseOutputs), key);
-                classTF.put(equivClass.indexOf(falseOutputs), false);
+                this.ecCounter++;
+            } else {
+                this.uncoveredECConds.get(ecIndex).add(condTrueIndex + 1);
             }
         }
     }
@@ -450,10 +512,11 @@ public class PBEEnumSize extends Thread {
                             }
                             if (this.outsider.size() == 0) {
                                 printCovered(this.covered);
-                                printEquivClass(this.equivClass);
+                                // printCoveredEC();
                                 return;
                             }
                         }
+                        // printCoveredEC();
                     }
                 }
                 logger.info("Store: " + nonTerminal + " size: " + iter + " #exprs: " + newOutputs.size());
@@ -463,26 +526,62 @@ public class PBEEnumSize extends Thread {
 
     }
 
-    void generateResult(){
-        Expr result = coveredExpr.get(elseExpr);
-        for (int i = conditionExpr.size() - 1; i >= 0; i--) {
+    void generateResult() {
+        // printECCond2Expr();
+        // printECConds();
+
+        // conds should not be empty at this point
+        Map<List<Integer>, Expr> cond02expr = this.selectConds(0, this.ecConds2Expr);
+        Map<List<Integer>, Expr> cond12expr = this.selectConds(1, this.ecConds2Expr);
+        Expr[] operands = new Expr[3];
+        operands[0] = this.conditions.get(0); // condition
+        operands[1] = this.construct(0, cond02expr); // true branch
+        operands[2] = this.construct(1, cond12expr); // false branch
+        this.definition = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
+
+        System.out.println("");
+        System.out.println("this.definition: " + this.definition.toString());
+        System.out.println("");
+        // todo: problem with some examples,PRE_18_10, PRE_58_10, PRE_70_10,PRE_74_10
+    }
+
+    Expr construct(int condIndex, Map<List<Integer>, Expr> cond2expr) {
+        if (cond2expr.size() == 0) {
+            return null;
+        } else if (cond2expr.size() == 1) {
+            return (Expr)cond2expr.values().toArray()[0];
+        } else {
+            int listIndex = (condIndex / 2) + 1;
+            int trueCondIndex = listIndex * 2;
+            int falseCondIndex = listIndex * 2 + 1;
+            Map<List<Integer>, Expr> trueCond2expr = this.selectConds(trueCondIndex, cond2expr);
+            Map<List<Integer>, Expr> falseCond2expr = this.selectConds(falseCondIndex, cond2expr);
             Expr[] operands = new Expr[3];
-            operands[0] = conditionExpr.get(i);
-            int equivClassIndex = conditionToclass.get(i);
-            if (classTF.get(equivClassIndex)) {
-                operands[1] = coveredExpr.get(classToExpr.get(equivClassIndex));
-                operands[2] = result;
+            operands[0] = this.conditions.get(trueCondIndex); // condition
+            operands[1] = this.construct(trueCondIndex, trueCond2expr); // true branch
+            operands[2] = this.construct(falseCondIndex, falseCond2expr); // false branch
+            Expr result = null;
+            if (operands[1] == null && operands[2] == null) {
+                logger.severe("Both operands are null!");
+            } else if (operands[1] == null) {
+                result = operands[2];
+            } else if (operands[2] == null) {
+                result = operands[1];
+            } else {
                 result = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
             }
-            else {
-                operands[1] = result;
-                operands[2] = coveredExpr.get(classToExpr.get(equivClassIndex));
-                result = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
+            return result;
+        }
+    }
+
+    Map<List<Integer>, Expr> selectConds(int index, Map<List<Integer>, Expr> cond2expr) {
+        Map<List<Integer>, Expr> result = new LinkedHashMap<List<Integer>, Expr>();
+        for (List<Integer> cond: cond2expr.keySet()) {
+            if (cond.contains(index)) {
+                result.put(cond, cond2expr.get(cond));
             }
         }
-        this.definition = result;
-        // System.out.println("this.definition: " + this.definition.toString());
-        // todo: problem with some examples,PRE_18_10, PRE_58_10, PRE_70_10,PRE_74_10
+        return result;
     }
 
     void printRecRules() {
@@ -531,32 +630,41 @@ public class PBEEnumSize extends Thread {
     }
 
     void printCovered(Map<Integer, List<Integer>> covered) {
+        System.out.println("Covered: ");
         for (Integer i : covered.keySet()) {
             System.out.println("Expr " + coveredExpr.get(i) + ": " + covered.get(i).toString());
         }
+        System.out.println("");
     }
 
-    void printEquivClass(List<List<Integer>> equivClass) {
+    void printCoveredEC() {
         System.out.println("");
-        System.out.println(conditionExpr);
-        for (int i = 0; i < conditionExpr.size();i++) {
-            System.out.println("condition Expr:" + conditionExpr.get(i));
-            int equivClassIndex = conditionToclass.get(i);
-            System.out.println("Branch: " + classTF.get(equivClassIndex));
-            System.out.println("Equivalence Class: " + equivClass.get(equivClassIndex));
-            System.out.println("Corresponding covered expr: " + coveredExpr.get(classToExpr.get(equivClassIndex)));
-            System.out.println("");
+        for (int i = 0; i < this.coveredEquivClasses.size(); i++) {
+            System.out.println("Covered EC: " + Arrays.toString(this.coveredEquivClasses.get(i).toArray()));
+            List<Integer> conds = this.coveredECConds.get(i);
+            System.out.println("Conds: " + Arrays.toString(conds.toArray()));
         }
+    }
 
-        System.out.println("else expr: " + coveredExpr.get(elseExpr));
-        int elseIndex = 0;
-        for (int i: classToExpr.keySet()) {
-            if (classToExpr.get(i).equals(elseExpr)) {
-                elseIndex = i;
-                continue;
-            }
+    void printUncoveredEC() {
+        System.out.println("");
+        for (int i: this.uncoveredEquivClasses.keySet()) {
+            System.out.println("Uncovered EC: " + Arrays.toString(this.uncoveredEquivClasses.get(i).toArray()));
         }
-        System.out.println("Branch: "+classTF.get(elseIndex));
-        System.out.println("Equivalence Class: " + equivClass.get(elseIndex));
+    }
+
+    void printECCond2Expr() {
+        System.out.println("");
+        for (List<Integer> ecConds: this.ecConds2Expr.keySet()) {
+            System.out.println("EC Conds: " + Arrays.toString(ecConds.toArray()));
+            System.out.println("Expr: " + this.ecConds2Expr.get(ecConds).toString());
+        }
+    }
+
+    void printECConds() {
+        System.out.println("");
+        for (int i = 0; i < this.conditions.size(); i++) {
+            System.out.println("Cond " + i + ": " + this.conditions.get(i).toString());
+        }
     }
 }
