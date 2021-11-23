@@ -43,6 +43,11 @@ public class PBEEnumSize extends Thread {
     private Map<List<Integer>, Expr> ecConds2Expr = new LinkedHashMap<List<Integer>, Expr>(); // Map ec conditions to the expression that covers the ec
 
     private boolean coverFound = false;
+    // private int numComp = 0;
+    // private int numDump = 0;
+    // private int numKeep = 0;
+    // private int numConstant = 0;
+    // private long startTime;
 
     public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore) {
         this.ctx = ctx;
@@ -121,6 +126,32 @@ public class PBEEnumSize extends Thread {
             outputStrg.put(1, outputSet);
 
             List<String[]> rules = cfg.grammarRules.get(symbol);
+
+            // boolean removeRule = false;
+            // String[] toRm = null;
+            // for (String[] rule : rules) {
+            //     if (rule.length == 2 && rule[0].equals("bvnot")) {
+            //     // if (rule.length == 3 && rule[0].equals(“bvor”)) {
+            //         removeRule = true;
+            //         toRm = rule;
+            //     }
+            // }
+            // if (removeRule) {
+            //     rules.remove(toRm);
+            //     Expr terminal = ctx.mkBVNot(ctx.mkBV(0, this.bvSize)).simplify();
+            //     Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
+            //     DefinedFunc df = new DefinedFunc(ctx, funcArgs, terminal);
+            //     List<Long> outputs = new ArrayList<Long>();
+            //     for (int i = 0; i < this.input.length; i++) {
+            //         outputs.add(OpDispatcher.exprToBitVector(df.apply(this.input[i])));
+            //     }
+            //     logger.info("Initial outputs: " + Arrays.toString(outputs.toArray()));
+            //     if (!exprStrg.containsKey(outputs)) {
+            //         exprStrg.put(outputs, terminal);
+            //         outputStrg.get(1).add(outputs);
+            //     }
+            // }
+
             for (String[] rule : rules) {
                 if (rule.length == 1) {
                     // convert rule[0] to expr
@@ -223,10 +254,16 @@ public class PBEEnumSize extends Thread {
 
         List<List<Long>> comb = new ArrayList<List<Long>>();
         List<Expr> subexprs = new ArrayList<Expr>();
-        this.genOutputCombsHelper(prmt, rule, 0, comb, subexprs, currNew, nonTerminal);
+        Set<List<Long>> avoidSymm = null;
+
+        if (Arrays.asList(this.symmetricOp).contains(rule[0])) {
+            avoidSymm = new HashSet<List<Long>>();
+        }
+
+        this.genOutputCombsHelper(prmt, rule, 0, comb, subexprs, currNew, nonTerminal, avoidSymm);
     }
 
-    void genOutputCombsHelper(Integer[] prmt, String[] rule, int index, List<List<Long>> comb, List<Expr> subexprs, Set<List<Long>> currNew, String nonTerminal) {
+    void genOutputCombsHelper(Integer[] prmt, String[] rule, int index, List<List<Long>> comb, List<Expr> subexprs, Set<List<Long>> currNew, String nonTerminal, Set<List<Long>> avoidSymm) {
         if (this.outsider.isEmpty()) {
             return;
         }
@@ -243,11 +280,27 @@ public class PBEEnumSize extends Thread {
 
             // for each combination, compute the output[]
             List<Long> outputs = this.compute(rule, comb, containsVar);
+
+            // this.numComp += 1;
+            // if (this.numComp % 100 == 0) {
+            //     long usedTime = System.nanoTime() - this.startTime;
+            //     System.out.println("100 Computations take: " + usedTime);
+            //     this.startTime = System.nanoTime();
+            // }
+
             // check if newly-generated outputs have already existed in storage
             if (this.exprStorage.get(nonTerminal).containsKey(outputs)) {
-                // if exist, return
+                // // if exist, return
+                // this.numDump += 1;
+                // if (!containsVar) {
+                //     this.numConstant += 1;
+                // }
+                // System.out.println("Expr: " + newExpr.toString());
+                // // System.out.println("outputs: " + Arrays.toString(outputs.toArray()));
+                // System.out.println("Corresponding expr: " + this.exprStorage.get(nonTerminal).get(outputs).toString());
                 return;
             }
+            // this.numKeep += 1;
 
             if (this.coveredExample.size() != this.output.length) {
                 // check if the output[] are expected
@@ -275,16 +328,27 @@ public class PBEEnumSize extends Thread {
         }
 
         Set<List<Long>> inputs = this.outputStorage.get(rule[index + 1]).get(prmt[index]);
+        boolean symm = Arrays.asList(this.symmetricOp).contains(rule[0]);
+
         for (List<Long> input : inputs) {
             if (Arrays.asList(this.noopOn0Op).contains(rule[0]) && input.equals(this.zeros)) {
                 // System.out.println("all zeros");
                 continue;
             }
+
+            if (avoidSymm != null && symm && avoidSymm.contains(input)) {
+                continue;
+            }
+
             comb.add(input);
             subexprs.add(this.exprStorage.get(rule[index + 1]).get(input));
-            this.genOutputCombsHelper(prmt, rule, index + 1, comb, subexprs, currNew, nonTerminal);
+            this.genOutputCombsHelper(prmt, rule, index + 1, comb, subexprs, currNew, nonTerminal, avoidSymm);
             comb.remove(comb.size() - 1);
             subexprs.remove(subexprs.size() - 1);
+
+            if (symm && index == 0) {
+                avoidSymm.add(input);
+            }
         }
     }
 
@@ -497,6 +561,8 @@ public class PBEEnumSize extends Thread {
                 return;
             }
         }
+        // this.startTime = System.nanoTime();
+
         int iter = 1;
         while (true) {
             iter++;
@@ -538,6 +604,10 @@ public class PBEEnumSize extends Thread {
                 logger.info("Store: " + nonTerminal + " size: " + iter + " #exprs: " + newOutputs.size());
                 this.outputStorage.get(nonTerminal).put(iter, newOutputs);
             }
+            // System.out.println("Size: " + iter);
+            // System.out.println("numDump: " + this.numDump);
+            // System.out.println("numKeep: " + this.numKeep);
+            // System.out.println("numConstant: " + this.numConstant);
         }
 
     }
