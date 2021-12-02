@@ -68,6 +68,8 @@ public class PBEEnumSize extends Thread {
         } else {
             generate();
             if (this.definition == null) {
+                preprocessResult();
+                // simplifyResult();
                 generateResult();
             }
             String name = problem.names.get(0);
@@ -492,7 +494,6 @@ public class PBEEnumSize extends Thread {
                     logger.info(exprIndex + " Expr: " + coveredExpr.get(exprIndex).toString());
                     List<Integer> newECConds = new LinkedList<Integer>(this.uncoveredECConds.get(ecIndex));
                     this.coveredECConds.put(this.coveredEquivClasses.size() - 1, newECConds);
-                    this.ecConds2Expr.put(newECConds, coveredExpr.get(exprIndex));
                     // remove covered EC from uncovered map
                     toRm.add(ecIndex);
                 }
@@ -542,6 +543,7 @@ public class PBEEnumSize extends Thread {
             }
             coveredExpr.add(expr);
             covered.put(coveredExpr.indexOf(expr),coveredOutputs);
+            // printCovered(this.covered);
         }
         // long usedTime = System.nanoTime() - start;
         // System.out.println("Time verifyOutput: " + usedTime);
@@ -612,6 +614,93 @@ public class PBEEnumSize extends Thread {
 
     }
 
+    void preprocessResult() {
+        for (int i = 0; i < this.coveredEquivClasses.size(); i++) {
+            List<Integer> coveredEC = this.coveredEquivClasses.get(i);
+            List<Integer> conds = this.coveredECConds.get(i);
+            for (int exprIndex: covered.keySet()) {
+                if (covered.get(exprIndex).containsAll(coveredEC)) {
+                    this.ecConds2Expr.put(conds, this.coveredExpr.get(exprIndex));
+                }
+            }
+        }
+    }
+
+    void simplifyResult() {
+        List<List<Integer>> ecConds = new LinkedList<List<Integer>>();
+        Map<Integer, Expr> ecCondsIndex2Expr = new HashMap<Integer, Expr>();
+        for (List<Integer> conds: ecConds2Expr.keySet()) {
+            ecConds.add(conds);
+            ecCondsIndex2Expr.put(ecConds.size() - 1, ecConds2Expr.get(conds));
+        }
+
+        Map<List<Integer>, List<Integer>> prefix2Indices = new HashMap<List<Integer>, List<Integer>>();
+        List<Integer> startBy0 = new LinkedList<Integer>();
+        List<Integer> startBy1 = new LinkedList<Integer>();
+        for (int i = 0; i < ecConds.size(); i++) {
+            if (ecConds.get(i).contains(0)) {
+                startBy0.add(i);
+            } else if (ecConds.get(i).contains(1)) {
+                startBy1.add(i);
+            } else {
+                // conds should start by either 0 or 1
+                logger.severe("Conds should start by either 0 or 1!");
+            }
+        }
+        prefix2Indices.put(Arrays.asList(0), startBy0);
+        prefix2Indices.put(Arrays.asList(1), startBy1);
+
+        // printECCondsList(ecConds);
+        // printPrefix2Indices(prefix2Indices);
+
+        while (!prefix2Indices.isEmpty()) {
+            List<List<Integer>> prefixes = new LinkedList<List<Integer>>(prefix2Indices.keySet());
+            for (List<Integer> prefix: prefixes) {
+                List<Integer> indices = prefix2Indices.get(prefix);
+                int lookingAt = prefix.size();
+                int lookingAtVal = -1;
+                boolean unique = true;
+                for (int condIdx: indices) {
+                    List<Integer> ecCond = ecConds.get(condIdx);
+                    if (lookingAt >= ecCond.size()) {
+                        continue;
+                    }
+                    int val = ecCond.get(lookingAt);
+                    if (lookingAtVal == -1) {
+                        lookingAtVal = val;
+                    } else if (lookingAtVal != val) {
+                        unique = false;
+                    }
+                    List<Integer> newPrefix = new LinkedList<Integer>(prefix);
+                    newPrefix.add(val);
+                    if (prefix2Indices.containsKey(newPrefix)) {
+                        prefix2Indices.get(newPrefix).add(condIdx);
+                    } else {
+                        prefix2Indices.put(newPrefix, new LinkedList<Integer>(Arrays.asList(condIdx)));
+                    }
+                }
+                if (unique && lookingAtVal != -1) {
+                    for (int condIdx: indices) {
+                        if (lookingAt >= ecConds.get(condIdx).size()) {
+                            continue;
+                        }
+                        ecConds.get(condIdx).remove(lookingAt);
+                    }
+                    List<Integer> newPrefix = new LinkedList<Integer>(prefix);
+                    newPrefix.add(lookingAtVal);
+                    prefix2Indices.remove(newPrefix);
+                } else {
+                    prefix2Indices.remove(prefix);
+                }
+            }
+        }
+
+        this.ecConds2Expr.clear();
+        for (int i = 0; i < ecConds.size(); i++) {
+            this.ecConds2Expr.put(ecConds.get(i), ecCondsIndex2Expr.get(i));
+        }
+    }
+
     void generateResult() {
         // printECCond2Expr();
         // printECConds();
@@ -642,6 +731,15 @@ public class PBEEnumSize extends Thread {
             int falseCondIndex = listIndex * 2 + 1;
             Map<List<Integer>, Expr> trueCond2expr = this.selectConds(trueCondIndex, cond2expr);
             Map<List<Integer>, Expr> falseCond2expr = this.selectConds(falseCondIndex, cond2expr);
+
+            while (trueCond2expr.isEmpty() && falseCond2expr.isEmpty()) {
+                listIndex = listIndex + 1;
+                trueCondIndex = listIndex * 2;
+                falseCondIndex = listIndex * 2 + 1;
+                trueCond2expr = this.selectConds(trueCondIndex, cond2expr);
+                falseCond2expr = this.selectConds(falseCondIndex, cond2expr);
+            }
+
             Expr[] operands = new Expr[3];
             operands[0] = this.conditions.get(trueCondIndex); // condition
             operands[1] = this.construct(trueCondIndex, trueCond2expr); // true branch
@@ -654,7 +752,11 @@ public class PBEEnumSize extends Thread {
             } else if (operands[2] == null) {
                 result = operands[1];
             } else {
-                result = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
+                if (operands[1].toString().equals(operands[2].toString())) {
+                    result = operands[1];
+                } else {
+                    result = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
+                }
             }
             return result;
         }
@@ -751,6 +853,21 @@ public class PBEEnumSize extends Thread {
         System.out.println("");
         for (int i = 0; i < this.conditions.size(); i++) {
             System.out.println("Cond " + i + ": " + this.conditions.get(i).toString());
+        }
+    }
+
+    void printECCondsList(List<List<Integer>> ecConds) {
+        System.out.println("");
+        for (int i = 0; i < ecConds.size(); i++) {
+            System.out.println("ecConds " + i + ": " + Arrays.toString(ecConds.get(i).toArray()));
+        }
+    }
+
+    void printPrefix2Indices(Map<List<Integer>, List<Integer>> prefix2Indices) {
+        System.out.println("");
+        for (List<Integer> prefix: prefix2Indices.keySet()) {
+            System.out.println("Prefix: " + Arrays.toString(prefix.toArray()));
+            System.out.println("Conds indices: " + Arrays.toString(prefix2Indices.get(prefix).toArray()));
         }
     }
 }
