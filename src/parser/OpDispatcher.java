@@ -179,7 +179,14 @@ public class OpDispatcher {
         return null;
     }
 
-    public Long pbeDispatch(String name, long[] args, boolean doNotInterp, int size) {
+    public Long pbeDispatch(String name, Long[] argsLong, boolean doNotInterp, int size) {
+        long[] args = new long[argsLong.length];
+        for (int i = 0; i < args.length; i++) {
+            if (argsLong[i] == null) {
+                return null;
+            }
+            args[i] = argsLong[i].longValue();
+        }
         if (name.equals("bvadd")) {
             return BitVector.bvadd(args[0],args[1]);
         }
@@ -262,7 +269,7 @@ public class OpDispatcher {
         }
         if (expr.isApp()) {
             Expr[] innerArgs = expr.getArgs();
-            long[] computedArgs = new long[innerArgs.length];
+            Long[] computedArgs = new Long[innerArgs.length];
             for (int i = 0; i < innerArgs.length; i++) {
                 computedArgs[i] = applyThenCompute(innerArgs[i], args, params, size);
             }

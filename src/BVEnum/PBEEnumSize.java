@@ -372,16 +372,16 @@ public class PBEEnumSize extends Thread {
         return false;
     }
 
-    long[][] transpose(List<List<Long>> comb) {
+    Long[][] transpose(List<List<Long>> comb) {
         int n = comb.size();
         int m = comb.get(0).size();
-        long[][] args = new long[n][m];
+        Long[][] args = new Long[n][m];
         for (int i = 0; i < comb.size(); i++) {
             for (int j = 0; j < comb.get(i).size(); j++) {
                 args[i][j] = comb.get(i).get(j);
             }
         }
-        long[][] trans = new long[m][n];
+        Long[][] trans = new Long[m][n];
         for (int i = 0; i < trans.length; i++) {
             for (int j = 0; j < trans[0].length; j++) {
                 trans[i][j] = args[j][i];
@@ -395,18 +395,25 @@ public class PBEEnumSize extends Thread {
             logger.severe("Outputs Length mismatch!");
         }
 
-        long[][] args = this.transpose(comb);
+        Long[][] args = this.transpose(comb);
 
         if (!containsVar) {
-            return Collections.nCopies(
-                args.length, 
-                this.problem.opDis.pbeDispatch(rule[0], args[0], false, this.bvSize)
-            );
+            for (int i = 0; i < args.length; i++) {
+                Long ret = this.problem.opDis.pbeDispatch(rule[0], args[i], false, this.bvSize);
+                if (ret != null) {
+                    return Collections.nCopies(args.length, ret);
+                }
+            }
+            return null;
         }
 
         List<Long> outputs = new ArrayList<Long>();
         for (int i = 0; i < args.length; i++) {
-            outputs.add(this.problem.opDis.pbeDispatch(rule[0], args[i], false, this.bvSize));
+            if (this.outsider.contains(i) || !this.coveredExample.contains(i)) {
+                outputs.add(this.problem.opDis.pbeDispatch(rule[0], args[i], false, this.bvSize));
+            } else {
+                outputs.add(null);
+            }
         }
 
         return outputs;
@@ -516,7 +523,7 @@ public class PBEEnumSize extends Thread {
         boolean result = true;
         List<Integer> coveredOutputs = new LinkedList<Integer>();
         for (int i = 0; i < outputs.size(); i++) {
-            if (!this.output[i].equals(Long.toUnsignedString(outputs.get(i)))) {
+            if (outputs.get(i) == null || !this.output[i].equals(Long.toUnsignedString(outputs.get(i)))) {
                 result = false;
             } else {
                 coveredOutputs.add(i);
