@@ -280,6 +280,10 @@ public class PBEEnumSize extends Thread {
                 containsVar = true;
             }
 
+            // if (!containsVar) {
+            //     this.numConstant += 1;
+            // }
+
             // for each combination, compute the output[]
             List<Long> outputs = this.compute(rule, comb, containsVar);
 
@@ -333,20 +337,31 @@ public class PBEEnumSize extends Thread {
         boolean symm = Arrays.asList(this.symmetricOp).contains(rule[0]);
 
         for (List<Long> input : inputs) {
+            boolean skip = false;
+
             if (Arrays.asList(this.noopOn0Op).contains(rule[0]) && input.equals(this.zeros)) {
                 // System.out.println("all zeros");
-                continue;
+                // continue;
+                skip = true;
             }
 
             if (avoidSymm != null && symm && avoidSymm.contains(input)) {
-                continue;
+                // continue;
+                skip = true;
             }
 
-            comb.add(input);
-            subexprs.add(this.exprStorage.get(rule[index + 1]).get(input));
-            this.genOutputCombsHelper(prmt, rule, index + 1, comb, subexprs, currNew, nonTerminal, avoidSymm);
-            comb.remove(comb.size() - 1);
-            subexprs.remove(subexprs.size() - 1);
+            if (rule[0].equals("bvnot") && this.exprStorage.get(rule[index + 1]).get(input).isBVNOT()) {
+                // skip (bvnot (bvnot x))
+                skip = true;
+            }
+
+            if (!skip) {
+                comb.add(input);
+                subexprs.add(this.exprStorage.get(rule[index + 1]).get(input));
+                this.genOutputCombsHelper(prmt, rule, index + 1, comb, subexprs, currNew, nonTerminal, avoidSymm);
+                comb.remove(comb.size() - 1);
+                subexprs.remove(subexprs.size() - 1);
+            }
 
             if (symm && index == 0) {
                 avoidSymm.add(input);
@@ -614,6 +629,7 @@ public class PBEEnumSize extends Thread {
                 this.outputStorage.get(nonTerminal).put(iter, newOutputs);
             }
             // System.out.println("Size: " + iter);
+            // System.out.println("numComp: " + this.numComp);
             // System.out.println("numDump: " + this.numDump);
             // System.out.println("numKeep: " + this.numKeep);
             // System.out.println("numConstant: " + this.numConstant);
