@@ -49,6 +49,12 @@ public class PBEEnumSize extends Thread {
     // private int numConstant = 0;
     // private long startTime;
 
+    private int numExamples;
+    private int numSample;
+    private Expr[][] sampleInput; // [numSample][numInputArgs]
+    private String[] sampleOutput;    // [numSample]
+
+
     public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore) {
         this.ctx = ctx;
         this.problem = problem;
@@ -66,11 +72,32 @@ public class PBEEnumSize extends Thread {
             logger.info("BV backend does not support multiple functions yet");
             System.exit(1);
         } else {
-            generate();
-            if (this.definition == null) {
-                preprocessResult();
-                // simplifyResult();
-                generateResult();
+            init();
+
+            int numTries = 1;
+            while (this.definition == null || !finalCheck(this.definition)) {
+                clearStorage();
+                generate();
+                if (this.definition == null) {
+                    preprocessResult();
+                    // simplifyResult();
+                    generateResult();
+                }
+                // System.out.println("#Tries: " + numTries);
+                // System.out.println("Tried: " + this.definition.toString());
+
+                if (numTries < 10) {
+                    this.numSample = (this.numExamples > 5) ? 5 : this.numExamples;
+                } else if (numTries < 20) {
+                    this.numSample = (this.numExamples > 10) ? 10 : this.numExamples;
+                } else if (numTries < 30) {
+                    this.numSample = (this.numExamples > 20) ? 20 : this.numExamples;
+                } else {
+                    this.numSample = this.numExamples;
+                }
+                // System.out.println("Current this.numSample: " + this.numSample);
+
+                numTries++;
             }
             String name = problem.names.get(0);
             Expr result = this.definition;
@@ -87,7 +114,28 @@ public class PBEEnumSize extends Thread {
             // Verifier verifier = new Verifier(ctx);
             // Status v = verifier.verify(resultfunc, this.problem);
             // System.out.println("Final check status: " + v);
+            System.out.println("this.numSample: " + this.numSample);
         }
+    }
+
+    boolean finalCheck(Expr expr) {
+        Expr interpreted = expr;
+        for (String funcname: this.problem.funcs.keySet()) {
+            DefinedFunc df = this.problem.funcs.get(funcname);
+            interpreted = df.rewrite(interpreted, df.getDecl());
+        }
+        // System.out.println("interpreted: " + interpreted.toString());
+
+        Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
+        DefinedFunc df = new DefinedFunc(ctx, funcArgs, interpreted);
+        for (int i = 0; i < this.input.length; i++) {
+            // System.out.println(Arrays.toString(this.input[i]));
+            long o = OpDispatcher.exprToBitVector(df.apply(this.input[i]).simplify());
+            if (!this.output[i].equals(Long.toUnsignedString(o))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     void init() {
@@ -98,11 +146,10 @@ public class PBEEnumSize extends Thread {
         logger.info("Start symbol: " + start);
         // extract inputs and outputs
         List<List<Expr>> ioexamples = this.problem.ioexamples;
-        int numExamples = ioexamples.size();
-        this.output = new String[numExamples];
-        this.input = new Expr[numExamples][ioexamples.get(0).size() - 1];
-        for (int i = 0; i < numExamples; i++) {
-            this.outsider.add(i);
+        this.numExamples = ioexamples.size();
+        this.output = new String[this.numExamples];
+        this.input = new Expr[this.numExamples][ioexamples.get(0).size() - 1];
+        for (int i = 0; i < this.numExamples; i++) {
             List<Expr> example = ioexamples.get(i);
             for (int j = 0; j < example.size() - 1; j++) {
                 this.input[i][j] = example.get(j);
@@ -111,13 +158,56 @@ public class PBEEnumSize extends Thread {
             logger.info("Example " + i + " input: " + Arrays.toString(this.input[i]) + ", output: " + this.output[i]);
         }
         this.bvSize = ((BitVecExpr)this.input[0][0]).getSortSize();
-        this.uncoveredEquivClasses.put(this.ecCounter, new LinkedList<Integer>(this.outsider));
-        this.uncoveredECConds.put(this.ecCounter, new LinkedList<Integer>());
-        this.ecCounter++;
-        Long[] zeroArray = new Long[numExamples];
+        this.numSample = (this.numExamples > 5) ? 5 : this.numExamples;
+    }
+
+    void clearStorage() {
+        this.exprStorage.clear();
+        this.outputStorage.clear();
+        this.covered.clear();
+        this.coveredExpr.clear();
+        this.coveredExample.clear();
+        this.outsider.clear();
+        this.uncoveredEquivClasses.clear();
+        this.coveredEquivClasses.clear();
+        this.conditions.clear();
+        this.uncoveredECConds.clear();
+        this.coveredECConds.clear();
+        this.ecConds2Expr.clear();
+        this.definition = null;
+        this.coverFound = false;
+    }
+
+    void initStorage() {
+        // // find out starting non-terminal
+        String funcName = problem.names.get(0);
+        SygusProblem.CFG cfg = problem.cfgs.get(funcName);
+        Long[] zeroArray = new Long[this.numSample];
         long zero = 0;
         Arrays.fill(zeroArray, zero);
         this.zeros = Arrays.asList(zeroArray);
+
+        // pick random samples
+        Random rand = new Random();
+        List<Integer> randomSampleIndex = new ArrayList<Integer>();
+        while (randomSampleIndex.size() < this.numSample) {
+            int randIndex = rand.nextInt(this.numExamples);
+            // System.out.println("randIndex" + randIndex);
+            if (!randomSampleIndex.contains(randIndex)) {
+                randomSampleIndex.add(randIndex);
+            }
+        }
+
+        this.sampleInput = new Expr[this.numSample][this.problem.ioexamples.get(0).size() - 1];
+        this.sampleOutput = new String[this.numSample];
+        for (int i = 0; i < randomSampleIndex.size(); i++) {
+            this.sampleInput[i] = this.input[randomSampleIndex.get(i)];
+            this.sampleOutput[i] = this.output[randomSampleIndex.get(i)];
+            this.outsider.add(i);
+        }
+        this.uncoveredEquivClasses.put(this.ecCounter, new LinkedList<Integer>(this.outsider));
+        this.uncoveredECConds.put(this.ecCounter, new LinkedList<Integer>());
+        this.ecCounter++;
 
         // initialize storage and recRules
         for (String symbol : cfg.grammarRules.keySet()) {
@@ -144,8 +234,8 @@ public class PBEEnumSize extends Thread {
             //     Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
             //     DefinedFunc df = new DefinedFunc(ctx, funcArgs, terminal);
             //     List<Long> outputs = new ArrayList<Long>();
-            //     for (int i = 0; i < this.input.length; i++) {
-            //         outputs.add(OpDispatcher.exprToBitVector(df.apply(this.input[i])));
+            //     for (int i = 0; i < this.sampleInput.length; i++) {
+            //         outputs.add(OpDispatcher.exprToBitVector(df.apply(this.sampleInput[i])));
             //     }
             //     logger.info("Initial outputs: " + Arrays.toString(outputs.toArray()));
             //     if (!exprStrg.containsKey(outputs)) {
@@ -169,9 +259,9 @@ public class PBEEnumSize extends Thread {
                     Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
                     DefinedFunc df = new DefinedFunc(ctx, funcArgs, terminal);
                     List<Long> outputs = new ArrayList<Long>();
-                    for (int i = 0; i < this.input.length; i++) {
-                        // System.out.println(Arrays.toString(this.input[i]));
-                        outputs.add(OpDispatcher.exprToBitVector(df.apply(this.input[i])));
+                    for (int i = 0; i < this.sampleInput.length; i++) {
+                        // System.out.println(Arrays.toString(this.sampleInput[i]));
+                        outputs.add(OpDispatcher.exprToBitVector(df.apply(this.sampleInput[i])));
                     }
                     logger.info("Initial outputs: " + Arrays.toString(outputs.toArray()));
                     // add generated outputs to storages
@@ -308,7 +398,7 @@ public class PBEEnumSize extends Thread {
             }
             // this.numKeep += 1;
 
-            if (this.coveredExample.size() != this.output.length) {
+            if (this.coveredExample.size() != this.sampleOutput.length) {
                 // check if the output[] are expected
                 // if so, assign those possible expressions to this.definition
                 if (this.verifyOutput(outputs, newExpr)) {
@@ -531,14 +621,14 @@ public class PBEEnumSize extends Thread {
 
     boolean verifyOutput(List<Long> outputs, Expr expr) {
         // long start = System.nanoTime();
-        if (outputs.size() != this.output.length) {
+        if (outputs.size() != this.sampleOutput.length) {
             logger.severe("Outputs Length mismatch!");
         }
 
         boolean result = true;
         List<Integer> coveredOutputs = new LinkedList<Integer>();
         for (int i = 0; i < outputs.size(); i++) {
-            if (outputs.get(i) == null || !this.output[i].equals(Long.toUnsignedString(outputs.get(i)))) {
+            if (outputs.get(i) == null || !this.sampleOutput[i].equals(Long.toUnsignedString(outputs.get(i)))) {
                 result = false;
             } else {
                 coveredOutputs.add(i);
@@ -575,7 +665,7 @@ public class PBEEnumSize extends Thread {
 
     void generate() {
         // init storage, compute initial output and put to storage
-        init();
+        initStorage();
 
         // check those initial outputs
         Map<List<Long>, Expr> initStorage = this.exprStorage.get(this.start);
@@ -610,10 +700,10 @@ public class PBEEnumSize extends Thread {
                         if (this.definition != null) {
                             return;
                         }
-                        if (this.coveredExample.size() == this.output.length) {
-                            if (!coverFound) {
+                        if (this.coveredExample.size() == this.sampleOutput.length) {
+                            if (!this.coverFound) {
                                 printCovered(this.covered);
-                                coverFound = true;
+                                this.coverFound = true;
                                 // check if an uncovered EC can be covered by a single expression
                                 this.updateCoveredECs();
                             }
