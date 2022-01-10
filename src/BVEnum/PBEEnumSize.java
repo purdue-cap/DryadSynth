@@ -53,6 +53,8 @@ public class PBEEnumSize extends Thread {
     private int numSample;
     private Expr[][] sampleInput; // [numSample][numInputArgs]
     private String[] sampleOutput;    // [numSample]
+    private List<Integer> selected = new ArrayList<Integer>();
+    private List<Integer> failed = new ArrayList<Integer>();
 
 
     public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore) {
@@ -75,7 +77,7 @@ public class PBEEnumSize extends Thread {
             init();
 
             int numTries = 1;
-            while (this.definition == null || !finalCheck(this.definition)) {
+            while (this.definition == null || !this.failed.isEmpty()) {
                 clearStorage();
                 generate();
                 if (this.definition == null) {
@@ -86,16 +88,10 @@ public class PBEEnumSize extends Thread {
                 // System.out.println("#Tries: " + numTries);
                 // System.out.println("Tried: " + this.definition.toString());
 
-                if (numTries < 10) {
-                    this.numSample = (this.numExamples > 5) ? 5 : this.numExamples;
-                } else if (numTries < 20) {
-                    this.numSample = (this.numExamples > 10) ? 10 : this.numExamples;
-                } else if (numTries < 30) {
-                    this.numSample = (this.numExamples > 20) ? 20 : this.numExamples;
-                } else {
-                    this.numSample = this.numExamples;
-                }
-                // System.out.println("Current this.numSample: " + this.numSample);
+                getFailed(this.definition);
+                // System.out.println("this.failed: " + Arrays.toString(this.failed.toArray()));
+                updateSelected(this.selected, this.failed, this.conditions);
+                // System.out.println("this.selected: " + Arrays.toString(this.selected.toArray()));
 
                 numTries++;
             }
@@ -114,28 +110,100 @@ public class PBEEnumSize extends Thread {
             // Verifier verifier = new Verifier(ctx);
             // Status v = verifier.verify(resultfunc, this.problem);
             // System.out.println("Final check status: " + v);
-            System.out.println("this.numSample: " + this.numSample);
+            // System.out.println("this.numSample: " + this.numSample);
+            // System.out.println("numTries: " + (numTries - 1));
         }
     }
 
-    boolean finalCheck(Expr expr) {
+    void getFailed(Expr expr) {
         Expr interpreted = expr;
         for (String funcname: this.problem.funcs.keySet()) {
             DefinedFunc df = this.problem.funcs.get(funcname);
             interpreted = df.rewrite(interpreted, df.getDecl());
         }
-        // System.out.println("interpreted: " + interpreted.toString());
 
+        this.failed.clear();
         Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
         DefinedFunc df = new DefinedFunc(ctx, funcArgs, interpreted);
         for (int i = 0; i < this.input.length; i++) {
-            // System.out.println(Arrays.toString(this.input[i]));
             long o = OpDispatcher.exprToBitVector(df.apply(this.input[i]).simplify());
             if (!this.output[i].equals(Long.toUnsignedString(o))) {
-                return false;
+                this.failed.add(i);
             }
         }
-        return true;
+    }
+
+    void updateSelected(List<Integer> selected, List<Integer> failed, List<Expr> conditions) {
+        if (failed.isEmpty()) {
+            // Problem solved
+            return;
+        }
+
+        if (conditions.isEmpty() || failed.size() == 1) {
+            // add a random failed example to selected
+            selected.add(failed.get(0));
+            return;
+        }
+
+        // Get all the conditions in previous solution
+        List<Expr> prevConds = new ArrayList<Expr>();
+        for (int i = 0; i < conditions.size(); i = i + 2) {
+            prevConds.add(conditions.get(i));
+        }
+
+        // System.out.println("conditions: " + Arrays.toString(conditions.toArray()));
+        // System.out.println("Cond: " + Arrays.toString(prevConds.toArray()));
+
+        // Make failed examples in the right format
+        Expr[][] failedInput = new Expr[this.failed.size()][this.problem.ioexamples.get(0).size() - 1];
+        for (int i = 0; i < this.failed.size(); i++) {
+            failedInput[i] = this.input[this.failed.get(i)];
+        }
+
+        Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
+        // Evaluate failed examples on ite conditions
+        List<List<Long>> iteOutput = new ArrayList<List<Long>>();
+        for (int i = 0; i < prevConds.size(); i++) {
+            // TODO: make another interpreted copy during enumeration
+            Expr interpreted = prevConds.get(i);
+            for (String funcname: this.problem.funcs.keySet()) {
+                DefinedFunc df = this.problem.funcs.get(funcname);
+                interpreted = df.rewrite(interpreted, df.getDecl());
+            }
+            DefinedFunc df = new DefinedFunc(ctx, funcArgs, interpreted);
+            List<Long> outputs = new ArrayList<Long>();
+            for (int j = 0; j < failedInput.length; j++) {
+                // System.out.println(Arrays.toString(this.sampleInput[i]));
+                outputs.add(OpDispatcher.exprToBitVector(df.apply(failedInput[j]).simplify()));
+            }
+            // System.out.println("outputs: " + Arrays.toString(outputs.toArray()));
+            String[] iteRule = {"iteEval", "Start"};
+            List<List<Long>> outputs2 = new LinkedList<List<Long>>();
+            outputs2.add(outputs);
+            List<Long> iteoutputs = this.compute(iteRule, outputs2, true, false);
+            // System.out.println("iteoutputs: " + Arrays.toString(iteoutputs.toArray()));
+            iteOutput.add(iteoutputs);
+        }
+
+        // for (int i = 0; i < prevConds.size(); i++) {
+        //     System.out.println("Cond " + i + " output: " + Arrays.toString(iteOutput.get(i).toArray()));
+        // }
+
+        List<List<Long>> exsOnITE = new ArrayList<List<Long>>();
+        for (int i = 0; i < failedInput.length; i++) {
+            List<Long> exOnITEs = new ArrayList<Long>();
+            for (int j = 0; j < prevConds.size(); j++) {
+                exOnITEs.add(iteOutput.get(j).get(i));
+            }
+            exsOnITE.add(exOnITEs);
+        }
+
+        Map<List<Long>, Integer> exOnBranch = new HashMap<List<Long>, Integer>();
+        for (int i = 0; i < failedInput.length; i++) {
+            exOnBranch.putIfAbsent(exsOnITE.get(i), this.failed.get(i));
+        }
+
+        this.selected.addAll(exOnBranch.values());
     }
 
     void init() {
@@ -158,7 +226,9 @@ public class PBEEnumSize extends Thread {
             logger.info("Example " + i + " input: " + Arrays.toString(this.input[i]) + ", output: " + this.output[i]);
         }
         this.bvSize = ((BitVecExpr)this.input[0][0]).getSortSize();
-        this.numSample = (this.numExamples > 5) ? 5 : this.numExamples;
+        this.numSample = 1;
+        Random rand = new Random();
+        this.selected.add(rand.nextInt(this.numExamples));
     }
 
     void clearStorage() {
@@ -187,22 +257,12 @@ public class PBEEnumSize extends Thread {
         Arrays.fill(zeroArray, zero);
         this.zeros = Arrays.asList(zeroArray);
 
-        // pick random samples
-        Random rand = new Random();
-        List<Integer> randomSampleIndex = new ArrayList<Integer>();
-        while (randomSampleIndex.size() < this.numSample) {
-            int randIndex = rand.nextInt(this.numExamples);
-            // System.out.println("randIndex" + randIndex);
-            if (!randomSampleIndex.contains(randIndex)) {
-                randomSampleIndex.add(randIndex);
-            }
-        }
-
+        this.numSample = this.selected.size();
         this.sampleInput = new Expr[this.numSample][this.problem.ioexamples.get(0).size() - 1];
         this.sampleOutput = new String[this.numSample];
-        for (int i = 0; i < randomSampleIndex.size(); i++) {
-            this.sampleInput[i] = this.input[randomSampleIndex.get(i)];
-            this.sampleOutput[i] = this.output[randomSampleIndex.get(i)];
+        for (int i = 0; i < this.selected.size(); i++) {
+            this.sampleInput[i] = this.input[this.selected.get(i)];
+            this.sampleOutput[i] = this.output[this.selected.get(i)];
             this.outsider.add(i);
         }
         this.uncoveredEquivClasses.put(this.ecCounter, new LinkedList<Integer>(this.outsider));
@@ -375,7 +435,7 @@ public class PBEEnumSize extends Thread {
             // }
 
             // for each combination, compute the output[]
-            List<Long> outputs = this.compute(rule, comb, containsVar);
+            List<Long> outputs = this.compute(rule, comb, containsVar, true);
 
             // this.numComp += 1;
             // if (this.numComp % 100 == 0) {
@@ -416,7 +476,7 @@ public class PBEEnumSize extends Thread {
                 String[] iteRule = {"iteEval", "Start"};
                 List<List<Long>> outputs2 = new LinkedList<List<Long>>();
                 outputs2.add(outputs);
-                List<Long> iteoutputs = this.compute(iteRule, outputs2, true);
+                List<Long> iteoutputs = this.compute(iteRule, outputs2, true, true);
                 this.updateECs(iteoutputs, newExpr);
             }
 
@@ -495,7 +555,7 @@ public class PBEEnumSize extends Thread {
         return trans;
     }
 
-    List<Long> compute(String[] rule, List<List<Long>> comb, boolean containsVar) {
+    List<Long> compute(String[] rule, List<List<Long>> comb, boolean containsVar, boolean enablePartialCompute) {
         if (comb.size() != rule.length - 1) {
             logger.severe("Outputs Length mismatch!");
         }
@@ -514,7 +574,7 @@ public class PBEEnumSize extends Thread {
 
         List<Long> outputs = new ArrayList<Long>();
         for (int i = 0; i < args.length; i++) {
-            if (this.outsider.contains(i) || !this.coveredExample.contains(i)) {
+            if (this.outsider.contains(i) || !this.coveredExample.contains(i) || !enablePartialCompute) {
                 outputs.add(this.problem.opDis.pbeDispatch(rule[0], args[i], false, this.bvSize));
             } else {
                 outputs.add(null);
