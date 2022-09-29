@@ -34,6 +34,8 @@ public class Run {
 			.withRequiredArg().ofType(Integer.class).defaultsTo(0);
 		oParser.acceptsAll(Arrays.asList("E", "EUSolver"), "EUSolver entry point command, set to use EUSolver as CEGIS algorithm, set to empty string to disable.")
 			.withRequiredArg().ofType(String.class).defaultsTo("");
+		oParser.acceptsAll(Arrays.asList("s", "Seed"), "Random seed for randomilized algorithm.")
+			.withRequiredArg().ofType(Integer.class).defaultsTo(9);
         oParser.acceptsAll(Arrays.asList("C", "CEGISOnly"), "Run synthesiszer in CEGIS mode only, disable all decidable fragments");
         oParser.acceptsAll(Arrays.asList("F", "FHCEGIS"), "Enable Fixed Height CEGIS algorithm for INV benchamrks.");
         oParser.acceptsAll(Arrays.asList("I", "ITCEGIS"), "Enable Inductive Template in CEGIS algorithms");
@@ -47,6 +49,7 @@ public class Run {
             return;
         }
 		int numCore = (Integer)options.valuesOf("t").get(0);
+		int seed = (Integer)options.valuesOf("s").get(0);
 		int iterLimit = (Integer)options.valuesOf("l").get(0);
 		int minFinite = (Integer)options.valuesOf("f").get(0);
 		int minInfinite = (Integer)options.valuesOf("i").get(0);
@@ -165,6 +168,7 @@ public class Run {
         dispatcher.setEnableITCEGIS(options.has("I"));
 		dispatcher.setHeightsOnly(options.has("H"));
 		dispatcher.setSizeBasedEnum(options.has("size"));
+		dispatcher.seed = seed;
 		dispatcher.prescreen();
         if (options.has("M")) {
         	dispatcher.setMethodOnly(options.has("M"));

@@ -170,13 +170,13 @@ public class OpDispatcher {
             }
         }
         if (definedOnly) {
-            return null;
+            throw new RuntimeException("Undefined Operator: " + name);
         }
         FuncDecl f = requests.get(name);
         if (f != null) {
             return z3ctx.mkApp(f, args);
         }
-        return null;
+        throw new RuntimeException("Unknown Operator: " + name);
     }
 
     public Long pbeDispatch(String name, Long[] argsLong, boolean doNotInterp, int size) {
@@ -226,6 +226,42 @@ public class OpDispatcher {
         if (name.equals("=")) {
             return BitVector.bveq(args[0], args[1]);
         }
+        if (name.equals("bvsdiv")) {
+            return BitVector.bvsdiv(args[0], args[1]);
+        }
+        if (name.equals("bvmul")) {
+            return BitVector.bvmul(args[0], args[1]);
+        }
+        if (name.equals("bvurem")) {
+            return BitVector.bvurem(args[0], args[1]);
+        }
+        if (name.equals("bvneg")) {
+            return BitVector.bvneg(args[0]);
+        }
+        if (name.equals("bvudiv")) {
+            return BitVector.bvudiv(args[0], args[1]);
+        }
+        if (name.equals("bvashr")) {
+            return BitVector.bvashr(args[0], args[1]);
+        }
+        if (name.equals("bvsrem")) {
+            return BitVector.bvsrem(args[0], args[1]);
+        }
+        if (name.equals("ite")) {
+            return (args[0] != 0) ? args[1] : args[2];
+        }
+        if (name.equals("not")) {
+            return (!(args[0] != 0))? 1L : 0L;
+        }
+        if (name.equals("and")) {
+            return (args[0] != 0 && args[1] != 0)? 1L : 0L;
+        }
+        if (name.equals("or")) {
+            return (args[0] != 0 || args[1] != 0)? 1L : 0L;
+        }
+        if (name.equals("if")) {
+            return (args[0] != 0)? args[1] : args[2];
+        }
 
         DefinedFunc df = funcs.get(name);
         if (df != null) {
@@ -233,7 +269,7 @@ public class OpDispatcher {
                 return applyThenCompute(df.getDef(), df.getArgs(), args, size);
             }
         }
-        return null;
+        throw new RuntimeException("Unknown Operator: " + name);
     }
 
     public Expr bitVectorToExpr(long bv, int size){
@@ -253,7 +289,8 @@ public class OpDispatcher {
 
     public Long applyThenCompute(Expr expr, Expr[] args, long[] params, int size) {
         if (args.length != params.length) {
-            return null;
+            throw new RuntimeException("Argument count not match " + expr.toString());
+            // return null;
         }
         if (expr.isNumeral()) {
             return exprToBitVector(expr);
@@ -265,7 +302,7 @@ public class OpDispatcher {
                 }
             }
             // Anything reaches here is not valid, generating an error using null
-            return null;
+            throw new RuntimeException("Expression Const Error " + expr.toString() + args.length + " " + args[0].toString() + " " + params[0] );
         }
         if (expr.isApp()) {
             Expr[] innerArgs = expr.getArgs();
@@ -287,7 +324,7 @@ public class OpDispatcher {
             return pbeDispatch(expr.getFuncDecl().getName().toString(), computedArgs, false, size);
         }
         // Anything reaches here is not valid, generating an error using null
-        return null;
+        throw new RuntimeException("Expression Unknown" + expr.toString());
     }
 
 }

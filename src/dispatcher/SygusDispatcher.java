@@ -22,6 +22,7 @@ public class SygusDispatcher {
 
     Logger logger;
     int numCore;
+    public int seed = 0;;
     int iterLimit = 0;
     int minFinite = 20;
     int minInfinite = 5;
@@ -488,7 +489,7 @@ public class SygusDispatcher {
             // Support single thread only for now, ignoring numCore settings.
             threads = new Thread[1];
             if (this.sizeBasedEnum) {
-                threads[0] = new PBEEnumSize(z3ctx, problem, logger, numCore);
+                threads[0] = new PBEEnumSize(z3ctx, problem, logger, numCore, seed);
             } else {
                 threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
             }

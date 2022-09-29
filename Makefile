@@ -25,7 +25,7 @@ classes: $(PARSER_CLASSES)
 
 $(PARSER_CLASSES): classes/%.class : build/%.java
 	mkdir -p classes
-	javac -source 1.7 -target 1.7 -classpath $(CP) -sourcepath $(SP) -d classes $<
+	javac -classpath $(CP) -sourcepath $(SP) -d classes $<
 
 $(PARSER_SOURCE): $(GRAMMAR_SCRIPT)
 	mkdir -p build

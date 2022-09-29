@@ -1,26 +1,114 @@
 import java.util.*;
 import java.math.BigInteger;
+import java.security.InvalidAlgorithmParameterException;
+
 import com.microsoft.z3.enumerations.Z3_ast_print_mode;
+
 import com.microsoft.z3.*;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+
+final class PBEProblem extends SygusProblem {
+    public String synth_fun_name;
+    public String start_nonterminal;
+    public Map<String, NonTerminal> nonterminals;
+    public Expr[][] input;
+    public String[] output;
+
+    public record RecRuleOp(String name, String[] nonterminals) {}
+    public record RecRuleConst(String name){}
+    public record RecRuleVariable(String name) {}
+    public record NonTerminal(String name, RecRuleOp[] ops, RecRuleConst[] constants, RecRuleVariable[] variables, RecRuleOp[] branch_combinators) {}
+
+    NonTerminal start_nonterminal() {
+        return this.nonterminals.get(this.start_nonterminal);
+    }
+
+    public RecRuleOp branchCombinator() {
+        return this.start_nonterminal().branch_combinators[0];
+    }
+
+    public PBEProblem(SygusProblem problem, Logger logger) throws InvalidAlgorithmParameterException {
+        super(problem);
+        if( problem.names.size() > 1) { throw new InvalidAlgorithmParameterException("`PBEEnum` does not currently support multiple `synth-fun` yet."); }
+
+        this.synth_fun_name = problem.names.get(0);
+
+        final var cfg = problem.cfgs.get(this.synth_fun_name);
+        this.start_nonterminal = (new ArrayList<String>(cfg.grammarSybSort.keySet())).get(0);
+        
+        this.output = ioexamples.stream().map((List<Expr> x) -> x.get(x.size() - 1).toString()).toArray(String[]::new);
+        this.input = ioexamples.stream().map((List<Expr> x) -> x.subList(0, x.size() - 1).toArray(Expr[]::new)).toArray(Expr[][]::new);
+        assert(output.length == input.length);
+        // TODO: Better Type check.
+        if( ((BitVecExpr)this.input[0][0]).getSortSize() != 64) { throw new InvalidAlgorithmParameterException("`PBEEnum` dose not currently support BitVec size other than 64"); }
+
+        this.nonterminals = cfg.grammarRules.entrySet().stream().map(x -> {
+            final var recrules = x.getValue();
+            var ops = recrules.stream()
+                .filter(y -> y.length > 1)
+                .map(y -> new RecRuleOp(y[0], Arrays.copyOfRange(y, 1, y.length)))
+                .toArray(RecRuleOp[]::new);
+
+            final var constants = recrules.stream()
+                .filter(y -> y.length == 1 && y[0].charAt(0) == '#')
+                .map(y -> new RecRuleConst(y[0]))
+                .toArray(RecRuleConst[]::new);
+
+            final var vars = recrules.stream()
+                .filter(y -> y.length == 1 && y[0].charAt(0) != '#')
+                .map(y -> new RecRuleVariable(y[0]))
+                .toArray(RecRuleVariable[]::new);
+
+            final var bcs = Arrays.stream(ops)
+                .map(y -> {
+                    if(problem.funcs.containsKey(y.name)) {
+                        DefinedFunc func = problem.funcs.get(y.name);
+                        if(func.definition.isITE() && func.args.length == 3) {
+                            final var leftBranch = func.definition.getArgs()[1];
+                            final var rightBranch = func.definition.getArgs()[2];
+                            if(leftBranch.toString().equals(func.args[1].toString()) && rightBranch.toString().equals(func.args[2].toString())) {
+                                return Optional.of(y);
+                            } else {
+                                return Optional.empty();
+                            }
+                        }
+                    } else if(y.name.equals("ite") && y.nonterminals.length == 3) {
+                        return Optional.of(y);
+                    }
+                    return Optional.empty();
+                })
+                .flatMap(Optional::stream)
+                .toArray(RecRuleOp[]::new);
+            ops = Arrays.stream(ops).filter(y -> !Arrays.asList(bcs).contains(y)).toArray(RecRuleOp[]::new);
+
+            return new NonTerminal(x.getKey(), ops, constants, vars, bcs);
+        }).collect(Collectors.toMap(x -> x.name, x -> x));
+
+
+        if( this.nonterminals.get(this.start_nonterminal).branch_combinators.length != 1 ) { logger.warning("No ite-like rules found, which may slow down the enumerate search.");}
+        final var l = this.branchCombinator().nonterminals.length;
+        if( this.branchCombinator().nonterminals[l - 2] != this.start_nonterminal ) { logger.warning("No ite-like rules found, which may slow down the enumerate search.");}
+        if( this.branchCombinator().nonterminals[l - 1] != this.start_nonterminal ) { logger.warning("No ite-like rules found, which may slow down the enumerate search.");}
+    }
+
+}
+
 
 public class PBEEnumSize extends Thread {
 
     private Context ctx;
-    private SygusProblem problem;
+    private PBEProblem problem;
     private Logger logger;
-    private int numCore;
+    private int seed;
 
     // for now, we assume there is only one function to synthesize
     // TODO: support multiple functions
     // TODO: support BV constant
-    private String start = null;  // start symbol of the grammar
-    private Map<String, List<String[]>> recRules = new LinkedHashMap<String, List<String[]>>();  // grammar rules with recursive production
     private Map<String, Map<List<Long>, Expr>> exprStorage = new LinkedHashMap<String, Map<List<Long>, Expr>>();  // nonTerminal -> <output[] -> expr>
     private Map<String, Map<Integer, Set<List<Long>>>> outputStorage = new LinkedHashMap<String, Map<Integer, Set<List<Long>>>>();  // nonTerminal -> <size -> Set<output[]>>
 
-    private Expr[][] input; // [numExample][numInputArgs]
-    private String[] output;    // [numExample]
     private int bvSize;     // size of bitvec expressions in benchmark
     private Set<String> varNames = new HashSet<String>(); // variable names appear in grammar
     private Expr definition;  // the definition of resulting function
@@ -30,6 +118,7 @@ public class PBEEnumSize extends Thread {
     private String[] symmetricOp = {"bvand", "bvor", "bvadd", "bvxor"};
     private String[] noopOn0Op = {"bvand", "bvor", "bvadd", "bvxor"};
     private List<Long> zeros;
+
     private Map<Integer, List<Integer>> covered = new HashMap<Integer, List<Integer>>();
     private List<Expr> coveredExpr = new LinkedList<Expr>();
     private List<Integer> coveredExample = new LinkedList<Integer>();
@@ -57,12 +146,13 @@ public class PBEEnumSize extends Thread {
     private List<Integer> failed = new ArrayList<Integer>();
 
 
-    public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore) {
+    public PBEEnumSize (Context ctx, SygusProblem problem, Logger logger, int numCore, int seed) throws InvalidAlgorithmParameterException {
         this.ctx = ctx;
-        this.problem = problem;
+        this.problem = new PBEProblem(problem, logger);
         this.logger = logger;
-        this.numCore = numCore;
         this.results = new DefinedFunc[problem.names.size()];
+        this.seed = seed;
+        logger.info("Running PBEEnumSize with random seed: " + seed);
         // for (String funcname: this.problem.funcs.keySet()) {
         //     System.out.println("Func: " + funcname);
         //     System.out.println("Def: " + this.problem.funcs.get(funcname).getDef().toString());
@@ -79,6 +169,9 @@ public class PBEEnumSize extends Thread {
             int numTries = 1;
             while (this.definition == null || !this.failed.isEmpty()) {
                 clearStorage();
+
+                logger.info("Start numTries: " + numTries);
+
                 generate();
                 if (this.definition == null) {
                     preprocessResult();
@@ -86,13 +179,14 @@ public class PBEEnumSize extends Thread {
                     generateResult();
                 }
                 // System.out.println("#Tries: " + numTries);
-                // System.out.println("Tried: " + this.definition.toString());
+                // System.out.println("Tried: " + this.definition.toString()); 
+                logger.info("Solution for this try: " + this.definition.toString());
 
                 getFailed(this.definition);
+                logger.info("Finished numTries: " + numTries + " with selected: " + this.selected.toString());
                 // System.out.println("this.failed: " + Arrays.toString(this.failed.toArray()));
                 updateSelected(this.selected, this.failed, this.conditions);
                 // System.out.println("this.selected: " + Arrays.toString(this.selected.toArray()));
-
                 numTries++;
             }
             String name = problem.names.get(0);
@@ -125,9 +219,9 @@ public class PBEEnumSize extends Thread {
         this.failed.clear();
         Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
         DefinedFunc df = new DefinedFunc(ctx, funcArgs, interpreted);
-        for (int i = 0; i < this.input.length; i++) {
-            long o = OpDispatcher.exprToBitVector(df.apply(this.input[i]).simplify());
-            if (!this.output[i].equals(Long.toUnsignedString(o))) {
+        for (int i = 0; i < this.problem.input.length; i++) {
+            long o = OpDispatcher.exprToBitVector(df.apply(this.problem.input[i]).simplify());
+            if (!this.problem.output[i].equals(Long.toUnsignedString(o))) {
                 this.failed.add(i);
             }
         }
@@ -157,7 +251,7 @@ public class PBEEnumSize extends Thread {
         // Make failed examples in the right format
         Expr[][] failedInput = new Expr[this.failed.size()][this.problem.ioexamples.get(0).size() - 1];
         for (int i = 0; i < this.failed.size(); i++) {
-            failedInput[i] = this.input[this.failed.get(i)];
+            failedInput[i] = this.problem.input[this.failed.get(i)];
         }
 
         Expr[] funcArgs = this.problem.requestArgs.get(this.problem.names.get(0));
@@ -177,10 +271,12 @@ public class PBEEnumSize extends Thread {
                 outputs.add(OpDispatcher.exprToBitVector(df.apply(failedInput[j]).simplify()));
             }
             // System.out.println("outputs: " + Arrays.toString(outputs.toArray()));
-            String[] iteRule = {"iteEval", "Start"};
+            final var bc = this.problem.branchCombinator();
             List<List<Long>> outputs2 = new LinkedList<List<Long>>();
             outputs2.add(outputs);
-            List<Long> iteoutputs = this.compute(iteRule, outputs2, true, false);
+            outputs2.add(outputs.stream().map(x -> 1L).collect(Collectors.toList()));
+            outputs2.add(outputs.stream().map(x -> 0L).collect(Collectors.toList()));
+            List<Long> iteoutputs = this.compute(bc, outputs2, true, false);
             // System.out.println("iteoutputs: " + Arrays.toString(iteoutputs.toArray()));
             iteOutput.add(iteoutputs);
         }
@@ -210,24 +306,14 @@ public class PBEEnumSize extends Thread {
         // find out starting non-terminal
         String funcName = problem.names.get(0);
         SygusProblem.CFG cfg = problem.cfgs.get(funcName);
-        this.start = (new ArrayList<String>(cfg.grammarSybSort.keySet())).get(0);
-        logger.info("Start symbol: " + start);
+
         // extract inputs and outputs
         List<List<Expr>> ioexamples = this.problem.ioexamples;
         this.numExamples = ioexamples.size();
-        this.output = new String[this.numExamples];
-        this.input = new Expr[this.numExamples][ioexamples.get(0).size() - 1];
-        for (int i = 0; i < this.numExamples; i++) {
-            List<Expr> example = ioexamples.get(i);
-            for (int j = 0; j < example.size() - 1; j++) {
-                this.input[i][j] = example.get(j);
-            }
-            this.output[i] = example.get(example.size() - 1).toString();
-            logger.info("Example " + i + " input: " + Arrays.toString(this.input[i]) + ", output: " + this.output[i]);
-        }
-        this.bvSize = ((BitVecExpr)this.input[0][0]).getSortSize();
+        this.bvSize = ((BitVecExpr)this.problem.input[0][0]).getSortSize();
         this.numSample = 1;
         Random rand = new Random();
+        rand.setSeed(seed);
         this.selected.add(rand.nextInt(this.numExamples));
     }
 
@@ -256,13 +342,15 @@ public class PBEEnumSize extends Thread {
         long zero = 0;
         Arrays.fill(zeroArray, zero);
         this.zeros = Arrays.asList(zeroArray);
+        Long[] oneArray = new Long[this.numSample];
+        Arrays.fill(oneArray, 1L);
 
         this.numSample = this.selected.size();
         this.sampleInput = new Expr[this.numSample][this.problem.ioexamples.get(0).size() - 1];
         this.sampleOutput = new String[this.numSample];
         for (int i = 0; i < this.selected.size(); i++) {
-            this.sampleInput[i] = this.input[this.selected.get(i)];
-            this.sampleOutput[i] = this.output[this.selected.get(i)];
+            this.sampleInput[i] = this.problem.input[this.selected.get(i)];
+            this.sampleOutput[i] = this.problem.output[this.selected.get(i)];
             this.outsider.add(i);
         }
         this.uncoveredEquivClasses.put(this.ecCounter, new LinkedList<Integer>(this.outsider));
@@ -282,9 +370,7 @@ public class PBEEnumSize extends Thread {
             // boolean removeRule = false;
             // String[] toRm = null;
             // for (String[] rule : rules) {
-            //     if (rule.length == 2 && rule[0].equals("bvnot")) {
-            //     // if (rule.length == 3 && rule[0].equals(“bvor”)) {
-            //         removeRule = true;
+            //     if (rule.length == 2 && rule[0].equals("bvnot")) {            //         removeRule = true;
             //         toRm = rule;
             //     }
             // }
@@ -333,7 +419,6 @@ public class PBEEnumSize extends Thread {
                     recs.add(rule);
                 }
             }
-            this.recRules.put(symbol, recs);
 
             // initialize global storages
             this.exprStorage.put(symbol, exprStrg);
@@ -368,14 +453,14 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    List<Integer[]> genPrmt(int budget, int length, String[] rule) {
+    List<Integer[]> genPrmt(int budget, int length, PBEProblem.RecRuleOp rule) {
         List<Integer[]> prmt = new ArrayList<Integer[]>();
         Integer[] working = new Integer[length];
         genPrmtHelper(budget, length, working, 0, prmt, rule);
         return prmt;
     }
 
-    void genPrmtHelper(int budget, int length, Integer[] working, int index, List<Integer[]> prmt, String[] rule) {
+    void genPrmtHelper(int budget, int length, Integer[] working, int index, List<Integer[]> prmt, PBEProblem.RecRuleOp rule) {
         if (index == length) {
             if (budget == 0) {
                 Integer[] copy = new Integer[working.length];
@@ -389,7 +474,7 @@ public class PBEEnumSize extends Thread {
             return;
         }
 
-        if (Arrays.asList(this.symmetricOp).contains(rule[0]) && index >= 1 && budget < working[index - 1]) {
+        if (Arrays.asList(this.symmetricOp).contains(rule.name()) && index >= 1 && budget < working[index - 1]) {
             return;
         }
 
@@ -399,8 +484,8 @@ public class PBEEnumSize extends Thread {
         }
     }
 
-    void genOutputCombs(Integer[] prmt, String[] rule, Set<List<Long>> currNew, String nonTerminal) {
-        if (prmt.length + 1 != rule.length) {
+    void genOutputCombs(Integer[] prmt, PBEProblem.RecRuleOp rule, Set<List<Long>> currNew, String nonTerminal) {
+        if (prmt.length != rule.nonterminals().length) {
             logger.severe("prmt and rule: Length mismatch!");
         }
 
@@ -408,14 +493,14 @@ public class PBEEnumSize extends Thread {
         List<Expr> subexprs = new ArrayList<Expr>();
         Set<List<Long>> avoidSymm = null;
 
-        if (Arrays.asList(this.symmetricOp).contains(rule[0])) {
+        if (Arrays.asList(this.symmetricOp).contains(rule.name())) {
             avoidSymm = new HashSet<List<Long>>();
         }
 
         this.genOutputCombsHelper(prmt, rule, 0, comb, subexprs, currNew, nonTerminal, avoidSymm);
     }
 
-    void genOutputCombsHelper(Integer[] prmt, String[] rule, int index, List<List<Long>> comb, List<Expr> subexprs, Set<List<Long>> currNew, String nonTerminal, Set<List<Long>> avoidSymm) {
+    void genOutputCombsHelper(Integer[] prmt, PBEProblem.RecRuleOp rule, int index, List<List<Long>> comb, List<Expr> subexprs, Set<List<Long>> currNew, String nonTerminal, Set<List<Long>> avoidSymm) {
         if (this.outsider.isEmpty()) {
             return;
         }
@@ -423,7 +508,7 @@ public class PBEEnumSize extends Thread {
         if (index == prmt.length) {
             // generate new expression
             Expr[] operands = subexprs.toArray(new Expr[subexprs.size()]);
-            Expr newExpr = this.problem.opDis.dispatch(rule[0], operands, true, true);
+            Expr newExpr = this.problem.opDis.dispatch(rule.name(), operands, true, true);
 
             boolean containsVar = false;
             if (containsVar(newExpr, this.varNames)) {
@@ -433,9 +518,14 @@ public class PBEEnumSize extends Thread {
             // if (!containsVar) {
             //     this.numConstant += 1;
             // }
-
+            
             // for each combination, compute the output[]
-            List<Long> outputs = this.compute(rule, comb, containsVar, true);
+            List<Long> outputs = null;
+            try {
+                outputs = this.compute(rule, comb, containsVar, true);
+            } catch(java.lang.ArithmeticException e) {
+                return;
+            }
 
             // this.numComp += 1;
             // if (this.numComp % 100 == 0) {
@@ -458,7 +548,7 @@ public class PBEEnumSize extends Thread {
             }
             // this.numKeep += 1;
 
-            if (this.coveredExample.size() != this.sampleOutput.length) {
+            if (this.coveredExample.size() != this.sampleOutput.length && nonTerminal.equals(this.problem.start_nonterminal)) {
                 // check if the output[] are expected
                 // if so, assign those possible expressions to this.definition
                 if (this.verifyOutput(outputs, newExpr)) {
@@ -472,24 +562,27 @@ public class PBEEnumSize extends Thread {
             this.exprStorage.get(nonTerminal).put(outputs, newExpr);
 
             // evaluate the examples on ite conditions
-            if (containsVar) {
-                String[] iteRule = {"iteEval", "Start"};
+            final var bc = this.problem.branchCombinator();
+            if (containsVar && bc.nonterminals()[0].equals(nonTerminal)) {
                 List<List<Long>> outputs2 = new LinkedList<List<Long>>();
                 outputs2.add(outputs);
-                List<Long> iteoutputs = this.compute(iteRule, outputs2, true, true);
+                outputs2.add(outputs.stream().map(x -> 1L).collect(Collectors.toList()));
+                outputs2.add(outputs.stream().map(x -> 0L).collect(Collectors.toList()));
+                List<Long> iteoutputs = this.compute(bc, outputs2, true, true);
+                assert(outputs.size() == iteoutputs.size());
                 this.updateECs(iteoutputs, newExpr);
             }
 
             return;
         }
 
-        Set<List<Long>> inputs = this.outputStorage.get(rule[index + 1]).get(prmt[index]);
-        boolean symm = Arrays.asList(this.symmetricOp).contains(rule[0]);
+        Set<List<Long>> inputs = this.outputStorage.get(rule.nonterminals()[index]).get(prmt[index]);
+        boolean symm = Arrays.asList(this.symmetricOp).contains(rule.name());
 
         for (List<Long> input : inputs) {
             boolean skip = false;
 
-            if (Arrays.asList(this.noopOn0Op).contains(rule[0]) && input.equals(this.zeros)) {
+            if (Arrays.asList(this.noopOn0Op).contains(rule.name()) && input.equals(this.zeros)) {
                 // System.out.println("all zeros");
                 // continue;
                 skip = true;
@@ -500,14 +593,14 @@ public class PBEEnumSize extends Thread {
                 skip = true;
             }
 
-            if (rule[0].equals("bvnot") && this.exprStorage.get(rule[index + 1]).get(input).isBVNOT()) {
+            if (rule.name().equals("bvnot") && this.exprStorage.get(rule.nonterminals()[index]).get(input).isBVNOT()) {
                 // skip (bvnot (bvnot x))
                 skip = true;
             }
 
             if (!skip) {
                 comb.add(input);
-                subexprs.add(this.exprStorage.get(rule[index + 1]).get(input));
+                subexprs.add(this.exprStorage.get(rule.nonterminals()[index]).get(input));
                 this.genOutputCombsHelper(prmt, rule, index + 1, comb, subexprs, currNew, nonTerminal, avoidSymm);
                 comb.remove(comb.size() - 1);
                 subexprs.remove(subexprs.size() - 1);
@@ -555,8 +648,8 @@ public class PBEEnumSize extends Thread {
         return trans;
     }
 
-    List<Long> compute(String[] rule, List<List<Long>> comb, boolean containsVar, boolean enablePartialCompute) {
-        if (comb.size() != rule.length - 1) {
+    List<Long> compute(PBEProblem.RecRuleOp rule, List<List<Long>> comb, boolean containsVar, boolean enablePartialCompute) {
+        if (comb.size() != rule.nonterminals().length) {
             logger.severe("Outputs Length mismatch!");
         }
 
@@ -564,7 +657,7 @@ public class PBEEnumSize extends Thread {
 
         if (!containsVar) {
             for (int i = 0; i < args.length; i++) {
-                Long ret = this.problem.opDis.pbeDispatch(rule[0], args[i], false, this.bvSize);
+                Long ret = this.problem.opDis.pbeDispatch(rule.name(), args[i], false, this.bvSize);
                 if (ret != null) {
                     return Collections.nCopies(args.length, ret);
                 }
@@ -575,7 +668,7 @@ public class PBEEnumSize extends Thread {
         List<Long> outputs = new ArrayList<Long>();
         for (int i = 0; i < args.length; i++) {
             if (this.outsider.contains(i) || !this.coveredExample.contains(i) || !enablePartialCompute) {
-                outputs.add(this.problem.opDis.pbeDispatch(rule[0], args[i], false, this.bvSize));
+                outputs.add(this.problem.opDis.pbeDispatch(rule.name(), args[i], false, this.bvSize));
             } else {
                 outputs.add(null);
             }
@@ -728,7 +821,7 @@ public class PBEEnumSize extends Thread {
         initStorage();
 
         // check those initial outputs
-        Map<List<Long>, Expr> initStorage = this.exprStorage.get(this.start);
+        Map<List<Long>, Expr> initStorage = this.exprStorage.get(this.problem.start_nonterminal);
         for (List<Long> out : initStorage.keySet()) {
             if (this.verifyOutput(out, initStorage.get(out))) {
                 this.definition = initStorage.get(out);
@@ -743,20 +836,20 @@ public class PBEEnumSize extends Thread {
             logger.info("Size: " + iter);
 
             // for each non-terminal
-            for (String nonTerminal : this.outputStorage.keySet()) {
+            for (PBEProblem.NonTerminal nonTerminal : this.problem.nonterminals.values()) {
                 Set<List<Long>> newOutputs = new HashSet<List<Long>>();
 
                 // for every operator
-                for (String[] rule : this.recRules.get(nonTerminal)) {
-                    if (rule[0].equals("im")) {
+                for (PBEProblem.RecRuleOp rule : nonTerminal.ops()) {
+                    if (rule.name().equals(this.problem.branchCombinator().name())) {
                         continue;
                     }
-                    logger.info("rule: " + Arrays.toString(rule));
+                    logger.info("rule: " + rule.toString());
                     // generate all possible sums that add up to the given size
-                    List<Integer[]> prmts = genPrmt(iter - 1, rule.length - 1, rule);
+                    List<Integer[]> prmts = genPrmt(iter - 1, rule.nonterminals().length, rule);
                     for (Integer[] prmt : prmts) {
                         logger.info("prmt: " + Arrays.toString(prmt));
-                        genOutputCombs(prmt, rule, newOutputs, nonTerminal);
+                        genOutputCombs(prmt, rule, newOutputs, nonTerminal.name());
                         if (this.definition != null) {
                             return;
                         }
@@ -775,8 +868,8 @@ public class PBEEnumSize extends Thread {
                         }
                     }
                 }
-                logger.info("Store: " + nonTerminal + " size: " + iter + " #exprs: " + newOutputs.size());
-                this.outputStorage.get(nonTerminal).put(iter, newOutputs);
+                logger.info("Store: " + nonTerminal.name() + " size: " + iter + " #exprs: " + newOutputs.size());
+                this.outputStorage.get(nonTerminal.name()).put(iter, newOutputs);
             }
             // System.out.println("Size: " + iter);
             // System.out.println("numComp: " + this.numComp);
@@ -885,7 +978,7 @@ public class PBEEnumSize extends Thread {
         operands[0] = this.conditions.get(0); // condition
         operands[1] = this.construct(0, cond02expr); // true branch
         operands[2] = this.construct(1, cond12expr); // false branch
-        this.definition = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
+        this.definition = this.problem.opDis.dispatch(this.problem.branchCombinator().name(), operands, true, true);
 
         // System.out.println("");
         // System.out.println("this.definition: " + this.definition.toString());
@@ -928,7 +1021,7 @@ public class PBEEnumSize extends Thread {
                 if (operands[1].toString().equals(operands[2].toString())) {
                     result = operands[1];
                 } else {
-                    result = this.problem.opDis.dispatch(this.problem.iteName, operands, true, true);
+                    result = this.problem.opDis.dispatch(this.problem.branchCombinator().name(), operands, true, true);
                 }
             }
             return result;
@@ -947,10 +1040,10 @@ public class PBEEnumSize extends Thread {
 
     void printRecRules() {
         System.out.println("recRules");
-        for (String symbol : recRules.keySet()) {
+        for (PBEProblem.NonTerminal symbol : problem.nonterminals.values()) {
             System.out.println(symbol);
-            for (String[] rule : recRules.get(symbol)) {
-                System.out.println(Arrays.deepToString(rule));
+            for (PBEProblem.RecRuleOp rule : symbol.ops()) {
+                System.out.println(rule.name() + " " + Arrays.deepToString(rule.nonterminals()));
             }
             System.out.println();
         }

@@ -55,5 +55,26 @@ public class BitVector {
     public static long bveq(long operand1, long operand2) {
         return (operand1 == operand2) ? 1 : 0;
     }
+    public static long bvsdiv(long operand1, long operand2) {
+        return operand1 / operand2;
+    }
+    public static long bvmul(long operand1, long operand2) {
+        return operand1 * operand2;
+    }
+    public static long bvurem(long operand1, long operand2) {
+        return Long.remainderUnsigned(operand1, operand2);
+    }
+    public static long bvneg(long operand1) {
+        return - operand1;
+    }
+    public static long bvudiv(long operand1, long operand2) {
+        return Long.divideUnsigned(operand1, operand2);
+    }
+    public static long bvashr(long operand1, long operand2) {
+        return operand1 >> operand2;
+    }
+    public static long bvsrem(long operand1, long operand2) {
+        return operand1 % operand2;
+    }
 
 }
