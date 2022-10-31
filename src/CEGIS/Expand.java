@@ -427,8 +427,13 @@ public class Expand {
 	}
 
 	Expr getFallback(int funcIndex, String ruleName) {
-		Sort sort = grammar.cfgs[funcIndex].grammarSybSort.get(ruleName);
-		return getFallback(sort);
+		//if(grammar.cfgs[funcIndex].grammarSybSort.containsKey(ruleName)){
+			Sort sort = grammar.cfgs[funcIndex].grammarSybSort.get(ruleName);
+			return getFallback(sort);
+		/*}
+		else{
+			return ctx.mkInt(0);
+		}*/
 	}
 
 	Expr getFallback(Sort sort) {
@@ -541,6 +546,20 @@ public class Expand {
 			return interpretCache.get(cacheKey).substitute(ivars, vars);
 		}
 		Expr result;
+		/*if(!grammar.subrulePos.get(funcIndex).containsKey(ruleName)){
+			String key = "";
+			for(String target :grammar.subrulePos.get(funcIndex).keySet()){
+				key = target;
+			}
+			int pos = grammar.subrulePos.get(funcIndex).get(key)+grammar.subruleLen.get(funcIndex).get(key);
+			grammar.subrulePos.get(funcIndex).put(ruleName,pos);
+			String[] object = new String[1];
+			object[0] = ruleName;
+			grammar.ruleTbl.get(funcIndex).add(object);
+			grammar.subruleLen.get(funcIndex).put(ruleName,1);
+			grammar.ruleTblRev.get(funcIndex).put(object[0], pos);
+			grammar.ruleOrders.set(0, grammar.ruleOrders.get(0) + 1);
+		}*/
 		int ruleS = grammar.subrulePos.get(funcIndex).get(ruleName);
 		int ruleE = ruleS + grammar.subruleLen.get(funcIndex).get(ruleName);
 		List<BoolExpr> branchGuards = new ArrayList<BoolExpr>();
@@ -665,6 +684,20 @@ public class Expand {
 		if (validCache.containsKey(cacheKey)) {
 			return (BoolExpr)validCache.get(cacheKey).substitute(ivars, vars);
 		}
+		/*if(!grammar.subrulePos.get(funcIndex).containsKey(ruleName)){
+			String key = "";
+			for(String target :grammar.subrulePos.get(funcIndex).keySet()){
+				key = target;
+			}
+			int pos = grammar.subrulePos.get(funcIndex).get(key)+grammar.subruleLen.get(funcIndex).get(key);
+			grammar.subrulePos.get(funcIndex).put(ruleName,pos);
+			String[] object = new String[1];
+			object[0] = ruleName;
+			grammar.ruleTbl.get(funcIndex).add(object);
+			grammar.subruleLen.get(funcIndex).put(ruleName,1);
+			grammar.ruleTblRev.get(funcIndex).put(object[0], pos);
+			grammar.ruleOrders.set(0, grammar.ruleOrders.get(0) + 1);
+		}*/
 		int ruleS = grammar.subrulePos.get(funcIndex).get(ruleName);
 		int ruleE = ruleS + grammar.subruleLen.get(funcIndex).get(ruleName);
 		IntExpr typeVar = ivars[0];
