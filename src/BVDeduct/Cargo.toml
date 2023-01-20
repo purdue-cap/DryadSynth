@@ -1,0 +1,19 @@
+[package]
+name = "dryadsynth-bv"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4.0.27", features = ["derive"] }
+thiserror = "1.0.37"
+regex = "1.7.0"
+bumpalo = { version = "3.11.1", features = ["collections"] }
+itertools = "0.10.5"
+enum_dispatch = "0.3.8"
+nom = "7.1.2"
+smallvec = "1.10.0"
+
+[profile.release]
+debug = true

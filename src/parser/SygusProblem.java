@@ -16,7 +16,7 @@ public class SygusProblem {
     public int searchHeight;    // the search height tried in fixed-height-cegis
     public boolean changed = false;     // flag indicates that if a problem is the original problem
     public Map<String, SygusDispatcher.CoeffRange> coeffRange;  // coefficient range for converted General track functions
-
+    
     public enum ProbType {
         CLIA, INV, GENERAL, SLIA, BV;
     }

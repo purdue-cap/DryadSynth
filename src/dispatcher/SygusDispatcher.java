@@ -1,3 +1,5 @@
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 import java.util.*;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -13,6 +15,7 @@ public class SygusDispatcher {
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
+    public String fileName;
     //SygusExtractor extractor;
     Map<String, DefinedFunc[]> invConstraints = new LinkedHashMap<String, DefinedFunc[]>();
     Map<String, Set<Set<Expr>>> varsRelation = new LinkedHashMap<String, Set<Set<Expr>>>();
@@ -487,12 +490,20 @@ public class SygusDispatcher {
         if (this.method == SolveMethod.PBE) {
             logger.info("Initializing PBE-BV-dedicated algorithms.");
             // Support single thread only for now, ignoring numCore settings.
-            threads = new Thread[1];
-            if (this.sizeBasedEnum) {
-                threads[0] = new PBEEnumSize(z3ctx, problem, logger, numCore, seed);
-            } else {
-                threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
+            // if (this.sizeBasedEnum) {
+            //     threads[0] = new PBEEnumSize(z3ctx, problem, logger, numCore, seed);
+            // } else {
+            //     threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
+            // }
+            final var base = System.getenv("BASE");
+            final var process = new ProcessBuilder(base + "/src/BVDeduct/target/release/dryadsynth-bv", this.fileName).start();
+            final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            process.waitFor();
+            String lines = null;
+            while ((lines = reader.readLine())!=null) {
+                System.out.println(lines);
             }
+            System.exit(process.exitValue());
             return;
         }
 

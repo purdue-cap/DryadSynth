@@ -170,6 +170,7 @@ public class Run {
 		dispatcher.setSizeBasedEnum(options.has("size"));
 		dispatcher.seed = seed;
 		dispatcher.prescreen();
+		dispatcher.fileName = fn;
         if (options.has("M")) {
         	dispatcher.setMethodOnly(options.has("M"));
         	if (dispatcher.problem.problemType != SygusProblem.ProbType.INV) {

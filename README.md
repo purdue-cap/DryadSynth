@@ -19,8 +19,9 @@ It is theoretically possible to run the program on Windows platform given a work
 
 ## Dependencies
 
-- JDK with version >= 9
+- JDK with version >= 17
 - Z3 with java bindings enabled
+- Nightly version rust toolchain
 
 ## Steps to compile
 
@@ -43,50 +44,16 @@ It is theoretically possible to run the program on Windows platform given a work
     $ cd build; make
     $ sudo make install
     ```
-3. Complile the program
+3. Install rust from [rustup](https://www.rust-lang.org/tools/install), and set the current directory to use nightly rust by `rustup override set nightly`.
+4. Complile the program
     - `cd` into the source code directory of the program and run `make` would do the work.
 
 ## Running the program
 
-The compiled class files would be put in `classes` directory, and related library files are in `lib` diretory, entrance classes are `Run` and `Synth`, so for runing the program:
-
-- java classpath need to include these pathes:
-    - `classes/`
-    - `lib/antlr.jar`
-    - `lib/com.microsoft.z3.jar`
-    - `lib/jopt-simple.jar`
-    - See java man pages on how.
-- java.library.path needs to include the path that `libz3java.so` lies (eg. `/usr/local/lib` in the metioned configuration)
+1. Ensure `libz3java.so` is in `java.library.path`:
     - On Linux platforms, you can simply set environment variable `LD_LIBRARY_PATH` to include the path, it would be automatically added.
-    - Or you can fallback to `-D` arguments to java, see java man page for details
-- Entrance class `Synth` is for single threaded algorithm, with arguments:
-    
-    ```
-    java <java arguments> Synth <path to benchmark file>
-    ```
-    
-    Output would be written to stdout
+2. Simply run `$ ./exec.sh <path/to/sygus/file>`
+3. Looking into `$ ./exec.sh --help` for further information.
 
-- Entrance class `Run` is for multithread algorithm, with arguments:
-  
-    ``` 
-    java <java arguments> Run <path to benchmark file> [Numbers of threads to use]
-    ```
-  
-    Or
-  
-    ```
-    java <java arguments> Run <path to benchmark file> [Timeout for last finite boundary search] [Time out for infinite boundary search]
-    ```
-  
-    Or
-  
-    ```
-    java <java arguments> Run <path to benchmark file> [Numbers of threads to use] [Timeout for last finite boundary search] [Time out for infinite boundary search]
-    ```
+Note: Some problems run in multithread by default. If you don't specify the number of threads, the CPU core count on your system would be used. **This may cause unexpected behavior when the size of the CPU pool is large**.
 
-    If omitted numbers of threads, the CPU core count on your system would be used. **Note that this may cause unexpected behavior when the size of the CPU pool is large**. If omitted timeouts, default timeouts would be used.
-
-Finally, there's a script `exec.sh` in the directory for easier execution, simply setup proper `LD_LIBRARY_PATH` and run it like
-```./exec.sh <arguments that are after Run>```
-and it would execute `Run` class properly.
