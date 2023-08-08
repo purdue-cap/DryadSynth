@@ -1,0 +1,15 @@
+
+id = @{ ('a'..'z' | 'A'..'Z' | "=" | "_" | '0'..'9' | "-")+ }
+
+iliteral = @{ "#" ~ id }
+
+
+expr = { id | iliteral | "(" ~ expr* ~ ")"}
+exprs = { WHITESPACE* ~ expr+ ~ WHITESPACE* }
+
+newline        = _{ "\n" | "\r\n" }
+WHITESPACE     = _{ " " | "\t" | newline }
+line_comment   = _{ (";" ~ (!newline ~ ANY)*) }
+block_comment  = _{ "/*" ~ (block_comment | !"*/" ~ ANY)* ~ "*/" }
+COMMENT        = _{ block_comment | line_comment }
+

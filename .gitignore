@@ -32,3 +32,6 @@ __pycache__/
 *.html
 *.out
 *.log
+
+.metals/
+.vscode/

@@ -1,0 +1,13 @@
+random_example = 10
+no_ite = true
+chatgpt = false
+
+[expr_search]
+sample = 64
+dag_size = true
+filter = { deductive_combine = true, deductive_reverse = true } 
+
+[improve_search]
+sample = 8
+dag_size = true
+filter = { deductive_combine = true, deductive_reverse = true } 

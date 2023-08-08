@@ -1,0 +1,19 @@
+random_example = 1
+ite_limit = 100000
+
+[cond_search.filter]
+time_limit = 1000
+
+[expr_search]
+sample = 8
+dag_size = true
+# atom_diversity_order = true
+# mem_size_limit = 5
+filter = { deductive_combine = true, deductive_reverse = true } 
+
+[improve_search]
+sample = 8
+dag_size = true
+# atom_diversity_order = true
+# mem_size_limit = 5
+filter = { deductive_combine = true, deductive_reverse = true }

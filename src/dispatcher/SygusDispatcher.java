@@ -496,7 +496,7 @@ public class SygusDispatcher {
             //     threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
             // }
             final var base = System.getenv("BASE");
-            final var process = new ProcessBuilder(base + "/src/BVDeduct/target/release/dryadsynth-bv", this.fileName).start();
+            final var process = new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName).start();
             final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             process.waitFor();
             String lines = null;

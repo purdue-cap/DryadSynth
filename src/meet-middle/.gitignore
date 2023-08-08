@@ -1,0 +1,7 @@
+.vscode
+target/
+data.pref
+perf.data
+perf.data.old
+test.sl
+Cargo.lock

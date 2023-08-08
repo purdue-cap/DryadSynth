@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+# Pass through arguments
+# Use correct linker for your target
+gcc "$@" -L/home/yuantiand/.install/usr/local/lib 
