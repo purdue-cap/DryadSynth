@@ -55,6 +55,7 @@ It is theoretically possible to run the program on Windows platform given a work
 2. Simply run `$ ./exec.sh <path/to/sygus/file>`
 3. Looking into `$ ./exec.sh --help` for further information.
 4. Make sure `z3` and `bitwuzla` (used only for bit-vector) commands are available in the `PATH`.
+5. If you use ChatGPT for `bit-vector`, please make sure to set the `OPENAI_API_KEY` environment variable.
 
 Note: Some problems run in multithread by default. If you don't specify the number of threads, the CPU core count on your system would be used. **This may cause unexpected behavior when the size of the CPU pool is large**.
 
