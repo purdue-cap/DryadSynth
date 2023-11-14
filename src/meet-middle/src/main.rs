@@ -4,7 +4,6 @@
 #![feature(map_try_insert)]
 #![feature(unchecked_math)]
 #![feature(int_roundings)]
-#![feature(array_zip)]
 #![feature(slice_pattern)]
 #![feature(core_intrinsics)]
 #![feature(return_position_impl_trait_in_trait)]
@@ -52,8 +51,6 @@ struct Cli {
     config: Option<String>,
 }
 
-
-
 // pub fn solve_pbe(problem: SynthProblem, pbecstr: PbeConstraint) -> Self
 
 
@@ -88,7 +85,11 @@ fn main_inner() -> Result<OwnedExpr, Box<dyn std::error::Error>> {
         let fig = Figment::new().merge(Serialized::defaults(SearchConfig::default_refimpl()));
         let fig = if let Some(path) = args.config { fig.merge(Toml::file(path)) } else { fig };
         let mut config : SearchConfig = fig.extract()?;
-
+        if let Ok(a) = env::var("OPENAI_API_KEY") {
+            set_key(a);
+        } else {
+            config.chatgpt = false;
+        }
         if config.chatgpt && problem.description != "" {
             let l = log::log_level();
             let (sender, receiver) = mpsc::channel();
@@ -136,7 +137,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
-    set_key(env::var("OPENAI_API_KEY").unwrap());
+    
     
     println!("{}", main_inner()?);
     Ok(())

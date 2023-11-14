@@ -53,7 +53,7 @@ pub fn ite(v1: u64, v2: u64, v3: u64) -> u64{
 pub mod bv {
     use std::{simd::{LaneCount, SupportedLaneCount}, ops::{Not, Neg}};
 
-
+    use iter_fixed::IteratorFixed;
     use itertools::izip;
 
     use crate::enumerate::Bv;
@@ -61,20 +61,20 @@ pub mod bv {
 
     #[inline(always)] pub fn not<const N : usize>(v1: Bv<N>) -> Bv<N> { v1.map(|a| super::not(a)).into() }
     #[inline(always)] pub fn neg<const N : usize>(v1: Bv<N>) -> Bv<N> { v1.map(|a| super::neg(a)).into() }
-    #[inline(always)] pub fn add<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::add(a, b)).into() }
-    #[inline(always)] pub fn xor<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::xor(a,b)).into() }
-    #[inline(always)] pub fn and<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::and(a,b)).into() }
-    #[inline(always)] pub fn or<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::or(a,b)).into() }
-    #[inline(always)] pub fn mul<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::mul(a,b)).into() }
-    #[inline(always)] pub fn sub<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::sub(a,b)).into() }
-    #[inline(always)] pub fn lshr<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::lshr(a,b)).into() }
-    #[inline(always)] pub fn shl<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::shl(a,b)).into() }
-    #[inline(always)] pub fn udiv<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::udiv(a,b).unwrap()).into() }
-    #[inline(always)] pub fn sdiv<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::sdiv(a,b).unwrap()).into() }
-    #[inline(always)] pub fn urem<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::urem(a,b).unwrap()).into() }
-    #[inline(always)] pub fn srem<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::srem(a,b).unwrap()).into() }
-    #[inline(always)] pub fn ashr<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { v1.zip(*v2).map(|(a,b)| super::ashr(a,b)).into() }
-    #[inline(always)] pub fn ite<const N : usize>(v1: Bv<N>, v2: Bv<N>, v3: Bv<N>) -> Bv<N>  { v1.zip(*v2).zip(*v3).map(|((a,b), c)| super::ite(a,b,c)).into() }
+    #[inline(always)] pub fn add<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::add(a, b)).collect()) }
+    #[inline(always)] pub fn xor<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::xor(a,b)).collect()) }
+    #[inline(always)] pub fn and<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::and(a,b)).collect()) }
+    #[inline(always)] pub fn or<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::or(a,b)).collect()) }
+    #[inline(always)] pub fn mul<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::mul(a,b)).collect()) }
+    #[inline(always)] pub fn sub<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::sub(a,b)).collect()) }
+    #[inline(always)] pub fn lshr<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::lshr(a,b)).collect()) }
+    #[inline(always)] pub fn shl<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::shl(a,b)).collect()) }
+    #[inline(always)] pub fn udiv<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::udiv(a,b).unwrap()).collect()) }
+    #[inline(always)] pub fn sdiv<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::sdiv(a,b).unwrap()).collect()) }
+    #[inline(always)] pub fn urem<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::urem(a,b).unwrap()).collect()) }
+    #[inline(always)] pub fn srem<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::srem(a,b).unwrap()).collect()) }
+    #[inline(always)] pub fn ashr<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::ashr(a,b)).collect()) }
+    #[inline(always)] pub fn ite<const N : usize>(v1: Bv<N>, v2: Bv<N>, v3: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).zip(v3.into_iter_fixed()).map(|((a,b), c)| super::ite(a,b,c)).collect()) }
 
 
 }

@@ -10,26 +10,25 @@ use crate::{parse::{PbeConstraint, SynthProblem, constraint::RefImplConstraint},
 
 use self::parsing::Env;
 
-pub mod chat;
 pub mod parsing;
 
 extern "C" { fn tree_sitter_python() -> Language; }
 
 pub async fn ask_chatgpt(system: String, text: String, count: usize, nargs: usize, gpt_version: String) -> Vec<HashMap<String, OwnedExpr>> {
-    let smsg = ChatCompletionMessage { role: System, content: system, name: None };
-    let umsg = ChatCompletionMessage { role: User, content: text.clone(), name: None };
+    let smsg = ChatCompletionMessage { role: System, content: Some(system), name: None, function_call: None};
+    let umsg = ChatCompletionMessage { role: User, content: Some(text.clone()), name: None, function_call: None};
     let mut res = Vec::new();
     loop {
         // println!("{}", text);
         let result = ChatCompletion::builder(gpt_version.as_str(), vec![smsg.clone(), umsg.clone()]).temperature(0.5).n(count as u8).max_tokens(3000 as u64).create().await;
-        if let Ok(Ok(a)) = result {
+        if let Ok(a) = result {
             for x in a.choices {
-                let response = x.message.content;
+                let response = x.message.content.unwrap();
                 // println!("-----------------------");
                 // println!("{}", response);
                 if let Ok(n) = Env::parse_response(&response, nargs) {
                     // if let Some(last) = n.maps.get("last") {
-                        // println!("{:?}", last);
+                    //     println!("{:?}", last);
                     // }
                     res.push(n.get_table());
                 }
@@ -38,7 +37,7 @@ pub async fn ask_chatgpt(system: String, text: String, count: usize, nargs: usiz
         } 
         match result {
             Err(e) => println!("{:?}", e),
-            Ok(Err(e)) => println!("{:?}", e),
+            // Ok(Err(e)) => println!("{:?}", e),
             _ => (),
         }
     };

@@ -1,5 +1,5 @@
 random_example = 10
-no_ite = true
+limited_ite = true
 chatgpt = false
 smt_solver = "z3"
 

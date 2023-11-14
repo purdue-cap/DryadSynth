@@ -63,6 +63,10 @@ impl<'a> Solutions<'a> {
                 let mut a = l.iter().map(|(x, y)| (x.clone(), Bits::from_bit_iter(y.iter().cloned(), len))).collect_vec();
                 guard.append(&mut a)
             }
+            if set.len() == self.pbecstr.len() {
+                self.solved.push((sol.into(), set));
+                return true;
+            }
             self.solved.push((sol.into(), set));
             self.tree_learning()
         } else { false }
@@ -131,9 +135,10 @@ impl<'a> Solutions<'a> {
                 thread::sleep(time::Duration::from_millis(self.wait_cond as u64));
                 self.wait_cond = 0;
             }
+            // info!("Learning Tree");
             let guard = conds.lock();
             let bump = Bump::new();
-            // info!("Learning Tree");
+            if guard.len() == 0 { return false; }
             let tl = tree_learning::tree_learning(self.to_bits(), &guard[..], self.pbecstr.len(), &bump, *limit);
             // info!("Decition Tree: {} {}", tl.subproblems.len(), tl.solved);
             // if self.cover_limit * 2 < self.pbecstr.len() { self.cover_limit *= 2; }

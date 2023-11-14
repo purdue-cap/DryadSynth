@@ -16,8 +16,8 @@ use super::sample::SampleConfig;
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct SearchConfig {
     pub ar_ratio: usize,
-    pub ite_limit: usize,
-    pub no_ite: bool,
+    pub ite_tree_limit: usize,
+    pub limited_ite: bool,
     pub smt_solver: String,
     pub random_example: usize,
     pub additional_check: usize,
@@ -32,18 +32,18 @@ pub struct SearchConfig {
 
 impl SearchConfig {
     pub fn default_pbe() -> Self {
-        Self { random_example: 1, additional_check: 0, ar_ratio: 2, ite_limit: 100000, smt_solver: "bitwuzla".into(), no_ite: false, chatgpt: false, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false}
+        Self { random_example: 1, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: false, chatgpt: false, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false}
     }
     pub fn default_refimpl() -> Self {
-        Self { random_example: 50, additional_check: 0, ar_ratio: 2, ite_limit: 100000, smt_solver: "bitwuzla".into(), no_ite: true, chatgpt: true, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default_ni(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false}
+        Self { random_example: 50, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: true, chatgpt: true, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default_ni(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false}
     }
     pub fn search(&mut self, problem: & SynthProblem<'static>, pbecstr: &PbeConstraint, additional_example: PbeConstraint) -> parse::Result<OwnedExpr> {
-        let mut no_ite = self.no_ite;
-        if self.ite_limit == 1 || pbecstr.len() <= 1{
-            no_ite = true;
+        let mut limited_ite = self.limited_ite;
+        if self.ite_tree_limit == 1 || pbecstr.len() <= 1{
+            limited_ite = true;
         }
         let cond = Arc::new(Mutex::new(Vec::new()));
-        if self.no_ite {
+        if self.limited_ite {
             self.cond_search.filter.count_limit = 10000;
         }
         thread::spawn({
@@ -79,14 +79,14 @@ impl SearchConfig {
         let mut exprs = Solutions::new(pbecstr, true, false);
         exprs.additional_check = additional_example;
         
-        if self.no_ite {
+        if self.limited_ite {
             self.expr_search.cover_limit = pbecstr.len();
             self.expr_search.partial_solution = false;
             exprs.sample_all = true;
             if exprs.pbecstr.len() > 5 && !self.is_pbe {
                 exprs.wait_cond = 300;
             }
-            exprs.check_tree_learning = Some((cond.clone(), min(self.ite_limit, 7)));
+            exprs.check_tree_learning = Some((cond.clone(), min(self.ite_tree_limit, 7)));
         }
 
         while exprs.remaining() > 0 {
@@ -94,13 +94,14 @@ impl SearchConfig {
                 self.expr_search.filter.count_limit_solved *= self.ar_ratio;
             }
         }
+        if exprs.solved.last().unwrap().1.len() == pbecstr.len() { return Ok(exprs.solved.pop().unwrap().0); }
         exprs.sample_all = true;
-        exprs.check_tree_learning = Some((cond, self.ite_limit));
+        exprs.check_tree_learning = Some((cond, self.ite_tree_limit));
         if exprs.tree_learning() { return Ok(exprs.get_tree()); }
 
-        if !no_ite {
+        if !limited_ite {
             info!("Improving Expressions.");
-            self.improve_search.cover_limit = pbecstr.len() / ((self.ite_limit + 1) / 2 - 1);
+            self.improve_search.cover_limit = pbecstr.len() / ((self.ite_tree_limit + 1) / 2 - 1);
             self.improve_search.filter.count_limit_solved += self.expr_search.filter.count_limit_solved;
             while !self.improve_search.search(&mut exprs, problem, &mut rng)? {
                 self.improve_search.filter.count_limit_solved *= self.ar_ratio;

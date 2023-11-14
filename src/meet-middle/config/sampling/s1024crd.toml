@@ -1,5 +1,5 @@
 random_example = 1
-ite_limit = 100000
+ite_tree_limit = 100000
 
 [expr_search]
 sample = 1024

@@ -1,13 +1,13 @@
-random_example = 50
+random_example = 54
 limited_ite = true
-gpt_version = "gpt-4"
+chatgpt = true
 
 [expr_search]
 sample = 64
-dag_size = true
+dag_size = false
 filter = { deductive_combine = true, deductive_reverse = true } 
 
 [improve_search]
 sample = 8
-dag_size = true
+dag_size = false
 filter = { deductive_combine = true, deductive_reverse = true } 

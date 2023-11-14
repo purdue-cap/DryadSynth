@@ -1,5 +1,5 @@
 random_example = 10
-no_ite = true
+limited_ite = true
 chatgpt = false
 
 [expr_search]
@@ -11,3 +11,4 @@ filter = { deductive_combine = false, deductive_reverse = false }
 sample = 8
 dag_size = true
 filter = { deductive_combine = false, deductive_reverse = false } 
+

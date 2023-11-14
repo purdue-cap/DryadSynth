@@ -1,6 +1,6 @@
 random_example = 1
-no_ite = true
-# chatgpt = false
+limited_ite = true
+chatgpt = false
 
 [expr_search]
 sample = 64

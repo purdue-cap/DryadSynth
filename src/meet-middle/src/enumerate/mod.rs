@@ -1,5 +1,6 @@
-use std::{simd::{Simd, LaneCount, SupportedLaneCount}, ops::Neg};
+use std::{simd::{Simd, LaneCount, SupportedLaneCount}, ops::Neg, array};
 use aligned_array::{Aligned, A32};
+use iter_fixed::{IntoIteratorFixed, IteratorFixed};
 // use fnv::FnvHashMap as HashMap;
 use std::collections::HashMap;
 
@@ -22,6 +23,12 @@ pub mod store;
 #[derive(From, Deref, DebugCustom, Clone, Copy, PartialEq, Eq, Hash)]
 #[debug(fmt = "{:x}", *_0)]
 pub struct Bv<const N: usize> (pub [u64; N]);
+
+impl<const N: usize> Bv<N> {
+    pub fn into_iter_fixed(self) -> IteratorFixed<array::IntoIter<u64, N>, N> {
+        self.0.into_iter_fixed()
+    }
+}
 
 impl<const N: usize> std::ops::Not for Bv<N> {
     type Output = Bv<N>;
