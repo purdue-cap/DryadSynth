@@ -52,10 +52,11 @@ It is theoretically possible to run the program on Windows platform given a work
 
 1. Ensure `libz3java.so` is in `java.library.path`:
     - On Linux platforms, you can simply set environment variable `LD_LIBRARY_PATH` to include the path, it would be automatically added.
-2. Simply run `$ ./exec.sh <path/to/sygus/file>`
-3. Looking into `$ ./exec.sh --help` for further information.
-4. Make sure `z3` or `bitwuzla` commands are available in the `PATH`. We use `bitwuzla` for bit-vector theory, otherwise, we use `z3`.
-5. If you use ChatGPT for `bit-vector`, please make sure to set the `OPENAI_API_KEY` environment variable.
+2. Make sure `z3` or `bitwuzla` commands are available in the `PATH`. We use `bitwuzla` for bit-vector theory, otherwise, we use `z3`.
+3. If you use ChatGPT for `bit-vector`, please make sure to set the `OPENAI_API_KEY` environment variable.
+4. Simply run `$ ./exec.sh <path/to/sygus/file>`
+5. Looking into `$ ./exec.sh --help` for further information.
+
 
 Note: Some problems run in multithread by default. If you don't specify the number of threads, the CPU core count on your system would be used. **This may cause unexpected behavior when the size of the CPU pool is large**.
 
