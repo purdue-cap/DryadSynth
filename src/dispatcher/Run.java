@@ -41,6 +41,7 @@ public class Run {
         oParser.acceptsAll(Arrays.asList("I", "ITCEGIS"), "Enable Inductive Template in CEGIS algorithms");
         oParser.acceptsAll(Arrays.asList("M", "modeCheckOnly"), "Run mode check to determine fragment of the problem only, skipping all synthesis");
 		oParser.acceptsAll(Arrays.asList("v", "verbose"), "Enable verbose output of logs to stdout");
+		oParser.acceptsAll(Arrays.asList("B", "bvconfig"), "Specify the configuration file of our bit-vector solver. See https://github.com/purdue-cap/DryadSynth/tree/master/docs/bitvector.md for details.");
 		oParser.acceptsAll(Arrays.asList("size", "sizeBased"), "Enable size-based enumeration method when solving PBE-BV benchmarks");
         oParser.nonOptions("SyGuS benchmark file to process");
         OptionSet options = oParser.parse(args);
@@ -58,6 +59,7 @@ public class Run {
 		int grammar_version = (Integer)options.valuesOf("g").get(0);
 		boolean maxsmtFlag = options.has("m");
 		String EUSolverPath = (String)options.valuesOf("E").get(0);
+		String bvConfigFilePath = (String)options.valuesOf("B").get(0);
 
         if (options.nonOptionArguments().size() < 1) {
             System.out.println("Missing input file!");
@@ -168,6 +170,7 @@ public class Run {
         dispatcher.setEnableITCEGIS(options.has("I"));
 		dispatcher.setHeightsOnly(options.has("H"));
 		dispatcher.setSizeBasedEnum(options.has("size"));
+		dispatcher.bvconfigFile = bvConfigFilePath;
 		dispatcher.seed = seed;
 		dispatcher.prescreen();
 		dispatcher.fileName = fn;

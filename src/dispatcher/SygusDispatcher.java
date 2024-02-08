@@ -26,6 +26,7 @@ public class SygusDispatcher {
     Logger logger;
     int numCore;
     public int seed = 0;;
+    public String bvconfigFile;
     int iterLimit = 0;
     int minFinite = 20;
     int minInfinite = 5;
@@ -496,7 +497,9 @@ public class SygusDispatcher {
             //     threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
             // }
             final var base = System.getenv("BASE");
-            final var process = new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName).start();
+            final var process = (this.bvconfigFile == "")?
+                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName).start() :
+                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName, "-c", this.bvconfigFile).start();
             final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             process.waitFor();
             String lines = null;
