@@ -1,4 +1,4 @@
-use std::simd::{LaneCount, SupportedLaneCount, SimdPartialEq};
+use std::simd::{LaneCount, SupportedLaneCount, prelude::SimdPartialEq};
 
 use bumpalo::Bump;
 use integer_cbrt::IntegerCubeRoot;

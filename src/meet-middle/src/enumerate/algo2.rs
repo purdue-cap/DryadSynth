@@ -1,5 +1,5 @@
 use std::{simd::{LaneCount, SupportedLaneCount}, collections::hash_map::Entry, mem::size_of};
-use std::simd::SimdPartialEq;
+use std::simd::prelude::SimdPartialEq;
 
 use crate::{generate_rules_matching, info, search::filter::Filter};
 

@@ -1,0 +1,173 @@
+================================================================================
+#14 - Assertion failed caused by unexpected block delimiter behind the literal line break in unfinished inline stack
+================================================================================
+*$$
+-:
+<<<*$$
+-:
+<<<+-+-
+
+--------------------------------------------------------------------------------
+
+(document
+  (table
+    (table_header_row
+      (table_cell
+        (text)))
+    (table_delimiter_row
+      (table_column_alignment))
+    (table_data_row
+      (table_cell
+        (text)))
+    (table_data_row
+      (table_cell
+        (text)))
+    (table_data_row
+      (table_cell
+        (text)))))
+
+================================================================================
+#14 - Assertion failed caused by dot in the local-part of the extended email autolink
+================================================================================
+ss_*.
+	$
+6@-�~?�1:
+
+--------------------------------------------------------------------------------
+
+(document
+  (paragraph
+    (text)
+    (soft_line_break)
+    (text)
+    (soft_line_break)
+    (text)))
+
+================================================================================
+#14 - Assertion failed caused by backslash line break followed by backslash escape in link label
+================================================================================
+[
+#k
+V\
+*)\\
+]:[[z
+[<!&<&s!j&P
+
+--------------------------------------------------------------------------------
+
+(document
+  (link_reference_definition
+    (link_label
+      (text)
+      (backslash_escape)
+      (text))
+    (link_destination
+      (text)))
+  (paragraph
+    (text)))
+
+================================================================================
+#14 - Assertion failed caused by unexpected backslash line break in table
+================================================================================
+*�wj\�2[
+-|
+&_&\
+
+
+--------------------------------------------------------------------------------
+
+(document
+  (table
+    (table_header_row
+      (table_cell
+        (text)))
+    (table_delimiter_row
+      (table_column_alignment))
+    (table_data_row
+      (table_cell
+        (text)))
+    (table_data_row
+      (table_cell
+        (text)))))
+
+================================================================================
+#14 - SIGSEGV caused by incorrect end condition for the unpaired link title
+================================================================================
+[](0 ()
+
+--------------------------------------------------------------------------------
+
+(document
+  (paragraph
+    (text)))
+
+================================================================================
+#14 - Assertion failed caused by right parenthesis in link definition
+================================================================================
+[x]: x
+)
+
+--------------------------------------------------------------------------------
+
+(document
+  (link_reference_definition
+    (link_label
+      (text))
+    (link_destination
+      (text)))
+  (paragraph
+    (text)))
+
+================================================================================
+#14 - Assertion failed caused by unpaired parenthesis with line break in link definition
+================================================================================
+[a]:b
+(
+
+--------------------------------------------------------------------------------
+
+(document
+  (link_reference_definition
+    (link_label
+      (text))
+    (link_destination
+      (text)))
+  (paragraph
+    (text)))
+
+================================================================================
+#14 - Assertion failed caused by cut link definition
+================================================================================
+[`]:
+a
+b
+c
+
+--------------------------------------------------------------------------------
+
+(document
+  (link_reference_definition
+    (link_label
+      (text))
+    (link_destination
+      (text)))
+  (paragraph
+    (text)
+    (soft_line_break)
+    (text)))
+
+================================================================================
+#16 - infinite loop caused by overlapped delimiter range
+================================================================================
+[(https://example.com/foo[bar]
+
+--------------------------------------------------------------------------------
+
+(document
+  (paragraph
+    (text)
+    (uri_autolink
+      (text))
+    (link
+      (link_text
+        (text)))))

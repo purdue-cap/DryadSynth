@@ -11,7 +11,7 @@ use crate::generate_rules_matching;
 
 // use ahash::AHashMap as HashMap;
 use super::{Bv, expr::Expr, config::{Config, Rule}};
-use std::simd::SimdPartialEq;
+use std::simd::prelude::SimdPartialEq;
 use super::op;
 
 pub struct Algo<'a, const N: usize>   {

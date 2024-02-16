@@ -9,7 +9,7 @@
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(inherent_associated_types)]
 
-use std::{fs, simd::{SimdPartialEq, LaneCount, SupportedLaneCount}, env, time::Duration, sync::{Arc, mpsc}, thread};
+use std::{fs, simd::{prelude::SimdPartialEq, LaneCount, SupportedLaneCount}, env, time::Duration, sync::{Arc, mpsc}, thread};
 
 use bumpalo::Bump;
 use cegis::CegisState;

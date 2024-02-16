@@ -1,5 +1,5 @@
 
-use std::{simd::{LaneCount, SupportedLaneCount, SimdPartialEq}, intrinsics::size_of, mem::MaybeUninit, time::Instant};
+use std::{simd::{LaneCount, SupportedLaneCount, prelude::SimdPartialEq}, intrinsics::size_of, mem::MaybeUninit, time::Instant};
 
 use bumpalo::Bump;
 use separator::Separatable;
