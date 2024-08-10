@@ -27,7 +27,7 @@ It is theoretically possible to run the program on Windows platform given a work
 
 1. Install JDK on your system, you should refer to your system/distribution manuals to figure out how to complete this. Make sure that JDK version is no lower than 9.
 2. Configure and install Z3 with java bindings enabled
-    1. First download Z3, git version is recommended, as some of the bug fixes that are required for this program to run may not have been released to a released version yet.
+    1. First download Z3, older versions like 4.8.9 are recommended, as the newest version may not be supported by DryadSynth.
         - Here is the [link](https://github.com/Z3Prover/z3/) to the project site of Z3.
         - For using the git version, run `git clone https://github.com/Z3Prover/z3/`
     2. Configure the z3 source codes, preparing for build
