@@ -13,9 +13,12 @@ class Op:
     comm: bool
     sym: str
     typ: str
+    deffun: int | None = None
 
     def lname(self):
         return self.name.lower()
+    def oplname(self):
+        return self.name.lower().split("_")[0]
     def smtname(self):
         return "bv" + self.name.lower()
     def debug(self):
@@ -28,6 +31,10 @@ class Op:
         if self.name == "Ite":
             return 'display(fmt = "(ite (= {} #x0000000000000000) {} {})", _0, _1, _2)'
         inner = " ".join("{}" for _ in range(self.arity))
+        if self.deffun is not None:
+            nargs =  1 if "Fop1" in self.name else 2
+            p = f"crate::parse::deffun::ENV.name({self.deffun}, {nargs})"
+            return f'display(fmt = "({{}} {inner})", "{p}", {", ".join(f"_{i}" for i in range(self.arity)) })' 
         return f'display(fmt = "({self.smtname()} {inner})", {", ".join(f"_{i}" for i in range(self.arity)) })' 
     def arm(self, rec_type: str):
         return (self.name, [rec_type] * self.arity, [self.debug(), self.display()])
@@ -35,7 +42,7 @@ class Op:
 op1 = [
     Op("Not", 1, False, False, "!", "op1"),
     Op("Neg", 1, False, False, "~", "op1"),
-]
+] + [Op(f"Fop1_{i}", 1, False, False, f"f1{i}", "op1", i) for i in range(8)]
 
 op2_sym = [
     Op("Add", 2, False, True, "+", "op2_sym"),
@@ -46,7 +53,7 @@ op2_sym = [
 ]
 op2 = [
     Op("Sub", 2, False, False, "-", "op2"),
-]
+] + [Op(f"Fop2_{i}", 2, True, False, f"f2{i}", "op2", i) for i in range(8)]
     
 shift = [
     Op("LShr", 2, False, False, ">>", "shift"),
@@ -126,10 +133,10 @@ def expr(mname, name, rec_type, l = [], owned = False):
     return MacroRules.wrap(mname, str(expr))
 
 def op_of():
-    return MacroRules("op_of", { op.name: f"crate::enumerate::op::{op.lname()}" for op in operators + [ite]})
+    return MacroRules("op_of", { op.name: f"crate::enumerate::op::{op.oplname()}" + (f"::<{op.deffun}>"if op.deffun is not None else "") for op in operators + [ite]})
 
 def bv_op_of():
-    return MacroRules("bv_op_of", { op.name: f"crate::enumerate::op::bv::{op.lname()}" for op in operators})
+    return MacroRules("bv_op_of", { op.name: f"crate::enumerate::op::bv::{op.oplname()}" + (f"::<{op.deffun},N>"if op.deffun is not None else "") for op in operators})
 
 def smt_name_of():
     return MacroRules("smt_name_of", { op.name: f'"{op.smtname()}"' for op in operators + [ite]})

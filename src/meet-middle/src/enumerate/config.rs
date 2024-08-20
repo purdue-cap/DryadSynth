@@ -2,7 +2,7 @@
 
 use std::simd::{LaneCount, SupportedLaneCount};
 
-use crate::parse::{SynthProblem, PbeConstraint, self, cfg::NonTerminal, SExpr, new_custom_error_span, literals};
+use crate::parse::{self, cfg::NonTerminal, deffun, literals, new_custom_error_span, PbeConstraint, SExpr, SynthProblem};
 
 use super::{Bv, expr::OwnedExpr};
 use derive_more::{From, Deref};
@@ -14,6 +14,8 @@ type NTid = usize;
 pub enum Rule<const N: usize>  {
     Var(usize),
     Const(u64),
+    Fop1(usize),
+    Fop2(usize),
     ChatGPT(OwnedExpr, usize),
     LShrC(u64),
     AShrC(u64),
@@ -99,6 +101,32 @@ macro_rules! generate_rules_matching {
             }
             Rule::Var(id) => {
                 generate_op!(var, id);
+            }
+            Rule::Fop1(id) => {
+                match id {
+                    0 => { generate_op!(op1, |e1| Expr::Fop1_0(e1), $crate::bv_op_of!(Fop1_0)); }
+                    1 => { generate_op!(op1, |e1| Expr::Fop1_1(e1), $crate::bv_op_of!(Fop1_1)); }
+                    2 => { generate_op!(op1, |e1| Expr::Fop1_2(e1), $crate::bv_op_of!(Fop1_2)); }
+                    3 => { generate_op!(op1, |e1| Expr::Fop1_3(e1), $crate::bv_op_of!(Fop1_3)); }
+                    4 => { generate_op!(op1, |e1| Expr::Fop1_4(e1), $crate::bv_op_of!(Fop1_4)); }
+                    5 => { generate_op!(op1, |e1| Expr::Fop1_5(e1), $crate::bv_op_of!(Fop1_5)); }
+                    6 => { generate_op!(op1, |e1| Expr::Fop1_6(e1), $crate::bv_op_of!(Fop1_6)); }
+                    7 => { generate_op!(op1, |e1| Expr::Fop1_7(e1), $crate::bv_op_of!(Fop1_7)); }
+                    _ => panic!(),
+                }
+            }
+            Rule::Fop2(id) => {
+                match id {
+                    0 => { generate_op!(op2_nonzero, |e1, e2| Expr::Fop2_0(e1, e2), $crate::bv_op_of!(Fop2_0)); }
+                    1 => { generate_op!(op2_nonzero, |e1, e2| Expr::Fop2_1(e1, e2), $crate::bv_op_of!(Fop2_1)); }
+                    2 => { generate_op!(op2_nonzero, |e1, e2| Expr::Fop2_2(e1, e2), $crate::bv_op_of!(Fop2_2)); }
+                    3 => { generate_op!(op2_nonzero, |e1, e2| Expr::Fop2_3(e1, e2), $crate::bv_op_of!(Fop2_3)); }
+                    4 => { generate_op!(op2_nonzero, |e1, e2| Expr::Fop2_4(e1, e2), $crate::bv_op_of!(Fop2_4)); }
+                    5 => { generate_op!(op2_nonzero, |e1, e2| Expr::Fop2_5(e1, e2), $crate::bv_op_of!(Fop2_5)); }
+                    6 => { generate_op!(op2_nonzero, |e1, e2| Expr::Fop2_6(e1, e2), $crate::bv_op_of!(Fop2_6)); }
+                    7 => { generate_op!(op2_nonzero, |e1, e2| Expr::Fop2_7(e1, e2), $crate::bv_op_of!(Fop2_7)); }
+                    _ => panic!(),
+                }
             }
             Rule::Const(value) => {
                 generate_op!(const, value);
@@ -205,6 +233,21 @@ impl<const N : usize> Config<N>  {
                     if nt1 != name { return Err(new_custom_error_span("Enumeration: Only Start Non-Terminal is accepted.".into(), sp1.clone())) }
                     if nt2 != name { return Err(new_custom_error_span("Enumeration: Only Start Non-Terminal is accepted.".into(), sp2.clone())) }
                     res.push(Rule::Shl);
+                } else if let Some((fop1, [SExpr::Id(nt1, sp1)])) = r.call() {
+                    if nt1 != name { return Err(new_custom_error_span("Enumeration: Only Start Non-Terminal is accepted.".into(), sp1.clone())) }
+                    if let Some(a) = deffun::ENV.lookup(fop1, 1) {
+                        res.push(Rule::Fop1(a));
+                    } else {
+                        return Err(new_custom_error_span("Unknown Symbol.".into(), sp1.clone()))
+                    }
+                } else if let Some((fop2, [SExpr::Id(nt1, sp1), SExpr::Id(nt2, sp2)])) = r.call() {
+                    if nt1 != name { return Err(new_custom_error_span("Enumeration: Only Start Non-Terminal is accepted.".into(), sp1.clone())) }
+                    if nt2 != name { return Err(new_custom_error_span("Enumeration: Only Start Non-Terminal is accepted.".into(), sp2.clone())) }
+                    if let Some(a) = deffun::ENV.lookup(fop2, 2) {
+                        res.push(Rule::Fop2(a));
+                    } else {
+                        return Err(new_custom_error_span("Unknown Symbol.".into(), sp1.clone()))
+                    }
                 } else if let Some(("ite", _)) = r.call() {
                     res.push(Rule::Ite);
                 }

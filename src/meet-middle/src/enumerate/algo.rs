@@ -186,7 +186,7 @@ impl<'a, const N: usize> Algo<'a, N>  {
                         }
                     };
                     (op2_nonzero, $e:expr, $v:expr) => {
-                        let l = if let Rule::UDiv = rule {1} else {4};
+                        let l = if (Rule::SDiv == *rule) || (Rule::URem == *rule) || (Rule::SRem == *rule) { 4 } else { 1 };
                         if size > l {
                             for i in 1..(size - l) {
                                 for (e1, v1) in self.exprs[i].iter() {

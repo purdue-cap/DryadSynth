@@ -1,4 +1,6 @@
 
+use crate::parse::deffun;
+
 use super::expr::DivideByZero;
 
 #[inline(always)]
@@ -46,6 +48,16 @@ pub fn srem(this: u64, that: u64) -> Result<u64, DivideByZero>{
 }
 
 #[inline(always)]
+pub fn fop1<const I: usize>(a: u64) -> u64 {
+    deffun::ENV.apply(I, 1).eval(&[a]).unwrap()
+}
+
+#[inline(always)]
+pub fn fop2<const I: usize>(a: u64, b: u64) -> Result<u64, DivideByZero>{
+    deffun::ENV.apply(I, 2).eval(&[a, b])
+}
+
+#[inline(always)]
 pub fn ite(v1: u64, v2: u64, v3: u64) -> u64{
     if v1 == 0 { v2 } else { v3 }
 }
@@ -56,7 +68,7 @@ pub mod bv {
     use iter_fixed::IteratorFixed;
     use itertools::izip;
 
-    use crate::enumerate::Bv;
+    use crate::{enumerate::Bv, parse::deffun};
 
 
     #[inline(always)] pub fn not<const N : usize>(v1: Bv<N>) -> Bv<N> { v1.map(|a| super::not(a)).into() }
@@ -75,6 +87,17 @@ pub mod bv {
     #[inline(always)] pub fn srem<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::srem(a,b).unwrap()).collect()) }
     #[inline(always)] pub fn ashr<const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).map(|(a,b)| super::ashr(a,b)).collect()) }
     #[inline(always)] pub fn ite<const N : usize>(v1: Bv<N>, v2: Bv<N>, v3: Bv<N>) -> Bv<N>  { Bv(v1.into_iter_fixed().zip(v2.into_iter_fixed()).zip(v3.into_iter_fixed()).map(|((a,b), c)| super::ite(a,b,c)).collect()) }
+
+    #[inline(always)]
+    pub fn fop1<const I: usize, const N : usize>(v1: Bv<N>) -> Bv<N> {
+        deffun::ENV.apply(I, 1).eval_bv(&[v1])
+    }
+
+    #[inline(always)]
+    pub fn fop2<const I: usize, const N : usize>(v1: Bv<N>, v2: Bv<N>) -> Bv<N> {
+        deffun::ENV.apply(I, 2).eval_bv(&[v1, v2])
+    }
+
 
 
 }

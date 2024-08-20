@@ -19,7 +19,7 @@ use figment::{Figment, providers::{Toml, Format, Serialized}};
 use futures::executor::block_on;
 use itertools::Itertools;
 use openai::set_key;
-use parse::{PbeConstraint, constraint::RefImplConstraint};
+use parse::{constraint::RefImplConstraint, deffun, PbeConstraint};
 use rand::{thread_rng, Rng, seq::SliceRandom};
 use sdset::SetBuf;
 use solutions::Solutions;
@@ -70,6 +70,9 @@ fn main_inner() -> Result<OwnedExpr, Box<dyn std::error::Error>> {
     
     let i: &'static str = unsafe { you_can::borrow_unchecked(&input) };
     let sexpr = SExpr::parse(&i)?;
+
+    deffun::ENV.parse(&sexpr)?;
+
     let mut problem = SynthProblem::parse(&sexpr)?;
     problem.description = description;
     let pbecstr = PbeConstraint::parse(problem.name, problem.args.len(), &sexpr)?;
