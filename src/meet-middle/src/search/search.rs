@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use spin::Mutex;
 use tokio::task::block_in_place;
 
-use crate::{parse::{SynthProblem, PbeConstraint, self, constraint::RefImplConstraint}, solutions::Solutions, enumerate::expr::{Expr, OwnedExpr}, tree_learning::{TreeLearning, self}, info, cegis::CegisState, log};
+use crate::{cegis::CegisState, enumerate::{config::{Config, Rule}, expr::{Expr, OwnedExpr}}, info, log, parse::{self, constraint::RefImplConstraint, PbeConstraint, SynthProblem}, solutions::Solutions, tree_learning::{self, TreeLearning}};
 
 use super::sample::SampleConfig;
 
@@ -60,11 +60,14 @@ impl SearchConfig {
                 let mut rng = rand::thread_rng();
                 let problem = problem;
                 
-                info!("Searching Conditions.");
-                for shift in 0..64 {
-                    use Expr::*;
-                    for i in 0..problem.args.len() {
-                        conds.add_solution(&And(&LShr(&Var(i), &Const(shift)), &Const(1)));
+                let config = Config::<1>::from_problem(&problem, true).unwrap();
+                if config.iter().any(|x| *x == Rule::<1>::And) && config.iter().any(|x| *x == Rule::<1>::LShr) {
+                    info!("Searching Conditions.");
+                    for shift in 0..64 {
+                        use Expr::*;
+                        for i in 0..problem.args.len() {
+                            conds.add_solution(&And(&LShr(&Var(i), &Const(shift)), &Const(1)));
+                        }
                     }
                 }
                 cond_search.search(&mut conds, &problem, &mut rng).unwrap();
