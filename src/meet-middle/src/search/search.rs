@@ -63,10 +63,13 @@ impl SearchConfig {
                 let config = Config::<1>::from_problem(&problem, true).unwrap();
                 if config.iter().any(|x| *x == Rule::<1>::And) && config.iter().any(|x| *x == Rule::<1>::LShr) {
                     info!("Searching Conditions.");
-                    for shift in 0..64 {
-                        use Expr::*;
-                        for i in 0..problem.args.len() {
-                            conds.add_solution(&And(&LShr(&Var(i), &Const(shift)), &Const(1)));
+                    for shift in config.iter() {
+                        if let Rule::Const(shift) = shift { 
+                            let shift = *shift as usize;
+                            use Expr::*;
+                            for i in 0..problem.args.len() {
+                                conds.add_solution(&And(&LShr(&Var(i), &Const(shift as _)), &Const(1)));
+                            }
                         }
                     }
                 }
