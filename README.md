@@ -44,6 +44,9 @@ It is theoretically possible to run the program on Windows platform given a work
     $ cd build; make
     $ sudo make install
     ```
+    4. Install Bitwuzla (If using bitvector PBE search).
+       1. Download [bitwuzla](https://github.com/bitwuzla/bitwuzla/releases).
+       2. Make sure `bitwuzla` command is available in `PATH`.
 3. Install rust from [rustup](https://www.rust-lang.org/tools/install), and set the current directory to use nightly rust by `rustup override set nightly`.
 4. Complile the program
     - `cd` into the source code directory of the program and run `make` would do the work.
@@ -52,10 +55,9 @@ It is theoretically possible to run the program on Windows platform given a work
 
 1. Ensure `libz3java.so` is in `java.library.path`:
     - On Linux platforms, you can simply set environment variable `LD_LIBRARY_PATH` to include the path, it would be automatically added.
-2. Make sure `z3` or `bitwuzla` commands are available in the `PATH`. We use `bitwuzla` for bit-vector theory, otherwise, we use `z3`.
-3. If you use ChatGPT for `bit-vector`, please make sure to set the `OPENAI_API_KEY` environment variable.
-4. Simply run `$ ./exec.sh <path/to/sygus/file>`
-5. Looking into `$ ./exec.sh --help` for further information.
+2. If you use ChatGPT for `bit-vector`, please make sure to set the `OPENAI_API_KEY` environment variable.
+3. Simply run `$ ./exec.sh <path/to/sygus/file>`
+4. Looking into `$ ./exec.sh --help` for further information.
 
 
 Note: Some problems run in multithread by default. If you don't specify the number of threads, the CPU core count on your system would be used. **This may cause unexpected behavior when the size of the CPU pool is large**.
