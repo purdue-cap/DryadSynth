@@ -46,7 +46,7 @@ It is theoretically possible to run the program on Windows platform given a work
     ```
     4. Install Bitwuzla (If using bitvector PBE search).
        1. Download [bitwuzla](https://github.com/bitwuzla/bitwuzla/releases).
-       2. Make sure `bitwuzla` command is available in `PATH`.
+       2. Install Bitwuzla and make sure `bitwuzla` command is available in `PATH`.
 3. Install rust from [rustup](https://www.rust-lang.org/tools/install), and set the current directory to use nightly rust by `rustup override set nightly`.
 4. Complile the program
     - `cd` into the source code directory of the program and run `make` would do the work.
