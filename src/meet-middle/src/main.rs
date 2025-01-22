@@ -103,7 +103,7 @@ fn main_inner() -> Result<OwnedExpr, Box<dyn std::error::Error>> {
             });
             let _ = thread::spawn(move || {
                 log::set_log_level(l);
-                let pbe = refimpl.generate_pbe(3, problem.args.len());
+                let pbe = refimpl.generate_pbe(3, problem.args.len(), &mut config.rng());
                 info!("Use ChatGPT to guide the search");
                 let result = chatgpt::ask(& problem, pbe.clone(), config.gpt_version.clone());
                 for r in result.iter() {

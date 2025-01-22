@@ -71,19 +71,19 @@ impl<'a, const N: usize> FilterState<'a, N> {
     pub fn filter(&mut self, algo: &impl Algo<'a,N>, e: &Expr<'a>, v: Bv<N>, sol: &mut Solutions) -> Result<(), ()> {
         if v.any_eq(&self.output) {
             if self.partial_solution {
-                if sol.add_solution(e) {
+                if sol.add_solution(e, algo.count2()) {
                     if self.stop_at_new_sol { return Err(()); }
                 } else if v == self.output {
                     if !self.solved { info!("Sample is solved at {:?}", e); }
                     self.solved = true;
                 }
             } else {
-                if algo.count() < 1000 && sol.add_solution(e) {
+                if algo.count() < 1000 && sol.add_solution(e, algo.count2()) {
                     if !self.solved { info!("Sample is solved at {:?}", e); }
                     if self.stop_at_new_sol { return Err(()); }
                 }
                 if v == self.output {
-                    if sol.add_solution(e) { if self.stop_at_new_sol { return Err(()); } }
+                    if sol.add_solution(e, algo.count2()) { if self.stop_at_new_sol { return Err(()); } }
                     if !self.solved { info!("Sample is solved at {:?}", e); }
                     self.solved = true;
                 }
@@ -92,7 +92,7 @@ impl<'a, const N: usize> FilterState<'a, N> {
         }
         if let Some(comb_rules) = &mut self.comb_rules {
             if let Some((e, bump)) = comb_rules.test(e, &v, &sol) {
-                if sol.add_solution(e) {
+                if sol.add_solution(e, algo.count2()) {
                     if self.stop_at_new_sol { return Err(()); }
                 }
                 self.solved = true;
@@ -101,7 +101,7 @@ impl<'a, const N: usize> FilterState<'a, N> {
         }
         if let Some(reverse_rules) = &mut self.reverse_rules {
             if let Some(e) = reverse_rules.reverse(algo, e, &v, &self.output, & self.bump) {
-                if sol.add_solution(e) {
+                if sol.add_solution(e, algo.count2()) {
                     if self.stop_at_new_sol { return Err(()); }
                 }
                 self.solved = true;

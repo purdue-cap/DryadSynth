@@ -35,7 +35,7 @@ impl<'a> Solutions<'a> {
         let solved = Vec::new();
         Self { unsolved, solved, pbecstr: cstr, cover_limit: 1, check_dups, sample_all, check_tree_learning: None, additional_check: PbeConstraint::new(cstr.args_count()), cond_buffer: None , wait_cond: 0}
     }
-    pub fn add_solution(&mut self, sol: & Expr<'_>) -> bool {
+    pub fn add_solution(&mut self, sol: & Expr<'_>, counter: usize) -> bool {
         let set = self.pbecstr.test(sol);
         if set.len() == 0 { 
             warn!("{:?}", sol);
@@ -52,7 +52,7 @@ impl<'a> Solutions<'a> {
                     if diff.len() == 0 { return false; }
                 }
                 self.unsolved = OpBuilder::new(self.unsolved.as_set(), set.as_set()).difference().into_set_buf();
-                info!("Partial Solution Found: {:?}, {} solved, {} remaining", sol, set.len(), self.remaining());
+                info!("Partial Solution Found: {:?}, when searching {}th expression, {} solved, {} remaining.", sol, counter, set.len(), self.remaining());
             } else {
                 if set.len() == self.pbecstr.len() { return false; }
             }

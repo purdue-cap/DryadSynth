@@ -1,6 +1,6 @@
 use std::simd::{LaneCount, SupportedLaneCount};
 use itertools::Itertools;
-use rand::{rngs::ThreadRng, Rng};
+use rand::{rngs::StdRng, Rng};
 use sdset::SetBuf;
 use smallvec::smallvec;
 
@@ -106,7 +106,7 @@ impl PbeConstraint {
         self.input.iter_mut().zip(input.iter()).for_each(|(x, p)| x.push(*p));
         self.output.push(output)
     }
-    pub fn random_example(&mut self, rng: &mut ThreadRng, mask: u64, expr: &OwnedExpr, len: usize) {
+    pub fn random_example(&mut self, rng: &mut StdRng, mask: u64, expr: &OwnedExpr, len: usize) {
         loop {
             let mut args = (0..len).map(|_| rng.gen::<u64>() & mask).collect_vec();
             if let Ok(a) = expr.eval(&*args) {

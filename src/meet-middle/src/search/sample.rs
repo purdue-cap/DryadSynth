@@ -2,7 +2,7 @@ use std::{simd::{SupportedLaneCount, LaneCount}, cmp::min};
 
 use bumpalo::Bump;
 use itertools::Itertools;
-use rand::rngs::ThreadRng;
+use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 
 use crate::{parse::{SynthProblem, PbeConstraint, self}, solutions::Solutions, info, enumerate::{config::{Config, Rule}, algo::Algo, algo2, Algo as AAlgo, algo3, algo4}, deductive::{combine::CombineRules, reverse::ReverseRule}};
@@ -37,7 +37,7 @@ impl SampleConfig {
         Self { sample: 8, cover_limit: 13, partial_solution: true, filter: FilterConfig::improve_default(), dag_size: true, mem_size_limit: usize::MAX, atom_diversity_order: false, atom_shift: true}
     }
 
-    pub fn search_inner<const N: usize>(&self, sol: &mut Solutions, problem: &SynthProblem, rng: &mut ThreadRng) -> parse::Result<bool> {
+    pub fn search_inner<const N: usize>(&self, sol: &mut Solutions, problem: &SynthProblem, rng: &mut StdRng) -> parse::Result<bool> {
         let (args, out) = sol.sample::<N, _>(rng);
         info!("Sampling with: {:x?} -> {:x?}. {}", args, out, sol.pbecstr.len());
         let mut bump = Bump::new();
@@ -84,7 +84,7 @@ impl SampleConfig {
         }
     }
     #[inline(always)]
-    pub fn search(&self, sol: &mut Solutions, problem: &SynthProblem, rng: &mut ThreadRng) -> parse::Result<bool> {
+    pub fn search(&self, sol: &mut Solutions, problem: &SynthProblem, rng: &mut StdRng) -> parse::Result<bool> {
         sol.set_cover_limit(if self.cover_limit == 0 {1} else {sol.pbecstr.len() / self.cover_limit});
         let arr = [1, 2, 4, 8, 16, 32, 48, 64, 80, 1024];
         let sample = arr[arr.binary_search(&min(self.sample, sol.pbecstr.len())).unwrap_or_else(|a| a)];

@@ -1,5 +1,5 @@
 use derive_more::DebugCustom;
-use rand::{thread_rng, seq::SliceRandom};
+use rand::{rngs::StdRng, seq::SliceRandom, thread_rng};
 
 use crate::{enumerate::expr::OwnedExpr, parse::{SExpr, self, new_custom_error_span}};
 
@@ -32,12 +32,11 @@ impl RefImplConstraint {
         }
         Ok(None)
     }
-    pub fn generate_pbe(&self, count: usize, arity: usize) -> PbeConstraint {
-        let mut rng = thread_rng();
+    pub fn generate_pbe(&self, count: usize, arity: usize, rng: &mut StdRng) -> PbeConstraint {
         let mut res = PbeConstraint::new(arity);
         for _ in 0..count {
-            let mask = [u64::MAX, u64::MAX, u64::MAX, u64::MAX, 0xFF, 0xFFFFFFFFFFFF, 0xFFFFFF0000FFFFFF ].choose(&mut rng).unwrap();
-            res.random_example(&mut rng, *mask, &self.ref_impl, arity)
+            let mask = [u64::MAX, u64::MAX, u64::MAX, u64::MAX, 0xFF, 0xFFFFFFFFFFFF, 0xFFFFFF0000FFFFFF ].choose(rng).unwrap();
+            res.random_example(rng, *mask, &self.ref_impl, arity)
         }
         res
     }

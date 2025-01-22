@@ -172,6 +172,7 @@ public class Run {
 		dispatcher.setHeightsOnly(options.has("H"));
 		dispatcher.setSizeBasedEnum(options.has("size"));
 		dispatcher.bvconfigFile = bvConfigFilePath;
+		dispatcher.bvverbose = options.has("v");
 		dispatcher.seed = seed;
 		dispatcher.prescreen();
 		dispatcher.fileName = fn;

@@ -1,4 +1,4 @@
-use std::{cmp::min, thread, sync::Arc};
+use std::{cmp::min, sync::Arc, thread, usize};
 
 use bumpalo::Bump;
 use futures::executor::block_on;
@@ -27,15 +27,21 @@ pub struct SearchConfig {
     pub expr_search: SampleConfig,
     pub improve_search: SampleConfig,
     pub is_pbe: bool,
+    pub seed: usize,
 }
 
 
 impl SearchConfig {
     pub fn default_pbe() -> Self {
-        Self { random_example: 1, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: false, chatgpt: false, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false}
+        Self { random_example: 1, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: false, chatgpt: false, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false, seed: usize::MAX}
     }
     pub fn default_refimpl() -> Self {
-        Self { random_example: 50, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: true, chatgpt: true, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default_ni(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false}
+        Self { random_example: 50, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: true, chatgpt: true, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default_ni(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false, seed: usize::MAX}
+    }
+    pub fn rng(&self) -> rand::rngs::StdRng {
+        if self.seed != usize::MAX {
+            rand::SeedableRng::seed_from_u64(self.seed as u64)
+        } else { rand::SeedableRng::from_rng(thread_rng()).unwrap() }
     }
     pub fn search(&mut self, problem: & SynthProblem<'static>, pbecstr: &PbeConstraint, additional_example: PbeConstraint) -> parse::Result<OwnedExpr> {
         let mut limited_ite = self.limited_ite;
@@ -46,6 +52,7 @@ impl SearchConfig {
         if self.limited_ite {
             self.cond_search.filter.count_limit = 10000;
         }
+        let mut rng = self.rng();
         thread::spawn({
             let problem = problem.clone();
             let pbecstr = pbecstr.clone();
@@ -57,7 +64,6 @@ impl SearchConfig {
                 let cond_cstr = &pbecstr.clone().set_output(0);
                 let mut conds = Solutions::new(cond_cstr, false, true);
                 conds.cond_buffer = Some(cond);
-                let mut rng = rand::thread_rng();
                 let problem = problem;
                 
                 let config = Config::<1>::from_problem(&problem, true).unwrap();
@@ -68,7 +74,7 @@ impl SearchConfig {
                             let shift = *shift as usize;
                             use Expr::*;
                             for i in 0..problem.args.len() {
-                                conds.add_solution(&And(&LShr(&Var(i), &Const(shift as _)), &Const(1)));
+                                conds.add_solution(&And(&LShr(&Var(i), &Const(shift as _)), &Const(1)), 0);
                             }
                         }
                     }
@@ -79,7 +85,7 @@ impl SearchConfig {
         }});
         
 
-        let mut rng = rand::thread_rng();
+        let mut rng = self.rng();
         
         info!("Searching Expressions.");
         let mut exprs = Solutions::new(pbecstr, true, false);
@@ -103,6 +109,7 @@ impl SearchConfig {
         if exprs.solved.last().unwrap().1.len() == pbecstr.len() { return Ok(exprs.solved.pop().unwrap().0); }
         exprs.sample_all = true;
         exprs.check_tree_learning = Some((cond, self.ite_tree_limit));
+        info!("Tree Learning");
         if exprs.tree_learning() { return Ok(exprs.get_tree()); }
 
         if !limited_ite {
@@ -130,7 +137,7 @@ impl SearchConfig {
         let no_additional_check = PbeConstraint::new(problem.args.len());
         let mut additional_check = PbeConstraint::new(problem.args.len());
         {
-            let mut rng = thread_rng();
+            let mut rng = self.rng();
             for _ in 0..self.additional_check {
                 let mask = [u64::MAX, u64::MAX, u64::MAX, u64::MAX, 0xFF, 0xFFFFFFFFFFFF, 0xFFFFFF0000FFFFFF ].choose(&mut rng).unwrap();
                 additional_check.random_example(&mut rng, *mask, &refimpl.ref_impl, problem.args.len())

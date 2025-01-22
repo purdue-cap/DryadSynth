@@ -39,6 +39,7 @@ public class SygusDispatcher {
     boolean heightsOnly = false;
     boolean methodOnly = false;
     boolean sizeBasedEnum = false;
+    public boolean bvverbose = false;
     Thread mainThread;
     Thread [] threads = null;
     Map<String, Expr[]> callCache = null;
@@ -497,15 +498,21 @@ public class SygusDispatcher {
             //     threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
             // }
             final var base = System.getenv("BASE");
-            final var process = (this.bvconfigFile == "")?
-                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName).start() :
-                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName, "-c", this.bvconfigFile).start();
-            final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            final var process = (this.bvconfigFile == "")? (
+                this.bvverbose?
+                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", "-v", this.fileName).inheritIO().start() :
+                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName).inheritIO().start()
+            ) : (
+                this.bvverbose?
+                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", "-v", this.fileName, "-c", this.bvconfigFile).inheritIO().start():
+                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName, "-c", this.bvconfigFile).inheritIO().start()
+            );
+            // final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             process.waitFor();
-            String lines = null;
-            while ((lines = reader.readLine())!=null) {
-                System.out.println(lines);
-            }
+            // String lines = null;
+            // while ((lines = reader.readLine())!=null) {
+            //     System.out.println(lines);
+            // }
             System.exit(process.exitValue());
             return;
         }
