@@ -1,0 +1,3 @@
+[submodule "synthphonia"]
+	path = synthphonia
+	url = https://github.com/YuantianDing/Synthphonia.git

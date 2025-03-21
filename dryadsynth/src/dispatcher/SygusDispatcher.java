@@ -350,9 +350,9 @@ public class SygusDispatcher {
             for (int i = 0; i < numCore; i++) {
                 Logger threadLogger = Logger.getLogger("main.thread" + i);
                 threadLogger.setUseParentHandlers(false);
-                FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
-                threadHandler.setFormatter(new SimpleFormatter());
-                threadLogger.addHandler(threadHandler);
+                // FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
+                // threadHandler.setFormatter(new SimpleFormatter());
+                // threadLogger.addHandler(threadHandler);
                 if (enableITCEGIS) {
                     fallbackCEGIS[i] = new ITCegis(env, threadLogger);
                 } else {
@@ -397,9 +397,9 @@ public class SygusDispatcher {
                 for (int i = 0; i < numCore; i++) {
                     Logger threadLogger = Logger.getLogger("main.thread" + i);
                     threadLogger.setUseParentHandlers(false);
-                    FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
-                    threadHandler.setFormatter(new SimpleFormatter());
-                    threadLogger.addHandler(threadHandler);
+                    // FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
+                    // threadHandler.setFormatter(new SimpleFormatter());
+                    // threadLogger.addHandler(threadHandler);
                     threads[i] = new DnCegis(dncEnv, threadLogger);
                     ((Cegis)threads[i]).iterLimit = this.iterLimit;
                 }
@@ -465,9 +465,9 @@ public class SygusDispatcher {
                 Context dncctx = new Context();
                 Logger threadLogger = Logger.getLogger("main.thread" + "dnc");
                 threadLogger.setUseParentHandlers(false);
-                FileHandler threadHandler = new FileHandler("log.thread." + "dnc" + ".txt", false);
-                threadHandler.setFormatter(new SimpleFormatter());
-                threadLogger.addHandler(threadHandler);
+                // FileHandler threadHandler = new FileHandler("log.thread." + "dnc" + ".txt", false);
+                // threadHandler.setFormatter(new SimpleFormatter());
+                // threadLogger.addHandler(threadHandler);
                 preparedDnC = new InvDnC(dncctx, threadLogger, env, this.dnctype, this.iterLimit, problem);
                 preparedDnC.init();
                 threads[0] = preparedDnC;
@@ -500,12 +500,12 @@ public class SygusDispatcher {
             final var base = System.getenv("BASE");
             final var process = (this.bvconfigFile == "")? (
                 this.bvverbose?
-                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", "-v", this.fileName).inheritIO().start() :
-                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName).inheritIO().start()
+                new ProcessBuilder("dryadsynth-bv", "-v", this.fileName).inheritIO().start() :
+                new ProcessBuilder("dryadsynth-bv", this.fileName).inheritIO().start()
             ) : (
                 this.bvverbose?
-                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", "-v", this.fileName, "-c", this.bvconfigFile).inheritIO().start():
-                new ProcessBuilder(base + "/src/meet-middle/target/release/meet-middle", this.fileName, "-c", this.bvconfigFile).inheritIO().start()
+                new ProcessBuilder("dryadsynth-bv", "-v", this.fileName, "-c", this.bvconfigFile).inheritIO().start():
+                new ProcessBuilder("dryadsynth-bv", this.fileName, "-c", this.bvconfigFile).inheritIO().start()
             );
             // final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             process.waitFor();

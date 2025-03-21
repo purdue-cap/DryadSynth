@@ -1,0 +1,88 @@
+{
+    "reflection": [
+        {
+            "type": "java.lang.Integer",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredFields": true,
+            "allPublicFields": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "unsafeAllocated": true,
+            "serializable": true
+        },
+        {
+            "type": "java.lang.String",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredFields": true,
+            "allPublicFields": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "unsafeAllocated": true,
+            "serializable": true
+        },
+        {
+            "type": "java.util.logging.XMLFormatter",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredFields": true,
+            "allPublicFields": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "unsafeAllocated": true,
+            "serializable": true
+        }
+    ],
+    "resources": [
+        {
+            "glob": "META-INF/services/java.lang.System$LoggerFinder"
+        },
+        {
+            "glob": "META-INF/services/java.time.zone.ZoneRulesProvider"
+        },
+        {
+            "module": "java.logging",
+            "glob": "sun/util/logging/resources/logging_en.properties"
+        },
+        {
+            "module": "java.logging",
+            "glob": "sun/util/logging/resources/logging_en_US.properties"
+        },
+        {
+            "glob": "joptsimple/HelpFormatterMessages_en_US.properties"
+        }
+    ],
+    "bundles": [
+        {
+            "name": "joptsimple.HelpFormatterMessages",
+            "locales": [
+                "en"
+            ]
+        }
+    ],
+    "jni": [
+        {
+            "type": "java.lang.Boolean",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredFields": true,
+            "allPublicFields": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "unsafeAllocated": true,
+            "serializable": true
+        },
+        {
+            "type": "com.microsoft.z3.Native$LongPtr",
+            "allDeclaredConstructors": true,
+            "allPublicConstructors": true,
+            "allDeclaredFields": true,
+            "allPublicFields": true,
+            "allDeclaredMethods": true,
+            "allPublicMethods": true,
+            "unsafeAllocated": true,
+            "serializable": true
+        }
+    ]
+}

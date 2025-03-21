@@ -1,11 +1,7 @@
 [package]
-name = "meet-middle"
+name = "dryadsynth-bv"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[toolchain]
-channel = "nightly-2023-06-15"
 
 [dependencies]
 ahash = "0.8.3"

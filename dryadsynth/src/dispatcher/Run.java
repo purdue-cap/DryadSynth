@@ -12,7 +12,8 @@ import joptsimple.OptionSet;
 
 public class Run {
 	public static void main(String[] args) throws Exception {
-
+		var m = Integer.class.getMethod( "valueOf", String.class );
+		System.out.println(m.getReturnType().equals(Integer.class));
 		long startTime = System.currentTimeMillis();
         OptionParser oParser = new OptionParser();
 		oParser.acceptsAll(Arrays.asList("m", "maxSAT"), "Enable maxSAT");
@@ -79,12 +80,12 @@ public class Run {
 		
 
 		Logger logger = Logger.getLogger("main");
-        if (!options.has("v")) {
-            logger.setUseParentHandlers(false);
-            FileHandler handler = new FileHandler("log.main.txt", false);
-            handler.setFormatter(new SimpleFormatter());
-            logger.addHandler(handler);
-        }
+        // if (!options.has("v")) {
+        //     logger.setUseParentHandlers(false);
+        //     FileHandler handler = new FileHandler("log.main.txt", false);
+        //     handler.setFormatter(new SimpleFormatter());
+        //     logger.addHandler(handler);
+        // }
 		logger.info(String.format("Using %d threads", numCore));
 		logger.info(String.format("Using finite coeffBound timeout %d mins and infinite coeffBound timeout %d mins", minFinite, minInfinite));
 

@@ -15,8 +15,8 @@ pub mod parsing;
 extern "C" { fn tree_sitter_python() -> Language; }
 
 pub async fn ask_chatgpt(system: String, text: String, count: usize, nargs: usize, gpt_version: String) -> Vec<HashMap<String, OwnedExpr>> {
-    let smsg = ChatCompletionMessage { role: System, content: Some(system), name: None, function_call: None};
-    let umsg = ChatCompletionMessage { role: User, content: Some(text.clone()), name: None, function_call: None};
+    let smsg = ChatCompletionMessage { role: System, content: Some(system), name: None, function_call: None, tool_call_id: None, tool_calls: None };
+    let umsg = ChatCompletionMessage { role: User, content: Some(text.clone()), name: None, function_call: None, tool_call_id: None, tool_calls: None };
     let mut res = Vec::new();
     loop {
         // println!("{}", text);

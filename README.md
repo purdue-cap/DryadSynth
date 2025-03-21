@@ -11,11 +11,13 @@ For a complete description on methods, please see `docs/pldi2020.pdf` for CLIA a
 
 # Installation and Running
 
-Currently the synthesizer is not packaged, but you could compile and run it from the project directory.
+To install DryadSynth, you need:
 
-This program is developed, tested and ran on Linux platform, it is recommended to run it in the same environment. However, testings on Mac OS have also passed.
+1. Make sure `gcc`, `glibc-dev`, `zlib-dev`, `zlib-static`, `libstdc++-static` installed.
+2. Make sure `z3` with `libz3java.so` in your `LD_LIBRARY_PATH`.
+3. Make sure `cargo` installed, and run `cargo install dryadsynth dryadsynth-bv synthphonia-rs`
 
-It is theoretically possible to run the program on Windows platform given a working JVM and a properly installed Z3, however this is not encouraged.
+This program is developed, tested and ran on Linux platform, it is recommended to run it in the same environment. 
 
 ## Dependencies
 
