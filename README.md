@@ -36,7 +36,7 @@ Once DryadSynth in installed in your system. The following command will be avail
 
 * `dryadsynth` the main entry of the general solver, only general solving strategy options for SyGuS-IF (`.sl`) format supported, will call the sub-solvers in settings restricted in `sygus-if2` format.
 * `dryadsynth-bv` the bit-vector sub-solver, used to specify bit-vector specific options in our [POPL'24 paper](https://github.com/purdue-cap/DryadSynth/blob/master/docs/popl2024.pdf).
-* `synthphonia` the string sub-solver, used to specify the string-related grammar and options.
+* `synthphonia` the string sub-solver, used to specify the string-related grammar and options, offering richer grammar in the default settings.
 
 Note: Some problems run in multithread by default. If you don't specify the number of threads, the CPU core count on your system would be used. **This may cause unexpected behavior when the size of the CPU pool is large**.
 

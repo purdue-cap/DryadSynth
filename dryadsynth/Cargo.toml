@@ -10,7 +10,7 @@ homepage = "https://github.com/purdue-cap/DryadSynth"
 repository = "https://github.com/purdue-cap/DryadSynth"
 readme = "README.md"
 keywords = ["synthesis", "divide-and-conquer", "syntax-guided", "sygus", "clia"]
-
+include = ["/src", "/lib", "/scripts", "/Cargo.toml", "/reachability-metadata.json", "/*.g4"]
 [dependencies]
 libc = "0.2"
 
