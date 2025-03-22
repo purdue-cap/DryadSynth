@@ -8,7 +8,7 @@ description = "DryadSynth solver for bit manipulating programs"
 homepage = "https://github.com/purdue-cap/DryadSynth"
 repository = "https://github.com/purdue-cap/DryadSynth"
 readme = "README.md"
-keywords = ["program synthesis", "synthesis",  "programming", "purdue", "xiaokang", "qiu", "hackers delight", "dryadsynth", "formal",  "bit manipulating", "bit manipulation", "bit vector", "bitvec", "bitvector", "bv", "llm"]
+keywords = ["synthesis",  "bit-manipulating", "dryadsynth", "bit-vector", "sygus"]
 
 [dependencies]
 ahash = "0.8.3"
@@ -54,9 +54,6 @@ spin = "0.9.8"
 openai = "1.0.0-alpha.13"
 iter_fixed = "0.3.1"
 lazy_static = "1.5.0"
-
-[profile.release]
-debug = true
 
 [features]
 dhat-heap = []

@@ -9,7 +9,7 @@ description = "Dryad Synthesizer for SyGuS competition."
 homepage = "https://github.com/purdue-cap/DryadSynth"
 repository = "https://github.com/purdue-cap/DryadSynth"
 readme = "README.md"
-keywords = ["program synthesis", "synthesis",  "programming", "purdue", "xiaokang", "qiu", "enumeration", "deduction", "dryadsynth", "verification", "sygus", "syntax-guided", "clia", "sygus-comp"]
+keywords = ["synthesis", "divide-and-conquer", "syntax-guided", "sygus", "clia"]
 
 [dependencies]
 libc = "0.2"

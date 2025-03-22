@@ -2358,15 +2358,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rc_async"
-version = "0.1.0"
-source = "git+https://github.com/YuantianDing/rc_async.git#c94bf785fc21a82a5a18774deac2a54250f4d822"
-dependencies = [
- "derive_more 2.0.1",
- "futures-core",
-]
-
-[[package]]
 name = "redox_syscall"
 version = "0.5.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2828,6 +2819,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
+name = "simple-rc-async"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb7e4086130d7c92a83a0c248bec03684680414944d53172f8bc75c8455bce6a"
+dependencies = [
+ "derive_more 2.0.1",
+ "futures-core",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2952,9 +2953,9 @@ dependencies = [
  "pest_derive",
  "radix_trie",
  "rand",
- "rc_async",
  "regex",
  "serde",
+ "simple-rc-async",
  "smallvec",
  "spin",
  "tokio",
