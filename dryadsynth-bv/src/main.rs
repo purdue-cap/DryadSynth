@@ -9,24 +9,17 @@
 #![feature(return_position_impl_trait_in_trait)]
 #![feature(inherent_associated_types)]
 
-use std::{fs, simd::{prelude::SimdPartialEq, LaneCount, SupportedLaneCount}, env, time::Duration, sync::{Arc, mpsc}, thread};
+use std::{fs, env, sync::mpsc, thread};
 
-use bumpalo::Bump;
-use cegis::CegisState;
-use clap::{Parser, Subcommand};
-use enumerate::{config::Config, algo::Algo, expr::OwnedExpr};
+use clap::Parser;
+use enumerate::expr::OwnedExpr;
 use figment::{Figment, providers::{Toml, Format, Serialized}};
-use futures::executor::block_on;
 use itertools::Itertools;
 use openai::set_key;
 use parse::{constraint::RefImplConstraint, deffun, PbeConstraint};
-use rand::{thread_rng, Rng, seq::SliceRandom};
-use sdset::SetBuf;
-use solutions::Solutions;
-use tokio::task::spawn_blocking;
 
 
-use crate::{parse::{SExpr, SynthProblem}, search::{search::SearchConfig}, enumerate::utils::{run_with_timeout, spawn}};
+use crate::{parse::{SExpr, SynthProblem}, search::{search::SearchConfig}};
 extern crate pest;
 extern crate pest_derive;
 

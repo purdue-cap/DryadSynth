@@ -1,8 +1,7 @@
-use std::{future::Future, time::Duration, sync::mpsc::{self, RecvTimeoutError}, thread};
+use std::{time::Duration, sync::mpsc::{self, RecvTimeoutError}, thread};
 
 use extension_trait::extension_trait;
 use futures::FutureExt;
-use itertools::Itertools;
 use tokio::task::JoinHandle;
 
 use crate::log;
@@ -130,7 +129,7 @@ impl CombIter {
 
 #[extension_trait]
 pub impl BitSetU64Ext for u64 {
-    fn from_bits(mut iter: impl Iterator<Item = bool>) -> u64 {
+    fn from_bits(iter: impl Iterator<Item = bool>) -> u64 {
         let mut result = 0;
         for (i, p) in iter.enumerate() {
             if p { result |= 1 << i; }

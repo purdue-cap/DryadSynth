@@ -1,4 +1,4 @@
-use std::{ops::{Not, Neg,}, simd::{LaneCount, SupportedLaneCount}, hash::BuildHasherDefault, intrinsics::size_of, alloc::Layout};
+use std::{intrinsics::size_of, alloc::Layout};
 // use std::collections::HashMap;
 // use nohash_hasher::{BuildNoHashHasher, NoHashHasher};
 // // use fnv::FnvHashMap as HashMap;
@@ -11,8 +11,6 @@ use crate::generate_rules_matching;
 
 // use ahash::AHashMap as HashMap;
 use super::{Bv, expr::Expr, config::{Config, Rule}};
-use std::simd::prelude::SimdPartialEq;
-use super::op;
 
 pub struct Algo<'a, const N: usize>   {
     config: Config<N>,
@@ -57,8 +55,8 @@ impl<'a, const N: usize> Algo<'a, N>  {
     }
 
     pub fn run_until(&mut self, mut f: impl FnMut(&Self, &Expr<'a>, Bv<N>) -> Result<(), ()>) -> Result<(), ()> {
-        use crate::oexpr;
-        use super::expr::OwnedExpr;
+        
+        
         // let xh = oexpr!(>> 0 [32]);
         // let yh = oexpr!(>> 1 [32]);
         // let xl = oexpr!(& 0 [0xFFFFFFFF]);

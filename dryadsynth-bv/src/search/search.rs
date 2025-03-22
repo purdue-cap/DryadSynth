@@ -1,14 +1,11 @@
 use std::{cmp::min, sync::Arc, thread, usize};
 
-use bumpalo::Bump;
-use futures::executor::block_on;
 use rand::{thread_rng, seq::SliceRandom};
 use rsmt2::SmtConf;
 use serde::{Deserialize, Serialize};
 use spin::Mutex;
-use tokio::task::block_in_place;
 
-use crate::{cegis::CegisState, enumerate::{config::{Config, Rule}, expr::{Expr, OwnedExpr}}, info, log, parse::{self, constraint::RefImplConstraint, PbeConstraint, SynthProblem}, solutions::Solutions, tree_learning::{self, TreeLearning}};
+use crate::{cegis::CegisState, enumerate::{config::{Config, Rule}, expr::{Expr, OwnedExpr}}, info, log, parse::{self, constraint::RefImplConstraint, PbeConstraint, SynthProblem}, solutions::Solutions};
 
 use super::sample::SampleConfig;
 

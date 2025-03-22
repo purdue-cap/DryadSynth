@@ -1,14 +1,12 @@
 
 
 use core::slice::SlicePattern;
-use std::{simd::{LaneCount, SupportedLaneCount}, sync::Arc, time, thread};
+use std::{sync::Arc, time, thread};
 
 use bumpalo::Bump;
-use derive_more::{From, DebugCustom, Deref};
 use itertools::Itertools;
 use rand::{seq::IteratorRandom, Rng};
 use sdset::{SetBuf, duo::OpBuilder, SetOperation};
-use smallvec::SmallVec;
 use spin::mutex::Mutex;
 
 use crate::{enumerate::{expr::{OwnedExpr, Expr}, Bv}, parse::PbeConstraint, tree_learning::{Bits, self}, info, warn};

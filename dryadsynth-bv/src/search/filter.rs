@@ -1,12 +1,12 @@
 
-use std::{simd::{LaneCount, SupportedLaneCount, prelude::SimdPartialEq}, intrinsics::size_of, mem::MaybeUninit, time::Instant};
+use std::time::Instant;
 
 use bumpalo::Bump;
 use separator::Separatable;
 use serde::{Deserialize, Serialize};
 
 
-use crate::{solutions::Solutions, deductive::{combine::CombineRules, reverse::ReverseRule}, enumerate::{Bv, expr::{Expr, OwnedExpr}, Algo}, info, oexpr};
+use crate::{solutions::Solutions, deductive::{combine::CombineRules, reverse::ReverseRule}, enumerate::{Bv, expr::Expr, Algo}, info};
 
 pub trait Filter<'a, const N: usize, A: Algo<'a, N>> : FnMut(&mut A, &'a Expr<'a>, Bv<N>) ->  Result<(), ()> {}
 impl<'a, const N: usize, A: Algo<'a, N>, T: FnMut(&mut A, &'a Expr<'a>, Bv<N>) ->  Result<(), ()>> Filter<'a, N, A> for T {}
@@ -33,7 +33,7 @@ impl FilterConfig {
     }
     
     pub fn state<'a ,const N: usize>(&self, args: Vec<Bv<N>>, out: &Bv<N>, bump: &'a Bump, partial_solution: bool) -> FilterState<'a, N>  {
-        use OwnedExpr::*;
+        
         FilterState {
             comb_rules: self.deductive_combine.then(|| CombineRules::new(out)),
             reverse_rules: self.deductive_reverse.then(|| ReverseRule::new()),

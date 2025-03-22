@@ -2,7 +2,6 @@ use std::env;
 use std::fs::{File, set_permissions, metadata};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
-use std::process::Command;
 use std::ffi::CString;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

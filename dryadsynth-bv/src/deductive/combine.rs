@@ -1,8 +1,7 @@
-use std::simd::{LaneCount, SupportedLaneCount, prelude::SimdPartialEq};
 
 use bumpalo::Bump;
 
-use crate::{enumerate::{expr::{Expr, OwnedExpr}, Bv}, solutions::Solutions, info, oexpr};
+use crate::{enumerate::{expr::Expr, Bv}, solutions::Solutions};
 
 #[derive(Debug)]
 pub enum SubExpr<'a, const N: usize>   {

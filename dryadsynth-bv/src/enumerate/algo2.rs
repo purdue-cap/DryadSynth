@@ -1,5 +1,4 @@
-use std::{simd::{LaneCount, SupportedLaneCount}, collections::hash_map::Entry, mem::size_of};
-use std::simd::prelude::SimdPartialEq;
+use std::{collections::hash_map::Entry, mem::size_of};
 
 use crate::{generate_rules_matching, info, search::filter::Filter};
 
@@ -171,7 +170,7 @@ impl<'a, const N: usize> Algo<'a, N>  {
         }
     }
     
-    pub fn run_size_dyn(&mut self, size: usize, mut f: Box<dyn Filter<'a, N, Self> + '_>) -> Result<(), ()> {
+    pub fn run_size_dyn(&mut self, size: usize, f: Box<dyn Filter<'a, N, Self> + '_>) -> Result<(), ()> {
         self.run_size(size, f)
     }
     pub fn run_until(&mut self, mut f: impl Filter<'a, N, Self>) -> Result<(), ()> {

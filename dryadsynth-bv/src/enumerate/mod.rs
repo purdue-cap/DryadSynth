@@ -1,5 +1,4 @@
-use std::{simd::{Simd, LaneCount, SupportedLaneCount}, ops::Neg, array};
-use aligned_array::{Aligned, A32};
+use std::array;
 use iter_fixed::{IntoIteratorFixed, IteratorFixed};
 // use fnv::FnvHashMap as HashMap;
 use std::collections::HashMap;

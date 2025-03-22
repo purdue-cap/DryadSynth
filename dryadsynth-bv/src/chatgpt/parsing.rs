@@ -3,7 +3,7 @@ use itertools::Itertools;
 use thiserror::Error;
 use tree_sitter::{Node, Parser, Language};
 
-use crate::{enumerate::expr::OwnedExpr, all_ops, parse::literals::{u64_constant_no_error, u64_constant_python}};
+use crate::{enumerate::expr::OwnedExpr, all_ops, parse::literals::u64_constant_python};
 
 #[derive(Error, Debug)]
 #[error("Parsing Error")]
@@ -167,7 +167,7 @@ impl<'a> Env<'a> {
         
         let tree = mdparser.parse(text, None).unwrap();
         let root_node = tree.root_node();
-        let mut cursor = root_node.walk();
+        let cursor = root_node.walk();
         let mut env = Env { maps: HashMap::new(), var: 0, text };
         if let Ok(r) = env.parse_md(&root_node) {
             if env.var <= nargs {

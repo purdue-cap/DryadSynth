@@ -1,15 +1,13 @@
-use std::simd::{LaneCount, SupportedLaneCount};
 use itertools::Itertools;
 use rand::{rngs::StdRng, Rng};
 use sdset::SetBuf;
-use smallvec::smallvec;
 
 use derive_more::DebugCustom;
 use smallvec::SmallVec;
 
 use crate::enumerate::{Bv, expr::{Expr, OwnedExpr}};
 
-use super::super::{Error, sexpr::SExpr, new_costom_error_pos, new_custom_error_span, literals};
+use super::super::{Error, sexpr::SExpr, new_custom_error_span, literals};
 
 
 
@@ -108,7 +106,7 @@ impl PbeConstraint {
     }
     pub fn random_example(&mut self, rng: &mut StdRng, mask: u64, expr: &OwnedExpr, len: usize) {
         loop {
-            let mut args = (0..len).map(|_| rng.gen::<u64>() & mask).collect_vec();
+            let args = (0..len).map(|_| rng.gen::<u64>() & mask).collect_vec();
             if let Ok(a) = expr.eval(&*args) {
                 self.add_example(&args, a);
                 break;

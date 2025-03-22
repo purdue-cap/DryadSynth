@@ -1,5 +1,5 @@
 use derive_more::DebugCustom;
-use rand::{rngs::StdRng, seq::SliceRandom, thread_rng};
+use rand::{rngs::StdRng, seq::SliceRandom};
 
 use crate::{enumerate::expr::OwnedExpr, parse::{SExpr, self, new_custom_error_span}};
 

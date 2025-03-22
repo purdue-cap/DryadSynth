@@ -1,12 +1,10 @@
 
-use std::hash::Hash;
 
 use ahash::HashMap;
-use openai::chat::{ChatCompletionMessage, ChatCompletionMessageRole::{System, self, User}, ChatCompletion};
-use rand::{thread_rng, seq::SliceRandom};
-use tree_sitter::{Parser, Language};
+use openai::chat::{ChatCompletionMessage, ChatCompletionMessageRole::{System, User}, ChatCompletion};
+use tree_sitter::Language;
 
-use crate::{parse::{PbeConstraint, SynthProblem, constraint::RefImplConstraint}, enumerate::expr::OwnedExpr};
+use crate::{parse::{PbeConstraint, SynthProblem}, enumerate::expr::OwnedExpr};
 
 use self::parsing::Env;
 

@@ -1,4 +1,3 @@
-use itertools::Itertools;
 
 use super::{Bv, expr::Expr};
 

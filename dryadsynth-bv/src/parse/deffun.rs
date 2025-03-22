@@ -2,11 +2,10 @@
 use std::{array, cell::UnsafeCell};
 
 use derive_more::DebugCustom;
-use pest::Span;
 
 use crate::{enumerate::expr::OwnedExpr, info};
 
-use super::{cfg::Cfg, new_custom_error_span, Error, SExpr};
+use super::{new_custom_error_span, Error, SExpr};
 
 #[derive(Clone, DebugCustom)]
 #[debug(fmt = "define-fun {} {:?}", name, args)]

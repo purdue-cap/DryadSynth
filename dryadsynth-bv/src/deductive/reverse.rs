@@ -1,4 +1,3 @@
-use std::simd::{LaneCount, SupportedLaneCount};
 
 use bumpalo::Bump;
 

@@ -1,11 +1,11 @@
-use std::{simd::{SupportedLaneCount, LaneCount}, cmp::min};
+use std::cmp::min;
 
 use bumpalo::Bump;
 use itertools::Itertools;
 use rand::rngs::StdRng;
 use serde::{Deserialize, Serialize};
 
-use crate::{parse::{SynthProblem, PbeConstraint, self}, solutions::Solutions, info, enumerate::{config::{Config, Rule}, algo::Algo, algo2, Algo as AAlgo, algo3, algo4}, deductive::{combine::CombineRules, reverse::ReverseRule}};
+use crate::{parse::{SynthProblem, self}, solutions::Solutions, info, enumerate::{config::{Config, Rule}, algo::Algo, algo2, Algo as AAlgo, algo3, algo4}};
 
 use super::filter::FilterConfig;
 
@@ -40,9 +40,9 @@ impl SampleConfig {
     pub fn search_inner<const N: usize>(&self, sol: &mut Solutions, problem: &SynthProblem, rng: &mut StdRng) -> parse::Result<bool> {
         let (args, out) = sol.sample::<N, _>(rng);
         info!("Sampling with: {:x?} -> {:x?}. {}", args, out, sol.pbecstr.len());
-        let mut bump = Bump::new();
+        let bump = Bump::new();
         let mut filter = self.filter.state(args.clone(), &out, &bump, self.partial_solution);
-        let mut config = Config::from_problem(problem, self.partial_solution)?;
+        let config = Config::from_problem(problem, self.partial_solution)?;
         let consts = config.iter().flat_map(|x| if let Rule::Const(c) = x { Some(c) } else { None }).collect_vec();
         // if self.atom_shift {
         //     config.0 = config.0.iter().flat_map(|x| {

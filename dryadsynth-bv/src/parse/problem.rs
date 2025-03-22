@@ -1,9 +1,9 @@
 use derive_more::DebugCustom;
 use pest::Span;
 
-use crate::enumerate::{config::Config, expr::OwnedExpr};
+use crate::enumerate::expr::OwnedExpr;
 
-use super::{Error, new_custom_error_span, sexpr::SExpr, cfg::Cfg, literals::u64_constant};
+use super::{Error, new_custom_error_span, sexpr::SExpr, cfg::Cfg};
 
 #[derive(Clone, DebugCustom)]
 #[debug(fmt = "synth-fun {} {:?}", name, args)]

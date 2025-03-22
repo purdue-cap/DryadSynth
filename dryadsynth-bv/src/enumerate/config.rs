@@ -1,10 +1,9 @@
 
 
-use std::simd::{LaneCount, SupportedLaneCount};
 
-use crate::parse::{self, cfg::NonTerminal, deffun, literals, new_custom_error_span, PbeConstraint, SExpr, SynthProblem};
+use crate::parse::{self, cfg::NonTerminal, deffun, literals, new_custom_error_span, SExpr, SynthProblem};
 
-use super::{Bv, expr::OwnedExpr};
+use super::expr::OwnedExpr;
 use derive_more::{From, Deref};
 type NTid = usize;
 

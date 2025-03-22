@@ -1,7 +1,6 @@
-use std::{simd::{LaneCount, SupportedLaneCount}, collections::hash_map::Entry, mem::size_of, cmp::min, time::Instant};
-use std::simd::prelude::SimdPartialEq;
+use std::{collections::hash_map::Entry, mem::size_of, time::Instant};
 
-use crate::{generate_rules_matching, info, search::filter::Filter, debg, oexpr, enumerate::expr::OwnedExpr};
+use crate::{generate_rules_matching, search::filter::Filter, debg};
 
 use super::{config::{Config, Rule}, expr::Expr, Bv, algo::dynamic_usage_for_capacity, store::Store, utils::BitSetU64Ext};
 use bumpalo::Bump;
@@ -148,7 +147,7 @@ impl<'a, const N: usize> Algo<'a, N>  {
         }
     }
     
-    pub fn run_size_dyn(&mut self, size: usize, subset: u64, mut f: Box<dyn Filter<'a, N, Self> + '_>) -> Result<(), ()> {
+    pub fn run_size_dyn(&mut self, size: usize, subset: u64, f: Box<dyn Filter<'a, N, Self> + '_>) -> Result<(), ()> {
         self.run_size(size, subset, f)
     }
 

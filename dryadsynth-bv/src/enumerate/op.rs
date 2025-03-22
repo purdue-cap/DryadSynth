@@ -63,10 +63,10 @@ pub fn ite(v1: u64, v2: u64, v3: u64) -> u64{
 }
 
 pub mod bv {
-    use std::{simd::{LaneCount, SupportedLaneCount}, ops::{Not, Neg}};
+    
 
-    use iter_fixed::IteratorFixed;
-    use itertools::izip;
+    
+    
 
     use crate::{enumerate::Bv, parse::deffun};
 

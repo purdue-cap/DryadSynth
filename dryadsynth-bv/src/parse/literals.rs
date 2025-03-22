@@ -1,4 +1,4 @@
-use nom::{character::{is_alphanumeric, self, complete::char}, IResult, bytes::complete::{take_while1, tag, take_while, is_not}, combinator::{map_res, map, value}, sequence::{preceded, delimited, separated_pair, tuple, terminated, pair}, multi::{separated_list0, many0, many1}, branch::alt};
+use nom::{IResult, bytes::complete::{take_while1, tag}, combinator::map_res, sequence::preceded, branch::alt};
 use pest::Span;
 
 use super::{Error, new_custom_error_span};

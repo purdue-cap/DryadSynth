@@ -2,7 +2,7 @@
 name = "dryadsynth"
 version = "0.1.0"
 build = "scripts/main.rs"
-edition = "2024"
+edition = "2021"
 authors = ["Kangjing Huang <huangkangjing@gmail.com>", "Yanjun Wang <yanjunwang1006@gmail.com>", "YuantianDing <work.yt.ding@gmail.com>"]
 license = "MIT"
 description = "Dryad Synthesizer for SyGuS competition."

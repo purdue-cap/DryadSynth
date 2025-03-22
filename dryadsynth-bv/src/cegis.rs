@@ -1,4 +1,3 @@
-use std::time::Duration;
 
 use itertools::Itertools;
 use rsmt2::{SmtConf, print::{IdentParser, ModelParser}, SmtRes};
@@ -39,7 +38,7 @@ impl CegisState {
                 let mut args = (0..self.constraint.args as u64).collect_vec();
                 for (name, _, _, value) in model.into_iter(){
                     let value = u64_constant_no_error(&value);
-                    let index = VAR_NAMES.iter().enumerate().find(|(i, x)| x == &&&name).unwrap().0;
+                    let index = VAR_NAMES.iter().enumerate().find(|(_i, x)| x == &&&name).unwrap().0;
                     args[index] = value;
                 }
                 if let Ok(out) = self.constraint.ref_impl.eval(&*args) {
@@ -78,7 +77,7 @@ impl<'a> IdentParser<String, String, & 'a str> for Parser {
 impl<'a> ModelParser<String, String, String, & 'a str> for Parser {
     fn parse_value(
       self, input: & 'a str,
-      ident: & String, params: & [ (String, String) ], typ: & String,
+      _ident: & String, _params: & [ (String, String) ], _typ: & String,
     ) -> SmtRes<String> {
       Ok(input.into())
     }
