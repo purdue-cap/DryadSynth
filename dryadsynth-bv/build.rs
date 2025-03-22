@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 fn main() {
+    println!("Current directory: {:?}", std::env::current_dir().unwrap());
     let dir: PathBuf = ["tree-sitter", "tree-sitter-python", "src"].iter().collect();
 
     cc::Build::new()

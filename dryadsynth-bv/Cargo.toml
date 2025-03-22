@@ -9,7 +9,9 @@ homepage = "https://github.com/purdue-cap/DryadSynth"
 repository = "https://github.com/purdue-cap/DryadSynth"
 readme = "README.md"
 keywords = ["synthesis",  "bit-manipulating", "dryadsynth", "bit-vector", "sygus"]
-include = ["**/*.rs", "Cargo.toml", "cc_link", "tree-sitter/tree-sitter-*/src/parser.c", "tree-sitter/tree-sitter-*/src/scanner.cc"]
+include = ["/**/*.rs", "/Cargo.toml", "/cc_link",
+    "/tree-sitter"
+]
 
 [dependencies]
 ahash = "0.8.3"
