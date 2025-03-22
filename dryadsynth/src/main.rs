@@ -1,4 +1,5 @@
 use std::env;
+use std::ffi::CString;
 use std::fs::{File, set_permissions, metadata};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
