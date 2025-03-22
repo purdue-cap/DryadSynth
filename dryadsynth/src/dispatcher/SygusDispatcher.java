@@ -11,7 +11,7 @@ import com.microsoft.z3.*;
 
 public class SygusDispatcher {
     public enum SolveMethod {
-        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC, INVDNC, BV, PBE
+        PRESCREENED, CEGIS, SSI, SSICOMM, AT, GENERALDNC, INVDNC, BV, PBEBV
     }
     SolveMethod method = SolveMethod.CEGIS;
     Context z3ctx;
@@ -240,12 +240,18 @@ public class SygusDispatcher {
         }
         boolean checkResult = this.checkGeneral();
         if (checkResult) {
-            checkResult = this.checkPBE();
+            checkResult = this.checkPBEBV();
             if (checkResult) {
                 logger.info("PBE BitVec SyGuS problem detected, using PBE-BV-dedicated backend.");
-                this.method = SolveMethod.PBE;
+                this.method = SolveMethod.PBEBV;
                 return;
             }
+            // checkResult = this.checkPBESTR();
+            // if (checkResult) {
+            //     logger.info("PBE BitVec SyGuS problem detected, using PBE-BV-dedicated backend.");
+            //     this.method = SolveMethod.PBEBV;
+            //     return;
+            // }
             checkResult = this.checkBV();
             if (checkResult) {
                 logger.info("BitVec SyGuS problem detected, using BV-dedicated backend.");
@@ -297,7 +303,7 @@ public class SygusDispatcher {
         return;
     }
 
-    public void initAlgorithm() throws Exception{
+    public void initAlgorithm() throws Exception {
         if (this.method == SolveMethod.PRESCREENED) {
             logger.info("Taking parsed candidates, skipping algorithm initialization.");
             return;
@@ -350,9 +356,7 @@ public class SygusDispatcher {
             for (int i = 0; i < numCore; i++) {
                 Logger threadLogger = Logger.getLogger("main.thread" + i);
                 threadLogger.setUseParentHandlers(false);
-                // FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
-                // threadHandler.setFormatter(new SimpleFormatter());
-                // threadLogger.addHandler(threadHandler);
+                threadLogger.setLevel(java.util.logging.Level.OFF);
                 if (enableITCEGIS) {
                     fallbackCEGIS[i] = new ITCegis(env, threadLogger);
                 } else {
@@ -397,9 +401,7 @@ public class SygusDispatcher {
                 for (int i = 0; i < numCore; i++) {
                     Logger threadLogger = Logger.getLogger("main.thread" + i);
                     threadLogger.setUseParentHandlers(false);
-                    // FileHandler threadHandler = new FileHandler("log.thread." + i + ".txt", false);
-                    // threadHandler.setFormatter(new SimpleFormatter());
-                    // threadLogger.addHandler(threadHandler);
+                    threadLogger.setLevel(java.util.logging.Level.OFF);
                     threads[i] = new DnCegis(dncEnv, threadLogger);
                     ((Cegis)threads[i]).iterLimit = this.iterLimit;
                 }
@@ -465,6 +467,7 @@ public class SygusDispatcher {
                 Context dncctx = new Context();
                 Logger threadLogger = Logger.getLogger("main.thread" + "dnc");
                 threadLogger.setUseParentHandlers(false);
+                threadLogger.setLevel(java.util.logging.Level.OFF);
                 // FileHandler threadHandler = new FileHandler("log.thread." + "dnc" + ".txt", false);
                 // threadHandler.setFormatter(new SimpleFormatter());
                 // threadLogger.addHandler(threadHandler);
@@ -488,36 +491,9 @@ public class SygusDispatcher {
             threads[0] = new BVEnum(z3ctx, problem, logger, numCore);
             return;
         }
-
-        if (this.method == SolveMethod.PBE) {
-            logger.info("Initializing PBE-BV-dedicated algorithms.");
-            // Support single thread only for now, ignoring numCore settings.
-            // if (this.sizeBasedEnum) {
-            //     threads[0] = new PBEEnumSize(z3ctx, problem, logger, numCore, seed);
-            // } else {
-            //     threads[0] = new PBEEnum(z3ctx, problem, logger, numCore);
-            // }
-            final var base = System.getenv("BASE");
-            final var process = (this.bvconfigFile == "")? (
-                this.bvverbose?
-                new ProcessBuilder("dryadsynth-bv", "-v", this.fileName).inheritIO().start() :
-                new ProcessBuilder("dryadsynth-bv", this.fileName).inheritIO().start()
-            ) : (
-                this.bvverbose?
-                new ProcessBuilder("dryadsynth-bv", "-v", this.fileName, "-c", this.bvconfigFile).inheritIO().start():
-                new ProcessBuilder("dryadsynth-bv", this.fileName, "-c", this.bvconfigFile).inheritIO().start()
-            );
-            // final var reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            process.waitFor();
-            // String lines = null;
-            // while ((lines = reader.readLine())!=null) {
-            //     System.out.println(lines);
-            // }
-            System.exit(process.exitValue());
-            return;
-        }
-
     }
+
+
 
     public DefinedFunc[] runAlgorithm() throws Exception{
         if (this.method == SolveMethod.PRESCREENED) {
@@ -574,7 +550,7 @@ public class SygusDispatcher {
             results = ((BVEnum)threads[0]).results;
         }
 
-        if (this.method == SolveMethod.PBE) {
+        if (this.method == SolveMethod.PBEBV) {
             logger.info("Starting PBE-BV algorithms.");
             threads[0].run();
             if (this.sizeBasedEnum) {
@@ -931,7 +907,7 @@ public class SygusDispatcher {
         return problem.problemType == SygusProblem.ProbType.BV;
     }
 
-    boolean checkPBE() {
+    boolean checkPBEBV() {
         return problem.problemType == SygusProblem.ProbType.BV && problem.ioexamples != null;
     }
 

@@ -67,9 +67,7 @@ public class QETest {
         Logger logger = Logger.getLogger("main");
         if (!options.has("v")) {
             logger.setUseParentHandlers(false);
-            FileHandler handler = new FileHandler("log.main.txt", false);
-            handler.setFormatter(new SimpleFormatter());
-            logger.addHandler(handler);
+			logger.setLevel(java.util.logging.Level.OFF);
         }
         logger.info(String.format("Using %d threads", numCore));
         logger.info(String.format("Using finite coeffBound timeout %d mins and infinite coeffBound timeout %d mins", minFinite, minInfinite));

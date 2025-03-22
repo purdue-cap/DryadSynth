@@ -1,14 +1,22 @@
 [package]
 name = "dryadsynth"
 version = "0.1.0"
-build = "build.rs"
+build = "scripts/main.rs"
 edition = "2024"
+authors = ["Kangjing Huang <huangkangjing@gmail.com>", "Yanjun Wang <yanjunwang1006@gmail.com>", "YuantianDing <work.yt.ding@gmail.com>"]
+license = "MIT"
+description = "Dryad Synthesizer for SyGuS competition."
+homepage = "https://github.com/purdue-cap/DryadSynth"
+repository = "https://github.com/purdue-cap/DryadSynth"
+readme = "README.md"
+keywords = ["program synthesis", "synthesis",  "programming", "purdue", "xiaokang", "qiu", "enumeration", "deduction", "dryadsynth", "verification", "sygus", "syntax-guided", "clia", "sygus-comp"]
 
 [dependencies]
 libc = "0.2"
 
 
 [build-dependencies]
+md5 = "0.7.0"
 flate2 = "1.1.0"
 glob = "0.3.2"
 reqwest = { version = "0.12.15", features = ["blocking"] }

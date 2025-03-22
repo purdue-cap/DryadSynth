@@ -14,12 +14,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(windows))]
     let binary_data = include_bytes!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm"));
 
+    let md5sum = include_str!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm.md5sum"));
     // Determine a temp path and write the binary there.
 
     let mut temp_path = env::temp_dir();
-    temp_path.push("dryadsynth-graalvm");
+    temp_path.push(md5sum);
 
-    if !temp_path.exists() {
+    // if !temp_path.exists() {
+    {
         let mut file = File::create(&temp_path)?;
         file.write_all(binary_data)?;
         drop(file);

@@ -2,6 +2,13 @@
 name = "dryadsynth-bv"
 version = "0.1.0"
 edition = "2021"
+authors = ["YuantianDing <work.yt.ding@gmail.com>"]
+license = "MIT"
+description = "DryadSynth solver for bit manipulating programs"
+homepage = "https://github.com/purdue-cap/DryadSynth"
+repository = "https://github.com/purdue-cap/DryadSynth"
+readme = "README.md"
+keywords = ["program synthesis", "synthesis",  "programming", "purdue", "xiaokang", "qiu", "hackers delight", "dryadsynth", "formal",  "bit manipulating", "bit manipulation", "bit vector", "bitvec", "bitvector", "bv", "llm"]
 
 [dependencies]
 ahash = "0.8.3"
