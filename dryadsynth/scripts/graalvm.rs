@@ -1,6 +1,6 @@
 use std::path::Path;
-use std::fs::{self, File};
-use std::io::{self, Cursor};
+use std::fs;
+use std::io::Cursor;
 use flate2::bufread::GzDecoder;
 use reqwest::blocking::get;
 use tar::Archive;

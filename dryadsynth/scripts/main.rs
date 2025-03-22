@@ -1,4 +1,3 @@
-use core::time;
 use std::time::SystemTime;
 use std::{env, fs};
 
@@ -11,10 +10,6 @@ extern crate zip_extract;
 extern crate glob;
 
 use glob::glob;
-use flate2::read::GzDecoder;
-use reqwest::blocking::get;
-use tar::Archive;
-use zip_extract::extract;
 use std::fs::File;
 use std::io::{Read, Write};
 
