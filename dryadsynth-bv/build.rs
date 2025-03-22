@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 fn main() {
     println!("Current directory: {:?}", std::env::current_dir().unwrap());
-    let dir: PathBuf = ["tree-sitter", "tree-sitter-python", "src"].iter().collect();
+    let dir: PathBuf = ["tree-sitter", "tree-sitter-python"].iter().collect();
 
     cc::Build::new()
         .include(&dir)
@@ -14,7 +14,7 @@ fn main() {
         .file(dir.join("scanner.cc"))
         .compile("tree-sitter-python-scanner");
 
-    let dir2: PathBuf = ["tree-sitter", "tree-sitter-markdown", "src"].iter().collect();
+    let dir2: PathBuf = ["tree-sitter", "tree-sitter-markdown"].iter().collect();
 
     cc::Build::new()
         .include(&dir2)
