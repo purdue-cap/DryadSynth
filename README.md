@@ -21,7 +21,18 @@ To install DryadSynth, you need:
 - For general solver, make sure `z3` (recommended version `4.14.1`) with java bindings `libz3java.so` installed in `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`.
 - For bit-vector solver, make sure `bitwuzla` command installed in `PATH`.
 
-And then simply install DryadSynth by `cargo +nightly install dryadsynth dryadsynth-bv synthphonia-rs`. 
+And then simply install DryadSynth by
+
+```sh
+cargo +nightly-2025-03-13 install dryadsynth dryadsynth-bv synthphonia-rs
+```
+
+Note that you can also build DryadSynth using this repo. Simply run:
+
+```sh
+git clone https://github.com/purdue-cap/DryadSynth --recursive
+cd DryadSynth && cargo build --release
+```
 
 ## Supported Platform
 
