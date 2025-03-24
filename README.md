@@ -34,6 +34,12 @@ git clone https://github.com/purdue-cap/DryadSynth --recursive
 cd DryadSynth && cargo build --release
 ```
 
+Then all executable will be available in `target/release` directory. The executable depends on each other, so make sure `target/release` is in your path when you run `dryadsynth`:
+
+```
+PATH=$(pwd)/target/release:$PATH dryadsynth
+```
+
 ## Supported Platform
 
 | Platform       | Test  | Notes                                                                                                                                        |
