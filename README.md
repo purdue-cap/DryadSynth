@@ -18,10 +18,10 @@ To install DryadSynth, you need:
 
 - Basic Linux Utilities: `gcc`, `g++`, `glibc-dev`, `zlib-dev`, `zlib-static`, `libstdc++-static` installed (Used for [GraalVM](https://www.graalvm.org/latest/getting-started/linux/) to compile java scripts).
 - Rust toolchain: `rustup`, `cargo`, `rustc`, `rust-std` installed.
-- For general solver, make sure `z3` (recommended version `4.14.1`) with java bindings `libz3java.so` installed in `LD_LIBRARY_PATH` or `DYLB_LIBRARY_PATH`.
+- For general solver, make sure `z3` (recommended version `4.14.1`) with java bindings `libz3java.so` installed in `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`.
 - For bit-vector solver, make sure `bitwuzla` command installed in `PATH`.
 
-And then simply install DryadSynth by `cargo install dryadsynth dryadsynth-bv synthphonia-rs`. 
+And then simply install DryadSynth by `cargo +nightly install dryadsynth dryadsynth-bv synthphonia-rs`. 
 
 ## Supported Platform
 
@@ -36,7 +36,7 @@ Once DryadSynth in installed in your system. The following command will be avail
 
 * `dryadsynth` the main entry of the general solver, only general solving strategy options for SyGuS-IF (`.sl`) format supported, will call the sub-solvers in settings restricted in `sygus-if2` format.
 * `dryadsynth-bv` the bit-vector sub-solver, used to specify bit-vector specific options in our [POPL'24 paper](https://github.com/purdue-cap/DryadSynth/blob/master/docs/popl2024.pdf).
-* `synthphonia` the string sub-solver, used to specify the string-related grammar and options, offering richer grammar in the default settings.
+* `synthphonia` the string sub-solver, used to specify the string-related grammar and options.
 
 Note: Some problems run in multithread by default. If you don't specify the number of threads, the CPU core count on your system would be used. **This may cause unexpected behavior when the size of the CPU pool is large**.
 
