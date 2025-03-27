@@ -19,14 +19,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut temp_path = env::temp_dir();
     temp_path.push(md5sum);
 
-    // if !temp_path.exists() {
-    {
+    if !temp_path.exists() {
         let mut file = File::create(&temp_path)?;
         file.write_all(binary_data)?;
         drop(file);
 
         let mut perms = metadata(&temp_path)?.permissions();
-        perms.set_mode(0o755);
+        perms.set_mode(0o777);
         set_permissions(&temp_path, perms)?;
     }
 
