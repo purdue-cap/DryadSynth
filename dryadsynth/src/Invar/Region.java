@@ -1,4 +1,4 @@
-rt java.util.*;
+import java.util.*;
 import java.lang.Math;
 import com.microsoft.z3.*;
 
