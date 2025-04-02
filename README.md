@@ -18,7 +18,6 @@ To install DryadSynth, you need:
 
 - Basic Linux Utilities: `gcc`, `g++`, `glibc-dev`, `zlib-dev`, `zlib-static`, `libstdc++-static` installed (Used for [GraalVM](https://www.graalvm.org/latest/getting-started/linux/) to compile java scripts).
 - Rust toolchain: `rustup`, `cargo`, `rustc`, `rust-std` installed.
-- For general solver, make sure `z3` (recommended version `4.14.1`) with java bindings `libz3java.so` installed in `LD_LIBRARY_PATH` or `DYLD_LIBRARY_PATH`.
 - For bit-vector solver, make sure `bitwuzla` command installed in `PATH`.
 
 And then simply install DryadSynth by
