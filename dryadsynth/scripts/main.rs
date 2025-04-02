@@ -42,14 +42,24 @@ impl Timestamps {
 }
 
 mod graalvm;
-// mod z3;
+mod z3;
+
 fn main() {
     println!("cargo::rerun-if-changed=src");
     let output_dir_str = env::var("OUT_DIR").unwrap();
     let output_dir = Path::new(&output_dir_str);
+    z3::ensure(&output_dir);
     graalvm::ensure(&output_dir);
     
-    unsafe{
+    let z3_dir = output_dir.join("z3");
+    {
+        let z3_lib_path = z3_dir.join("lib64").join("libz3java.so");
+        if !z3_lib_path.exists() {
+            panic!("Required file {:?} does not exist", z3_lib_path);
+        }
+    }
+    
+    unsafe {
         // Set the GRAALVM_HOME environment variable;
         #[cfg(target_os = "linux")]
         env::set_var("GRAALVM_HOME",
@@ -121,6 +131,7 @@ fn main() {
     let class_pathes = glob("lib/*").unwrap()
         .map(|x| x.unwrap().to_str().unwrap().to_owned())
         .chain([classes_dir.to_str().unwrap().to_owned()])
+        .chain([z3_dir.join("build").join("com.microsoft.z3.jar").to_str().unwrap().to_owned()])
         .collect::<Vec<_>>().join(":");
 
     println!("source_pathes: {}", source_pathes);

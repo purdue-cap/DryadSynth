@@ -64,6 +64,7 @@ public class Run {
             return;
         }
 		int numCore = (Integer)options.valuesOf("t").get(0);
+		if(numCore > 8) { numCore = 8; }
 		int seed = (Integer)options.valuesOf("s").get(0);
 		int iterLimit = (Integer)options.valuesOf("l").get(0);
 		int minFinite = (Integer)options.valuesOf("f").get(0);

@@ -1,25 +1,21 @@
-use std::env;
+use std::{env, fs};
 use std::ffi::CString;
 use std::fs::{File, set_permissions, metadata};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // The build.rs script should generate or copy the binary to the OUT_DIR.
-    // Here we include that binary at compile time.
-    // Make sure your build.rs puts the binary in $OUT_DIR as "embedded_binary"
-    #[cfg(windows)]
-    let binary_data = include_bytes!(concat!(env!("OUT_DIR"), "\\dryadsynth-graalvm"));
-    #[cfg(not(windows))]
-    let binary_data = include_bytes!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm"));
+fn create_dir_all<P: AsRef<std::path::Path>>(path: P) -> Result<(), Box<dyn std::error::Error>> {
+    if let Err(e) = fs::create_dir_all(path) {
+        if e.kind() != std::io::ErrorKind::AlreadyExists {
+            panic!("Failed to create build directory: {}", e);
+        }
+    }
+    Ok(())
+}
 
-    let md5sum = include_str!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm.md5sum"));
-    // Determine a temp path and write the binary there.
-
-    let mut temp_path = env::temp_dir();
-    temp_path.push(md5sum);
-
-    if !temp_path.exists() {
+fn binary_file<P: AsRef<std::path::Path>>(temp_path: P, binary_data: &[u8]) -> Result<(), Box<dyn std::error::Error>> {
+    if !temp_path.as_ref().exists() {
         let mut file = File::create(&temp_path)?;
         file.write_all(binary_data)?;
         drop(file);
@@ -27,6 +23,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut perms = metadata(&temp_path)?.permissions();
         perms.set_mode(0o777);
         set_permissions(&temp_path, perms)?;
+    }
+    Ok(())
+}
+
+fn load_z3() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let libz3java_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/lib64/libz3java.so"));
+    let libz3_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/lib64/libz3.so"));
+    let mut temp_path = env::temp_dir();
+    temp_path.push("z3-4.8.5");
+    temp_path.push("lib64");
+
+    if !temp_path.exists() {
+        create_dir_all(&temp_path)?;
+        
+        binary_file(temp_path.join("libz3java.so"), libz3java_so)?;
+        binary_file(temp_path.join("libz3.so.4.8"), libz3_so)?;
+    }
+    
+    Ok(temp_path)
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // The build.rs script should generate or copy the binary to the OUT_DIR.
+    // Here we include that binary at compile time.
+    // Make sure your build.rs puts the binary in $OUT_DIR as "embedded_binary"
+
+    let binary_data = include_bytes!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm"));
+
+    let md5sum = concat!("dryadsynth-", include_str!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm.md5sum")));
+
+    let mut temp_path = env::temp_dir();
+    temp_path.push(md5sum);
+
+    binary_file(&temp_path, binary_data)?;
+
+    unsafe {
+        std::env::set_var("LD_LIBRARY_PATH", load_z3().unwrap().to_str().unwrap());
     }
 
     #[cfg(unix)]

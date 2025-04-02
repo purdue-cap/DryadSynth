@@ -514,6 +514,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0f41849eba0194c121ff31ccbfcc0b0fc965a3ea9f5ef23756af72a17938bc57"
 
 [[package]]
+name = "cmake"
+version = "0.1.54"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7caa3f9de89ddbe2c607f4101924c5abec803763ae9534e4f4d7d8f84aa81f0"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "colorchoice"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -846,8 +855,9 @@ dependencies = [
 
 [[package]]
 name = "dryadsynth"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
+ "cmake",
  "flate2",
  "glob",
  "libc",
