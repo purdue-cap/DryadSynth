@@ -26,14 +26,14 @@ And then simply install DryadSynth by
 cargo +nightly-2025-03-13 install dryadsynth dryadsynth-bv synthphonia-rs
 ```
 
-Note that you can also build DryadSynth using this repo. Simply run:
+Then all executables will be put in `~/.cargo/bin` directory. Note that you can also build DryadSynth using this repo. Simply run:
 
 ```sh
 git clone https://github.com/purdue-cap/DryadSynth --recursive
 cd DryadSynth && cargo build --release
 ```
 
-Then all executable will be available in `target/release` directory. The executable depends on each other, so make sure `target/release` is in your path when you run `dryadsynth`:
+Then all executables will be available in `target/release` directory. The executable depends on each other, so make sure `target/release` is in your path when you run `dryadsynth`:
 
 ```
 PATH=$(pwd)/target/release:$PATH dryadsynth
