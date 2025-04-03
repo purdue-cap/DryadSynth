@@ -1,0 +1,8 @@
+dryadsynth/StarExec
+target/
+Dockerfile
+README.md
+docs/
+.vscode/
+.git/
+.gitignore

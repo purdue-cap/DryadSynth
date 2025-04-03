@@ -1,7 +1,5 @@
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::error::Error;
+use std::path::Path;
 use std::fs;
 
 pub fn ensure(output_dir: &Path) {
@@ -33,7 +31,7 @@ pub fn ensure(output_dir: &Path) {
     }
 
     println!("Building Z3...");
-    let result = cmake::Config::new(z3_src_dir.clone())
+    let _ = cmake::Config::new(z3_src_dir.clone())
         .define("BUILD_JAVA_BINDINGS", "TRUE")
         .define("BUILD_LIBZ3_SHARED", "TRUE")
         .out_dir(&output_dir.join("z3"))

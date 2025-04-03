@@ -28,11 +28,11 @@ fn binary_file<P: AsRef<std::path::Path>>(temp_path: P, binary_data: &[u8]) -> R
 }
 
 fn load_z3() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let libz3java_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/lib64/libz3java.so"));
-    let libz3_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/lib64/libz3.so"));
+    let libz3java_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/build/libz3java.so"));
+    let libz3_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/build/libz3.so"));
     let mut temp_path = env::temp_dir();
     temp_path.push("z3-4.8.5");
-    temp_path.push("lib64");
+    temp_path.push("lib");
 
     if !temp_path.exists() {
         create_dir_all(&temp_path)?;

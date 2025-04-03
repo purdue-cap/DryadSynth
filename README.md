@@ -16,7 +16,11 @@ For a complete description on methods, please see `docs/pldi2020.pdf` for CLIA a
 
 To install DryadSynth, you need:
 
-- Basic Linux Utilities: `gcc`, `g++`, `glibc-dev`, `zlib-dev`, `zlib-static`, `libstdc++-static` installed (Used for [GraalVM](https://www.graalvm.org/latest/getting-started/linux/) to compile java scripts).
+- Basic Linux Utilities:
+  - `gcc`, `g++`, `glibc-dev`, `zlib-dev`, `zlib-static`, `libstdc++-static` for [GraalVM](https://www.graalvm.org/latest/getting-started/linux/) compilation,
+  - `libssl-dev`, `pkg-config` for OpenAI API,
+  - `cmake`, `python3`, `python3-pip` for Z3 compilation,
+  - See `Dockerfile` for more details about dependencies.
 - Rust toolchain: `rustup`, `cargo`, `rustc`, `rust-std` installed.
 - For bit-vector solver, make sure `bitwuzla` command installed in `PATH`.
 
