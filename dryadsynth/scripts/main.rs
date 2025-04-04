@@ -76,7 +76,10 @@ fn main() {
     z3::ensure(&output_dir);
     let z3_dir = output_dir.join("z3");
     {
+        #[cfg(target_os = "linux")]
         let z3_lib_path = z3_dir.join("build").join("libz3java.so");
+        #[cfg(target_os = "macos")]
+        let z3_lib_path = z3_dir.join("build").join("libz3java.dylib");
         if !z3_lib_path.exists() {
             panic!("Required file {:?} does not exist", z3_lib_path);
         }

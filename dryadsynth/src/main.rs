@@ -28,6 +28,7 @@ fn binary_file<P: AsRef<std::path::Path>>(temp_path: P, binary_data: &[u8]) -> R
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn load_z3() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let libz3java_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/build/libz3java.so"));
     let libz3_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/build/libz3.so"));
@@ -40,6 +41,24 @@ fn load_z3() -> Result<PathBuf, Box<dyn std::error::Error>> {
         
         binary_file(temp_path.join("libz3java.so"), libz3java_so)?;
         binary_file(temp_path.join("libz3.so.4.8"), libz3_so)?;
+    }
+    
+    Ok(temp_path)
+}
+
+#[cfg(target_os = "macos")]
+fn load_z3() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let libz3java_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/build/libz3java.dylib"));
+    let libz3_so = include_bytes!(concat!(env!("OUT_DIR"), "/z3/build/libz3.dylib"));
+    let mut temp_path = env::temp_dir();
+    temp_path.push("z3-4.8.5");
+    temp_path.push("lib");
+
+    if !temp_path.exists() {
+        create_dir_all(&temp_path)?;
+        
+        binary_file(temp_path.join("libz3java.dylib"), libz3java_so)?;
+        binary_file(temp_path.join("libz3.4.8.5.0.dylib"), libz3_so)?;
     }
     
     Ok(temp_path)
@@ -71,7 +90,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     binary_file(&temp_path, binary_data)?;
 
     unsafe {
+        #[cfg(target_os = "linux")]
         std::env::set_var("LD_LIBRARY_PATH", load_z3().unwrap().to_str().unwrap());
+        #[cfg(target_os = "macos")]
+        std::env::set_var("DYLD_LIBRARY_PATH", load_z3().unwrap().to_str().unwrap());
     }
 
     #[cfg(unix)]
