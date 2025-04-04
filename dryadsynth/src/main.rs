@@ -4,6 +4,7 @@ use std::fs::{File, set_permissions, metadata};
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
+use std::path::Path;
 
 fn create_dir_all<P: AsRef<std::path::Path>>(path: P) -> Result<(), Box<dyn std::error::Error>> {
     if let Err(e) = fs::create_dir_all(path) {
@@ -45,16 +46,27 @@ fn load_z3() -> Result<PathBuf, Box<dyn std::error::Error>> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    {
+        // Set the PATH environment variable to include the directory of the current executable
+        if let Some(arg0) = env::args().next() {
+            if let Some(dir) = Path::new(&arg0).parent() {
+                let dir_str = dir.to_str().unwrap_or_default();
+                let current_path = env::var("PATH").unwrap_or_default();
+                let new_path = format!("{}:{}", dir_str, current_path);
+                env::set_var("PATH", new_path);
+            }
+        }
+    }
+
     // The build.rs script should generate or copy the binary to the OUT_DIR.
     // Here we include that binary at compile time.
     // Make sure your build.rs puts the binary in $OUT_DIR as "embedded_binary"
-
     let binary_data = include_bytes!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm"));
 
-    let md5sum = concat!("dryadsynth-", include_str!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm.md5sum")));
+    let dryadsynth_filename = concat!("dryadsynth-", include_str!(concat!(env!("OUT_DIR"), "/dryadsynth-graalvm.md5sum")));
 
     let mut temp_path = env::temp_dir();
-    temp_path.push(md5sum);
+    temp_path.push(dryadsynth_filename);
 
     binary_file(&temp_path, binary_data)?;
 
