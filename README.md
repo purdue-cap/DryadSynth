@@ -6,9 +6,9 @@ For a complete description on methods, please see `docs/pldi2020.pdf` for CLIA a
 
 # Publications
 
-- [Reconciling enumerative and deductive program synthesis.](https://dl.acm.org/doi/abs/10.1145/3385412.3386027) Kangjing Huang, Xiaokang Qiu, Peiyuan Shen, and Yanjun Wang. In Proceedings of the 41st ACM SIGPLAN Conference on Programming Language Design and Implementation, pp. 1159-1174. 2020. [author version](https://github.com/purdue-cap/DryadSynth/blob/master/docs/pldi2020.pdf).
+- [Reconciling enumerative and deductive program synthesis.](https://dl.acm.org/doi/abs/10.1145/3385412.3386027) Kangjing Huang, Xiaokang Qiu, Peiyuan Shen, and Yanjun Wang. In Proceedings of the 41st ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI '20), pp. 1159-1174. 2020. [author version](https://github.com/purdue-cap/DryadSynth/blob/master/docs/pldi2020.pdf).
 - [Enhanced Enumeration of Techniques for Syntax-Guided Synthesis of Bit-Vector Manipulations](https://dl.acm.org/doi/10.1145/3632913) Yuantian Ding, Xiaokang Qiu, In Proc. 51st ACM SIGPLAN Symposium on Principles of Programming Languages (POPL '24), 2024. [author version](https://github.com/purdue-cap/DryadSynth/blob/master/docs/popl2024.pdf).
-- [A Concurrent Approach to String Transformation Synthesis.](https://yuantianding.github.io/uploads/PLDI_2025.pdf) Yuantian Ding, Xiaokang Qiu, Conditional Accepted by PLDI 2025. [author version](https://yuantianding.github.io/uploads/PLDI_2025.pdf).
+- [A Concurrent Approach to String Transformation Synthesis.](https://yuantianding.github.io/uploads/PLDI_2025.pdf) Yuantian Ding, Xiaokang Qiu, In Proc. Proc. 46th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI '25), 2025. [author version](https://yuantianding.github.io/uploads/PLDI_2025.pdf).
 
 # Installation and Running
 
