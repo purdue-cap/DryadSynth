@@ -1,6 +1,6 @@
 [package]
 name = "dryadsynth"
-version = "0.1.3"
+version = "0.1.4"
 build = "scripts/main.rs"
 edition = "2021"
 authors = ["Kangjing Huang <huangkangjing@gmail.com>", "Yanjun Wang <yanjunwang1006@gmail.com>", "YuantianDing <work.yt.ding@gmail.com>"]
