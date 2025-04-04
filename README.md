@@ -45,10 +45,10 @@ PATH=$(pwd)/target/release:$PATH dryadsynth
 
 ## Supported Platform
 
-| Platform       | Test  | Notes                                                                                                                                        |
-| :------:       | :--:  | :----:                                                                                                                                       |
-| linux-x64-glibc| Passed| Tested on Fedora 32, March 2025                                                                                                              |
-| macos-x64      | Passed|  |
+| Platform       | Test  | Notes                                                |
+| :------:       | :--:  | :----:                                               |
+| linux-x64-glibc| Passed| See `Dockerfile`                                     |
+| macos-x64      | Passed| Must use release mode, debug mode no bitvec support. |
 
 ## Run the Synthesizer
 
