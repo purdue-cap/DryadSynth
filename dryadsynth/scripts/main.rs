@@ -49,33 +49,27 @@ fn main() {
     let output_dir_str = env::var("OUT_DIR").unwrap();
     let output_dir = Path::new(&output_dir_str);
     graalvm::ensure(&output_dir);
+    #[cfg(target_os = "linux")]
+    let graalvm_home = output_dir.join("graalvm").to_str().unwrap().to_owned();
+    #[cfg(target_os = "macos")]
+    let graalvm_home = output_dir.join("graalvm").join("Contents").join("Home").to_str().unwrap().to_owned();
     
     
     unsafe {
         // Set the GRAALVM_HOME environment variable;
-        #[cfg(target_os = "linux")]
-        env::set_var("GRAALVM_HOME",
-            output_dir.join("graalvm").to_str().unwrap()
-        );
-
-        #[cfg(target_os = "macos")]
-        env::set_var("GRAALVM_HOME",
-            output_dir.join("graalvm").join("Contents").join("Home").to_str().unwrap()
-        );
+        env::set_var("GRAALVM_HOME", &graalvm_home);
 
         // Set the JAVA_HOME environment variable;
-        env::set_var("JAVA_HOME",
-            output_dir.join("graalvm").to_str().unwrap()
-        );
+        env::set_var("JAVA_HOME", &graalvm_home);
 
         // Set the PATH environment variable;
         env::set_var("PATH",
-            format!("{}/bin:{}", env::var("GRAALVM_HOME").unwrap(), env::var("PATH").unwrap())
+            format!("{}/bin:{}", &graalvm_home, env::var("PATH").unwrap())
         );
 
         // Set the LD_LIBRARY_PATH environment variable;
         env::set_var("LD_LIBRARY_PATH",
-            format!("{}/lib:{}", env::var("GRAALVM_HOME").unwrap(), env::var("LD_LIBRARY_PATH").unwrap_or_default())
+            format!("{}/lib:{}", &graalvm_home, env::var("LD_LIBRARY_PATH").unwrap_or_default())
         );
     }
 

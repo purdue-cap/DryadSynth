@@ -16,7 +16,7 @@ RUN /root/.cargo/bin/cargo build --release &&  \
     mv target/release/dryadsynth-bv /usr/bin/dryadsynth-bv && \
     mv target/release/synthphonia /usr/bin/synthphonia
 
-FROM busybox
+FROM alpine:latest
 
 
 COPY --from=0 /lib64/ld-linux-x86-64.so.2 /lib64/ld-linux-x86-64.so.2 
@@ -27,10 +27,13 @@ COPY --from=0 /lib/x86_64-linux-gnu/libdl.so.2 /lib/x86_64-linux-gnu/libdl.so.2
 COPY --from=0 /lib/x86_64-linux-gnu/libc.so.6 /lib/x86_64-linux-gnu/libc.so.6
 COPY --from=0 /lib/x86_64-linux-gnu/libgcc_s.so.1 /lib/x86_64-linux-gnu/libgcc_s.so.1
 COPY --from=0 /lib/x86_64-linux-gnu/libm.so.6 /lib/x86_64-linux-gnu/libm.so.6
+COPY --from=0 /lib/x86_64-linux-gnu/libssl.so.1.1 /lib/x86_64-linux-gnu/libssl.so.1.1
+COPY --from=0 /lib/x86_64-linux-gnu/libcrypto.so.1.1 /lib/x86_64-linux-gnu/libcrypto.so.1.1
 
 COPY --from=0 /usr/bin/dryadsynth /usr/bin/dryadsynth
 COPY --from=0 /usr/bin/dryadsynth-bv /usr/bin/dryadsynth-bv
 COPY --from=0 /usr/bin/synthphonia /usr/bin/synthphonia
+ADD benchmarks /benchmarks
 
 CMD ["dryadsynth"]
 
