@@ -4,7 +4,7 @@ use ahash::HashMap;
 use openai::chat::{ChatCompletionMessage, ChatCompletionMessageRole::{System, User}, ChatCompletion};
 use tree_sitter::Language;
 
-use crate::{parse::{PbeConstraint, SynthProblem}, enumerate::expr::OwnedExpr};
+use crate::{debg, enumerate::expr::OwnedExpr, parse::{PbeConstraint, SynthProblem}};
 
 use self::parsing::Env;
 
@@ -23,7 +23,7 @@ pub async fn ask_chatgpt(system: String, text: String, count: usize, nargs: usiz
             for x in a.choices {
                 let response = x.message.content.unwrap();
                 // println!("-----------------------");
-                // println!("{}", response);
+                debg!("{}", response);
                 if let Ok(n) = Env::parse_response(&response, nargs) {
                     // if let Some(last) = n.maps.get("last") {
                     //     println!("{:?}", last);
@@ -45,7 +45,7 @@ pub async fn ask_chatgpt(system: String, text: String, count: usize, nargs: usiz
 
 #[tokio::main]
 pub async fn ask(problem: &SynthProblem<'_>, pbe: PbeConstraint, gpt_version: String) -> Vec<HashMap<String, OwnedExpr>> {
-    let system = "You are a helpful assistant helping user synthesizing bit-vector programs. Please give results in steps.";
+    let system = "You are a helpful assistant helping user synthesizing bit-vector programs. Please just give the result without comments.";
     let user = format!("Give me some useful subexpressions in each steps to {}. Assume all integers are {} bits.\n\n{}", problem.description.to_lowercase(), problem.bits, pbe.fmt(problem.args.len()));
     // println!("{}", user);
     ask_chatgpt(system.into(), user, 20, problem.args.len(), gpt_version).await

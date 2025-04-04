@@ -1,0 +1,47 @@
+
+    (set-logic SLIA)
+    (synth-fun f ((arg0 String)) String 
+        (
+            (Start String (ntString)) 
+            (ntString String ( arg0
+                (str.++ ntString ntString) 
+                (str.replace ntString ntString ntString) 
+                (str.at ntString ntInt)
+                (int.to.str ntInt)
+                (ite ntBool ntString ntString)
+                (str.substr ntString ntInt ntInt)
+            )) 
+            (ntInt Int (
+                1 0 -1
+                (+ ntInt ntInt)
+                (- ntInt ntInt)
+                (str.len ntString)
+                (str.to.int ntString)
+                (ite ntBool ntInt ntInt)
+                (str.indexof ntString ntString ntInt)
+            )) 
+            (ntBool Bool (
+                true false
+                (= ntInt ntInt)
+                (str.prefixof ntString ntString)
+                (str.suffixof ntString ntString)
+                (str.contains ntString ntString)
+            ))
+        )
+    )
+(constraint (= (f "0930") "930"))
+(constraint (= (f "1520") "1520"))
+(constraint (= (f "1648") "1648"))
+(constraint (= (f "0830") "830"))
+(constraint (= (f "1015") "1015"))
+(constraint (= (f "2010") "2010"))
+(constraint (= (f "1002") "1002"))
+(constraint (= (f "1425") "1425"))
+(constraint (= (f "2345") "2345"))
+(constraint (= (f "1247") "1247"))
+(constraint (= (f "0957") "957"))
+(constraint (= (f "1036") "1036"))
+(constraint (= (f "0452") "452"))
+(constraint (= (f "1308") "1308"))
+(constraint (= (f "1123") "1123"))
+(check-synth)

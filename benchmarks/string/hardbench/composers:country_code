@@ -1,0 +1,46 @@
+
+    (set-logic SLIA)
+    (synth-fun f ((arg0 String)) String 
+        (
+            (Start String (ntString)) 
+            (ntString String (";" "." " " "; " arg0
+                (str.++ ntString ntString) 
+                (str.replace ntString ntString ntString) 
+                (str.at ntString ntInt)
+                (int.to.str ntInt)
+                (ite ntBool ntString ntString)
+                (str.substr ntString ntInt ntInt)
+            )) 
+            (ntInt Int (
+                1 0 -1
+                (+ ntInt ntInt)
+                (- ntInt ntInt)
+                (str.len ntString)
+                (str.to.int ntString)
+                (ite ntBool ntInt ntInt)
+                (str.indexof ntString ntString ntInt)
+            )) 
+            (ntBool Bool (
+                true false
+                (= ntInt ntInt)
+                (str.prefixof ntString ntString)
+                (str.suffixof ntString ntString)
+                (str.contains ntString ntString)
+            ))
+        )
+    )
+(constraint (= (f "Fr\u00e9d\u00e9ric Chopin; Nocturnes; Piano Sonata No. 2; Polonaises; Polish; Romantic") "po"))
+(constraint (= (f "Sergei Rachmaninoff; Piano Concerto No. 2 in C minor; Rhapsody on a Theme of Paganini; Symphony No. 2 in E minor; Russian; Late Romantic/Early Modern") "ru"))
+(constraint (= (f "Ludwig van Beethoven; Symphony No. 9; Moonlight Sonata; Fur Elise; German; Classical/Romantic transition") "ge"))
+(constraint (= (f "Franz Joseph Haydn; The Creation,Symphony No. 94; String Quartets; Austrian; Classical") "au"))
+(constraint (= (f "Franz Schubert; Symphony No. 8 (Unfinished Symphony); Winterreise; Ave Maria; Austrian; Romantic") "au"))
+(constraint (= (f "Richard Wagner; The Ring Cycle,Tristan und Isolde; Die Meistersinger von N\u00fcrnberg; German; Romantic/Operatic") "ge"))
+(constraint (= (f "Arcangelo Corelli; Concerti Grossi, Op. 6; Sonatas for Violin and Basso Continuo; Italian; Baroque") "it"))
+(constraint (= (f "Wolfgang Amadeus Mozart; Eine kleine Nachtmusik; The Magic Flute; Symphony No. 40; Austrian; Classical") "au"))
+(constraint (= (f "Henry Purcell; Dido and Aeneas; Funeral Music for Queen Mary; Come Ye Sons of Art; English; Baroque") "en"))
+(constraint (= (f "George Frideric Handel; Messiah; Water Music; Music for the Royal Fireworks; German; Baroque") "ge"))
+(constraint (= (f "Claude Debussy; Clair de Lune; Prelude to the Afternoon of a Faun; La Mer; French; Impressionist") "fr"))
+(constraint (= (f "Pyotr Ilyich Tchaikovsky; Swan Lake; 1812 Overture; The Nutcracker Suite; Russian; Romantic") "ru"))
+(constraint (= (f "Johann Sebastian Bach; Brandenburg Concertos; Mass in B Minor; The Well-Tempered Clavier; German; Baroque") "ge"))
+(constraint (= (f "Johannes Brahms; Symphony No. 4; Violin Concerto in D Major; Hungarian Dances; German; Romantic") "ge"))
+(check-synth)

@@ -30,10 +30,10 @@ pub struct SearchConfig {
 
 impl SearchConfig {
     pub fn default_pbe() -> Self {
-        Self { random_example: 1, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: false, chatgpt: false, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false, seed: usize::MAX}
+        Self { random_example: 1, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: false, chatgpt: false, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-4o".into(), is_pbe: false, seed: usize::MAX}
     }
     pub fn default_refimpl() -> Self {
-        Self { random_example: 50, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: true, chatgpt: true, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default_ni(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-3.5-turbo-0301".into(), is_pbe: false, seed: usize::MAX}
+        Self { random_example: 50, additional_check: 0, ar_ratio: 2, ite_tree_limit: 100000, smt_solver: "bitwuzla".into(), limited_ite: true, chatgpt: true, cond_search: SampleConfig::cond_default(), expr_search: SampleConfig::expr_default_ni(), improve_search: SampleConfig::improve_default(), gpt_version: "gpt-4o".into(), is_pbe: false, seed: usize::MAX}
     }
     pub fn rng(&self) -> rand::rngs::StdRng {
         if self.seed != usize::MAX {

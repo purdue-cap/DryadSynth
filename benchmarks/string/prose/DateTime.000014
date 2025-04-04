@@ -1,0 +1,45 @@
+
+    (set-logic SLIA)
+    (synth-fun f ((arg0 String)) String 
+        (
+            (Start String (ntString)) 
+            (ntString String ("day #" "nday #" "day #3" "December" "Friday #" "day #2" "uary 201" "1 January" "sday #" "day #1" "esday #" "day #1 J" arg0
+                (str.++ ntString ntString) 
+                (str.replace ntString ntString ntString) 
+                (str.at ntString ntInt)
+                (int.to.str ntInt)
+                (ite ntBool ntString ntString)
+                (str.substr ntString ntInt ntInt)
+            )) 
+            (ntInt Int (
+                1 0 -1
+                (+ ntInt ntInt)
+                (- ntInt ntInt)
+                (str.len ntString)
+                (str.to.int ntString)
+                (ite ntBool ntInt ntInt)
+                (str.indexof ntString ntString ntInt)
+            )) 
+            (ntBool Bool (
+                true false
+                (= ntInt ntInt)
+                (str.prefixof ntString ntString)
+                (str.suffixof ntString ntString)
+                (str.contains ntString ntString)
+            ))
+        )
+    )
+(constraint (= (f "17 Dec 1973") "Monday #3 December 1973"))
+(constraint (= (f "15 Aug 1947") "Friday #3 August 1947"))
+(constraint (= (f "Jan 10 1975") "Friday #2 January 1975"))
+(constraint (= (f "1 January 2014") "Wednesday #1 January 2014"))
+(constraint (= (f "1 Feb 2013") "Friday #1 February 2013"))
+(constraint (= (f "12 Dec 2002") "Thursday #2 December 2002"))
+(constraint (= (f "01 Sep 2012") "Saturday #1 September 2012"))
+(constraint (= (f "5 June 2016") "Sunday #1 June 2016"))
+(constraint (= (f "02-Jan-1998") "Friday #1 January 1998"))
+(constraint (= (f "12171973") "Monday #3 December 1973"))
+(constraint (= (f "1932 97") "Wednesday #1 April 1932"))
+(constraint (= (f "Mar 1983 Tue 3") "Tuesday #3 March 1983"))
+(constraint (= (f "Thu wk 10 in 2039") "Thursday #2 March 2039"))
+(check-synth)

@@ -33,6 +33,7 @@ impl Environ {
                 let e: & SExpr<'static> = e;
                 if let Some(("define-fun", [SExpr::Id(name, span), args, ret, expr])) = e.call() {
                     if let Some(args) = args.list() {
+                        if *name == "if0" || *name == "im" { continue;}
                         let args: Vec<&'static str> = args.iter().map(|x| x.call().map(|y| y.0).ok_or(new_custom_error_span("DefineFun: Expecting (<argname> <type>).".into(), x.span().clone()))).collect::<Result<_, _>>()?;
                         if args.len() > 2 { return Err(new_custom_error_span("DefineFun: Number of args must be <= 2".into(), span.clone())); }
 

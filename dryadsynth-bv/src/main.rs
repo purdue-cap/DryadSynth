@@ -81,8 +81,11 @@ fn main_inner() -> Result<OwnedExpr, Box<dyn std::error::Error>> {
         let fig = Figment::new().merge(Serialized::defaults(SearchConfig::default_refimpl()));
         let fig = if let Some(path) = args.config { fig.merge(Toml::file(path)) } else { fig };
         let mut config : SearchConfig = fig.extract()?;
-        if let Ok(a) = env::var("OPENAI_API_KEY") {
-            set_key(a);
+        if let Ok(key) = env::var("OPENAI_API_KEY").or(env::var("OPENAI_API")) {
+            unsafe {
+                env::set_var("OPENAI_KEY", key);
+            };
+            config.chatgpt = true;
         } else {
             config.chatgpt = false;
         }
@@ -99,6 +102,7 @@ fn main_inner() -> Result<OwnedExpr, Box<dyn std::error::Error>> {
                 let pbe = refimpl.generate_pbe(3, problem.args.len(), &mut config.rng());
                 info!("Use ChatGPT to guide the search");
                 let result = chatgpt::ask(& problem, pbe.clone(), config.gpt_version.clone());
+                info!("Use ChatGPT to guide the search: {:?}", result);
                 for r in result.iter() {
                     if let Some(last) = r.get("last") {
                         if pbe.test_owned(last).len() >= 3 {

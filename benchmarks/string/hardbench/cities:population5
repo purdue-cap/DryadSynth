@@ -1,0 +1,48 @@
+
+    (set-logic SLIA)
+    (synth-fun f ((arg0 String)) String 
+        (
+            (Start String (ntString)) 
+            (ntString String (", " ";" " " " million" "." arg0
+                (str.++ ntString ntString) 
+                (str.replace ntString ntString ntString) 
+                (str.at ntString ntInt)
+                (int.to.str ntInt)
+                (ite ntBool ntString ntString)
+                (str.substr ntString ntInt ntInt)
+            )) 
+            (ntInt Int (
+                1 0 -1
+                (+ ntInt ntInt)
+                (- ntInt ntInt)
+                (str.len ntString)
+                (str.to.int ntString)
+                (ite ntBool ntInt ntInt)
+                (str.indexof ntString ntString ntInt)
+            )) 
+            (ntBool Bool (
+                true false
+                (= ntInt ntInt)
+                (str.prefixof ntString ntString)
+                (str.suffixof ntString ntString)
+                (str.contains ntString ntString)
+            ))
+        )
+    )
+(constraint (= (f "Athens, Greece; Acropolis, Parthenon, Ancient Agora, National Archaeological Museum") ""))
+(constraint (= (f "Jerusalem, Israel; Western Wall, Dome of the Rock, Church of the Holy Sepulchre, Mount of Olives") ""))
+(constraint (= (f "Kyoto, Japan; Kinkaku-ji (Golden Pavilion), Fushimi Inari Shrine, Gion District, Kiyomizu-dera Temple") ""))
+(constraint (= (f "Los Angeles, USA; Hollywood Walk of Fame, Santa Monica Pier, Griffith Observatory, Getty Center; Approximately 3.9 million people") "3.9 million"))
+(constraint (= (f "Shanghai, China; The Bund, Oriental Pearl Tower, Yu Garden, Shanghai Disneyland; Approximately 24.2 million people") "24.2 million"))
+(constraint (= (f "Paris, France; Eiffel Tower, Louvre Museum, Notre Dame Cathedral, Montmartre; Approximately 2.2 million people") "2.2 million"))
+(constraint (= (f "Rome, Italy; Colosseum, Roman Forum, Vatican City, Pantheon; Approximately 2.8 million people") "2.8 million"))
+(constraint (= (f "Sydney, Australia; Sydney Opera House, Bondi Beach, Sydney Harbour Bridge, Taronga Zoo; Approximately 5.4 million people") "5.4 million"))
+(constraint (= (f "Cairo, Egypt; Pyramids of Giza, Egyptian Museum, Khan el-Khalili Market, Salah El-Din Citadel; Over 9 million people") "9 million"))
+(constraint (= (f "Tokyo, Japan; Tokyo Tower, Shibuya Crossing, Tsukiji Fish Market, Meiji Shrine") ""))
+(constraint (= (f "London, UK; Buckingham Palace, Tower of London, British Museum, London Eye; Approximately 8.9 million people") "8.9 million"))
+(constraint (= (f "Cairo, Egypt; Pyramids of Giza, Egyptian Museum, Khan el-Khalili Market, Salah El-Din Citadel; Over 9 million people") "9 million"))
+(constraint (= (f "Jerusalem, Israel; Western Wall, Dome of the Rock, Church of the Holy Sepulchre, Mount of Olives") ""))
+(constraint (= (f "Seoul, South Korea; Gyeongbokgung Palace, N Seoul Tower, Myeongdong Shopping Street, Bukchon Hanok Village") ""))
+(constraint (= (f "Singapore City, Singapore; Marina Bay Sands, Gardens by the Bay, Sentosa Island, Chinatown") ""))
+(constraint (= (f "New York City, USA; Statue of Liberty, Times Square, Central Park, Broadway") ""))
+(check-synth)
