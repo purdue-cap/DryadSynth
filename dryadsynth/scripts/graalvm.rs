@@ -1,6 +1,8 @@
 use std::path::Path;
 use std::fs;
 use std::io::Cursor;
+use std::time::Duration;
+use reqwest::blocking::Client;
 use flate2::bufread::GzDecoder;
 use reqwest::blocking::get;
 use tar::Archive;
@@ -43,8 +45,11 @@ pub fn ensure(output_dir: &Path) {
     let download_url = format!("{}/{}_{}-{}_bin.{}", base_url, graalvm_variant, os, arch, ext);
     println!("Downloading GraalVM from: {}", download_url);
 
+    // Timeout
+    let client = Client::builder().timeout(Duration::from_secs(600)).build().expect("Failed to build reqwest client");
+
     // Downloading
-    let response = get(&download_url).expect("Failed to send request");
+    let response = client.get(&download_url).send().expect("Failed to send request");
     if !response.status().is_success() {
         panic!("Failed to download file: {}", response.status());
     }
