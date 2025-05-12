@@ -942,6 +942,7 @@ dependencies = [
  "anyhow",
  "capnp",
  "capnpc",
+ "libc",
  "sygus-parser",
 ]
 

@@ -195,4 +195,7 @@ fn main() {
         let mut out_file = File::create(&md5sum_path).expect("Failed to create md5sum file");
         write!(out_file, "{:x}", digest).expect("Failed to write md5sum");
     }
+
+    println!("cargo:rustc-env=JAVA_SOLVER_BIN={}",
+         output_dir.join("dryadsynth-graalvm").display());
 }

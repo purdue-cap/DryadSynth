@@ -55,9 +55,15 @@ spin = "0.9.8"
 openai = "1.0.0-alpha.13"
 iter_fixed = "0.3.1"
 lazy_static = "1.5.0"
+# anyhow = "1"
+# capnp = "0.18"
 
 [features]
 dhat-heap = []
+
+# [lib]
+# name = "dryadsynth_bv"
+# path = "src/lib.rs"
 
 [build-dependencies]
 cc = "1.2.17"
