@@ -43,9 +43,34 @@ impl Timestamps {
 
 mod graalvm;
 mod z3;
+mod java_capnp;
 
 fn main() {
     println!("cargo::rerun-if-changed=src");
+
+    let schema_dir = Path::new("../schema");
+    //let java_out_dir = Path::new("src").join("capnp");
+    java_capnp::ensure(&schema_dir);
+    // let _ = fs::create_dir_all(&java_out_dir);
+
+    println!("cargo:rerun-if-changed={}", schema_dir.join("sygus.capnp").display());
+    let java_out_dir = Path::new("src").join("capnp");
+    let _ = fs::create_dir_all(&java_out_dir);
+    let status = Command::new("capnp")
+        .args(&[
+            "compile",
+            "--src-prefix", "../schema",
+            "-o",
+            &format!("java:{}", java_out_dir.to_str().unwrap()),
+            schema_dir.join("sygus.capnp").to_str().unwrap(),
+        ])
+        .status()
+        .expect("Failed to invoke capnp");
+    if !status.success() {
+        panic!("capnp compile failed");
+    }
+
+
     let output_dir_str = env::var("OUT_DIR").unwrap();
     let output_dir = Path::new(&output_dir_str);
     graalvm::ensure(&output_dir);
@@ -196,6 +221,4 @@ fn main() {
         write!(out_file, "{:x}", digest).expect("Failed to write md5sum");
     }
 
-    println!("cargo:rustc-env=JAVA_SOLVER_BIN={}",
-         output_dir.join("dryadsynth-graalvm").display());
 }

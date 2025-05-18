@@ -1,3 +1,7 @@
+using Java = import "java.capnp";
+$Java.package("capnproto");
+$Java.outerClassname("SygusCapnp");
+
 @0xdadadedadeded00d;
 
 struct SygusProblem {
@@ -30,7 +34,3 @@ struct FuncDef {
   name     @0 :Text;
   body     @1 :Text;
 }
-
-
-
-
